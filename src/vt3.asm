@@ -1207,23 +1207,22 @@ filren			; Rename file
 	ldy	#<renwin
 	jsr	drawwin
 	ldx	#64
-	ldy	#8
+	ldy	#9
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
 	bne	?n1
 	jmp	bkfil
 ?n1
-	ldx	#0
+	ldx	#11
 ?l1
 	lda	flname,x
 	sta	xferfl2,x
-	inx
-	cpx	#12
-	bne	?l1
+	dex
+	bpl	?l1
 
 	ldx	#64
-	ldy	#9
+	ldy	#10
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
@@ -1483,18 +1482,17 @@ filgen
 	stx	cntrh
 	sty	cntrl
 	pha
-	ldy	#0
+	ldy	#11
 ?l
 	lda	(cntrl),y
 	sta	fgnprt,y
-	iny
-	cpy	#12
-	bne	?l
+	dey
+	bpl	?l
 	ldx	#>fgnwin
 	ldy	#<fgnwin
 	jsr	drawwin
 	ldx	#58
-	ldy	#10
+	ldy	#11
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
@@ -1867,7 +1865,12 @@ svcapt			; Save capture to disk
 	jsr	cverr
 	jmp	bkxfr
 
+fildmp			; Dump file to Terminal
+	lda #1
+	.byte BIT_skip2bytes
 filvew			; File viewer
+	lda #0
+	sta crcl	; flag whether this is text file viewer or dump to VT
 	jsr	chkcapt
 	cmp	#1
 	bne	?ncpt
@@ -1890,19 +1893,29 @@ filvew			; File viewer
 	cpy	#128
 	bcs	?lp
 
+	lda crcl
+	bne ?n1
 	lda	scrltop
 	pha
 	lda	scrlbot
 	pha
-;	jsr	getscrn
-;	jsr	getscrn
 	lda	#0
 	sta	clock_enable
-	jsr	erslineraw_a
 	lda	#24
 	sta	outdat
 	lda	#255
 	sta	outnum
+	lda	fastr
+	pha
+	lda	#0
+	sta	fastr
+	jsr	clrscrnraw
+	pla
+	sta	fastr
+?n1
+
+	lda #0
+	jsr	erslineraw_a
 	ldx	#>vewtop1
 	ldy	#<vewtop1
 	jsr	prmesgnov
@@ -1912,13 +1925,9 @@ filvew			; File viewer
 	ldx	#15
 	ldy	#0
 	jsr	prxferfl
-	lda	fastr
-	pha
-	lda	#0
-	sta	fastr
-	jsr	clrscrnraw
-	pla
-	sta	fastr
+
+	lda crcl
+	bne ?n2
 	lda	#0
 	sta	x
 	lda	#1
@@ -1926,6 +1935,28 @@ filvew			; File viewer
 	sta	scrltop
 	lda	#24
 	sta	scrlbot
+?n2
+	lda crcl
+	beq ?n3
+	jsr	getscrn
+	jsr	getscrn
+	ldx #>do_term_main_display
+	ldy #<do_term_main_display
+	jsr jsrbank1
+	lda #124		; vertical bar |
+	sta	prchar
+	lda #0
+	sta y
+	lda #45
+	sta x
+	jsr	print
+	lda #124		; vertical bar | again
+	sta	prchar
+	lda #52
+	sta x
+	jsr print
+?n3
+
 getdat
 	jsr	close2
 	ldx	#$30
@@ -1955,6 +1986,10 @@ getdat
 	beq	vweof
 	cpy	#128
 	bcs	vwerr
+	lda crcl
+	beq ?n1
+	jmp viewloop_dumpvt
+?n1
 	jmp	viewloop
 vwerr
 	jsr	cverr
@@ -1966,6 +2001,14 @@ vweof
 	lda	#$40
 	adc	icblh+$30
 	sta	cmph+1
+	jsr close3
+	lda crcl
+	beq ?n1
+	jmp viewloop_dumpvt
+?n1
+	
+	; if partial read ended on a page boundary add 1 space byte to mark EOF (EOF is recognized
+	; when reaching cmpl/cmph and cmpl is nonzero)
 	lda	cmpl+1
 	bne	viewloop
 	inc	cmpl+1
@@ -2160,6 +2203,11 @@ quitvwk
 	cmp	#27
 	bne	?lp
 quitvw
+	jsr close3
+	lda crcl
+	beq ?n1
+	jmp goterm
+?n1
 	jsr	clrscrnraw
 	jsr	screenget
 ?l
@@ -2178,6 +2226,69 @@ quitvw
 	lda	#1
 	sta	clock_enable
 	jmp	mnmnloop
+
+viewloop_dumpvt
+	lda #0
+	sta ?rdfroml+1
+	lda #$40
+	sta ?rdfromh+1
+	lda cmpl+1
+	sta ?cmpl+1
+	lda cmph+1
+	sta ?cmph+1
+?lp
+	lda ?rdfromh+1
+?cmph	cmp #0	; self modified
+	bne	?ok
+	lda	?rdfroml+1
+?cmpl	cmp #0	; self modified
+	bne	?ok
+	lda	?cmph+1
+	cmp #$80
+	beq	?ok2
+	jmp	goterm
+?ok2
+	jmp	getdat
+?ok
+	ldy #0
+?rdfroml lda #$ff	; self modified
+	sta prfrom
+?rdfromh lda #$ff	; self modified
+	sta prfrom+1
+	ldy	#0
+	lda	#bank4
+	jsr	ldaprfrm
+	ldx #>dovt100?nocapture
+	ldy #<dovt100?nocapture
+	jsr jsrbank1
+	inc ?rdfroml+1
+	bne ?i
+	inc ?rdfromh+1
+?i
+	; keypress? quit
+	lda 764
+	cmp #255
+	beq ?nokey
+	lda #255
+	sta 764
+	jmp quitvw
+?nokey
+	lda	53279	; read console keys
+	cmp	#6		; Start? pause
+	beq ?nokey
+	cmp	#5		; Select? burn some cycles to approximate a 9600 baud data rate
+	bne	?no_select
+	ldx #60
+?dlylp
+	dex
+	bpl ?dlylp
+	jmp ?lp
+?no_select
+	cmp #3		; Option? Wait a whole vertical retrace
+	bne ?no_option
+	jsr vdelay
+?no_option
+	jmp	?lp
 
 prepflnm		; Prepare full filename
 	ldx	#0
@@ -2323,7 +2434,10 @@ ascupl			; Ascii upload
 	ldy	#0
 	sty	topy
 	jsr	prxferfl
-	jsr	boldon
+	ldx #>do_term_main_display
+	ldy #<do_term_main_display
+	jsr jsrbank1
+;	jsr	boldon
 ?mlp
 	jsr	close2
 	ldx	#$30
@@ -2487,7 +2601,9 @@ ascupl			; Ascii upload
 	jmp	?ot
 ?nxn
 	pha
-	jsr	godovt
+	ldx #>dovt100?nocapture
+	ldy #<dovt100?nocapture
+	jsr	jsrbank1
 	pla
 	ldx	#0
 	rts
@@ -4202,20 +4318,21 @@ zmd_mnloop
 	lda	gcrc+1
 	cmp	crcl
 	bne	?bd
-	; Hex packets end with CR LF and (usually) XON.
+	; Hex (not binary) packets end with CR LF and (usually) XON.
 	lda	hexg
 	beq ?nohexend
 	jsr getzm
 	cmp #xmd_CR
 	bne ?bd
 	jsr getzm
-	; sometimes CR is followed by a null
-	cmp #0
-	bne ?nonul
-	jsr getzm
-?nonul
+	; sometimes CR is followed by a null (argh! this is indicative of a bad Telnet implementation.
+	; NOT accepting this as it means binary transfers will break elsewhere.)
+;	cmp #0
+;	bne ?nonul
+;	jsr getzm
+;?nonul
 	; some implementations send LF with bit 7 set for some reason
-	and #$7F
+	and #$7f
 	cmp #xmd_LF
 	bne ?bd
 ?lfok
@@ -4231,13 +4348,13 @@ zmd_mnloop
 ?nohexend
 	jmp	frameok
 ?bd
-	ldx	#>?bf
-	ldy	#<?bf
-	jsr	fildomsg
+;	ldx	#>?bf
+;	ldy	#<?bf
+;	jsr	fildomsg	; no point in this as message will be overwritten too quickly
 	jsr	sendnak
 	jmp	zmd_mnloop
 
-?bf	.cbyte	"Bad CRC for frame"
+;?bf	.cbyte	"Bad CRC for frame"
 
 getbt			; Get a ascii-hex/binary byte
 	lda	hexg

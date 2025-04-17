@@ -26,31 +26,7 @@ connect
 	jsr	mkblkchr
 	jsr	print		; draw block if XOFF is on
 ?ok1
-
-	lda	bckgrnd
-	pha
-	eor	invon
-	sta	bckgrnd
-	jsr	setcolors
-	pla
-	sta	bckgrnd
-	jsr	boldon
-	lda	boldallw
-	cmp	#3
-	bne	?nbl	; If blink - turn blinking characters on by disabling PMs
-	lda	#0
-	ldx	#3
-?bf
-	sta	53248,x
-	sta	53252,x
-	dex
-	bpl	?bf
-	lda	559
-	and	#~11110011	; Disable PM DMA
-	sta	559
-	sta	$d400
-
-?nbl
+	jsr do_term_main_display
 	jsr	shctrl1
 	jsr	shcaps
 	jsr	shnuml
@@ -96,6 +72,33 @@ entnorsh
 	jmp	bufgot
 gdopause
 	jmp	dopause
+
+do_term_main_display
+	lda	bckgrnd
+	pha
+	eor	invon
+	sta	bckgrnd
+	jsr	setcolors
+	pla
+	sta	bckgrnd
+	jsr	boldon
+	lda	boldallw
+	cmp	#3
+	bne	?nbl	; If blink - turn blinking characters on by disabling PMs
+	lda	#0
+	ldx	#3
+?bf
+	sta	53248,x
+	sta	53252,x
+	dex
+	bpl	?bf
+	lda	559
+	and	#~11110011	; Disable PM DMA
+	sta	559
+	sta	$d400
+?nbl
+	rts
+	
 termloop
 	lda	newflash
 	cmp	oldflash
@@ -447,9 +450,9 @@ vt100_check_hi_chars
 	cmp	#155	; ATASCII end-of-line?
 	bne	?ok1
 	ldx	eolchar	; Change to ASCII if
-	cpx	#2		; enabled
+	cpx	#3		; enabled
 	bne	?ok1
-	lda	#10
+	lda	#$0d	; convert to a CR - which will later be handler as a CR/LF
 ?ok1
 	ldx	eitbit
 	bne	?ok8
@@ -458,7 +461,7 @@ vt100_check_hi_chars
 	cmp	#127	; ATASCII Tab?
 	bne	vt100_done_check_hi_chars
 	ldx	eolchar	; Change to ASCII if
-	cpx	#2		; enabled.
+	cpx	#3		; enabled.
 	beq ?ok
 	rts			; 127 is an invalid code, ignore
 ?ok
@@ -695,20 +698,22 @@ ctrlcode_0d		; ^M - CR
 	lda	#0
 	sta	tx
 	lda	eolchar	; Add an LF? (user)
-	bne	ysff	; yes
+	cmp #2
+	bcs	ctrlcode_0c	; yes
 	jmp	reset_seol	; no
 
 ctrlcode_0a		; ^J - LF
 	lda	eolchar	; Add a CR? (user)
-	beq	ysff
+	cmp #1
+	bne	ctrlcode_0c
 	lda	#0		; yes.
 	sta	tx
-ysff
+
 ctrlcode_0b		; ^K - VT, same as lf
 ctrlcode_0c		; ^L - FF, same as lf
 	lda	newlmod	; Add a CR? (host)
 	beq	?no
-	lda	#0	; yes.
+	lda	#0		; yes.
 	sta	tx
 ?no
 	jsr	cmovedwn

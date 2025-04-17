@@ -163,7 +163,8 @@ Esc [ __ x (default: 0) Request Terminal Parameters. In response to values 0
             48, 56, 64, 72, 88, 104, 112, 120 for 300, 600, 1200, 1800, 2400,
             4800, 9600 and 19200 baud respectively.
 ESC [ __ L  (none/0 --> 1) Insert __ lines at line with cursor. Lines are moved
-                           down. Ignored when cursor is outside scrolling region.
+                           down. Ignored when cursor is outside scrolling
+                           region.
 ESC [ __ M  (none/0 --> 1) Deletes __ lines, starting at line with cursor.
                            Lines move up. Ignored when cursor is outside
                            scrolling region.

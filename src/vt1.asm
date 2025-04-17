@@ -2953,7 +2953,9 @@ ldaprfrm
 	stx	banksw
 	rts
 
-godovt
+jsrbank1
+	sty ?addr+1
+	stx ?addr+2
 	tay
 	lda	banksv
 	pha
@@ -2961,12 +2963,12 @@ godovt
 	sta	banksw
 	sta	banksv
 	tya
-	jsr	dovt100
+?addr jsr $ffff		; modified
 	pla
 	sta	banksv
 	sta	banksw
 	rts
-
+	
 bankciov
 	sta	banksw
 	jsr	ciov

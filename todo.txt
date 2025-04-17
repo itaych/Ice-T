@@ -20,7 +20,10 @@ handle_insert_delete_char (done)
 checkerboard character (^X) is broken in dbl width mode. (done)
 graphics chars screw up when switching line to double width. (done)
 some characters (tilde/grave accent/curly brackets) misbehave when switching line width. (done)
-dump local file to terminal. jsr to dovt100?nocapture for each char.
+dump local file to terminal. jsr to dovt100?nocapture for each char. (done)
+	- Any key to quit. Start: freeze. Select: slow to 9600 baud. Option: very slow.
+settings>end of line: change "cr or lf" option to "lf alone" (unix compatible), "cr alone". (done)
+Ascii upload bug? maybe review the code..
 
 file xfers:
 	x/ymodem failed due to close3 (done)
@@ -32,14 +35,19 @@ file xfers:
 	zmodem: why do we request buffer size 3fff and not 4000? (done)
 	zmodem: (linux) why does it overflow? (waiting for response from uwe)
 	zmodem: (linux) breaks with -e option, hex packets ending with 0d 00 8a 11 instead of 0d 0a 11. (done)
+		(the 00 is because of Altirra's broken Telnet, not accepting it.)
 	zmodem: implement 8K packets?
-	xmodem upload: consider uncommenting. (altirra will break it though - can't send 0xff!)
+	xmodem upload: consider uncommenting. (altirra will break it though - can't send 0xff! also I don't think I have enough memory.)
+
 	Altirra has broken printer driver. (fixed in 2.40)
+	Altirra R: breaks if you make outbound connection then coldstart while still connected. (fixed in 2.5)
+	Altirra won't create a file if opening for append (aux1=9). (fixed in 2.5)
+
 	Altirra in "raw" mode, emulated Atari can receive any character, but cannot send 0xFF.
-	Altirra "telnet" doesn't handle escape sequences properly so can't do any file transfer except Zmodem of plain text files.
-	Altirra telnet doesn't identify as any terminal type.
-	Altirra won't create a file if opening for append (aux1=9). DOS does create a blank file.
-	Altirra R: breaks if you make outbound connection then coldstart while still connected.
+	Altirra Telnet doesn't handle escape sequences or CR NUL properly so can't do any file transfer except Zmodem of plain text files.
+	Altirra Telnet doesn't identify as any terminal type.
+	Altirra H: does not return an error if trying to delete/lock/unlock a nonexistent file (io commands 33/35/36 respectively). Rename (command 32) doesn't work.
+
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
 		however space should always bold/unbold if overwriting an existing char!
@@ -53,7 +61,7 @@ private extensions:
 	- Esc Qi _ L   set(1)/unset(0 or blank) scroll lock for color background.
 	- Esq Qi _ S/T    force scroll down/up color table by _ lines.
 	
-gen new icet.dat for release
+don't forget to generate new icet.dat for release!
 
 known issues:
 double width does not support 8-bit chars.

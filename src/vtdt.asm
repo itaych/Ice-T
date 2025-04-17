@@ -158,13 +158,14 @@ setansd
 	.byte	46,6,46,7,46,8
 
 seteolw
-	.byte	46,7,59,11
+	.byte	46,7,59,12
 	.byte	" CR + LF  "
-	.byte	" CR or LF "
+	.byte	" LF alone "
+	.byte	" CR alone "
 	.byte	" ATASCII  "
 seteold
-	.byte	1,3,10
-	.byte	48,8,48,9,48,10
+	.byte	1,4,10
+	.byte	48,8,48,9,48,10,48,11
 
 setfstw
 	.byte	46,8,59,12
@@ -311,21 +312,22 @@ xfrtbl
 	.word	zmddnl-1
 
 filwin
-	.byte	40,1,59,12
+	.byte	40,1,59,13
 	.byte +$80," Disk directory "
-        .byte " Change path    "
-        .byte " D/L EOL trans. "
-        .byte " U/L EOL trans. "
-        .byte " Capture ANSI   "
-        .byte " View file      "
-        .byte " Rename file    "
-        .byte " Delete file    "
-        .byte " Lock file      "
-        .byte " Unlock file    "
+	.byte " Change path    "
+	.byte " D/L EOL trans. "
+	.byte " U/L EOL trans. "
+	.byte " Capture ANSI   "
+	.byte " View file      "
+	.byte " VT-parse file  "
+	.byte " Rename file    "
+	.byte " Delete file    "
+	.byte " Lock file      "
+	.byte " Unlock file    "
 fildat
-	.byte	1,10,16
+	.byte	1,11,16
 	.byte	42,2,42,3,42,4,42,5,42,6,42,7
-	.byte	42,8,42,9,42,10,42,11
+	.byte	42,8,42,9,42,10,42,11,42,12
 filtbl
 	.word	fildir-1
 	.word	filpth-1
@@ -333,6 +335,7 @@ filtbl
 	.word	filuel-1
 	.word	filans-1
 	.word	filvew-1
+	.word	fildmp-1
 	.word	filren-1
 	.word	fildlt-1
 	.word	fillok-1
@@ -394,11 +397,11 @@ vewwin
 	.byte	"            "
 
 renwin
-	.byte	52,7,77,10
+	.byte	52,8,77,11
 	.byte	"Old name:             "
 	.byte	"New name:             "
 renerwin
-	.byte	58,7,71,9
+	.byte	58,8,71,10
 	.byte	"Error "
 renerp
 	.byte	"xxx!"
@@ -411,17 +414,17 @@ unldat
 	.byte	"Unlock file:"
 
 fgnwin
-	.byte	56,8,71,12
+	.byte	56,9,71,13
 fgnprt
 	.byte	"            "
 fgnfil
 	.byte	"            "
 	.byte	"Esc to abort"
 fgnblk
-	.byte	58,10,12
+	.byte	58,11,12
 	.byte	+$80,"  - Wait -  "
 fgnerr
-	.byte	58,10,12
+	.byte	58,11,12
 	.byte	+$80," Error "
 fgnern
 	.byte	+$80,"     "

@@ -222,7 +222,7 @@ wind2	=	$7800	; 1k
 wind3	=	$7c00	; 1k
 
 ; Bank 3 - Backscroll buffer
-; Bank 4 - Capture/Upload/Download buffer
+; Bank 4 - Capture/ASCII Upload/File viewer buffer
 
 	.bank
 	*=	$8000
@@ -509,7 +509,7 @@ ansibbs		.byte 0		; VT-102 (0), ANSI-BBS (1), VT-52 (2)
 eitbit		.byte 1
 fastr		.byte 2
 flowctrl	.byte 1
-eolchar		.byte 0
+eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII
 ascdelay	.byte 2
 
 ; Translation table for graphical character set, ASCII 95-126 when enabled.
