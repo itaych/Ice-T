@@ -515,10 +515,12 @@ xmdtop1
 	.byte	"File transfer |"
 
 ymgwin
-	.byte	16,10,65,14
-	.byte	" WARNING: Ymodem-G will cause a system crash  "
-	.byte	" if both modem and disk drive are connected   "
-	.byte	" through the serial port.    (Esc to abort!)  "
+	.byte	16,11,65,14
+;	.byte	" WARNING: Ymodem-G will cause a system crash  "
+;	.byte	" if both modem and disk drive are connected   "
+;	.byte	" through the serial port.    (Esc to abort!)  "
+	.byte	" WARNING: Ymodem-G will fail or crash with    "
+	.byte	" most hardware configurations. (Esc to abort) "
 xmdlwn
 	.byte	24,7,55,14
 	.byte	" Xmodem download (Esc-abort)"
@@ -558,6 +560,7 @@ msg6	.cbyte	"Remote aborted!"
 msg7	.cbyte	"Retry x"
 msg8	.cbyte	"Loading data"
 msg9	.cbyte	"Waiting..."
+msg10	.cbyte	"Data error, fail!"
 xwtqut	.cbyte	"Waiting for quiet.."
 
 xferfile
@@ -583,9 +586,8 @@ mini2
 
 ; End of menus
 
-; Move all of the above crap into
-; banked memory
+; Move all of the above crap into banked memory
 
 	.bank
 	*=	$2e2
-	.word	inittrm
+	.word inittrm

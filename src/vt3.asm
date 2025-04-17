@@ -2321,7 +2321,7 @@ ascupl			; Ascii upload
 	jsr	prmesg
 	ldx	#22
 	ldy	#0
-	sty	topx+1
+	sty	topy
 	jsr	prxferfl
 	jsr	boldon
 ?mlp
@@ -2355,8 +2355,8 @@ ascupl			; Ascii upload
 	beq	?ef
 	cpy	#128
 	bcc	?alp
-	jsr	cverr
 	jsr	close3
+	jsr	cverr
 	jmp	goterm
 ?ef
 	lda	#1
@@ -2369,7 +2369,7 @@ ascupl			; Ascii upload
 	sta	?cph+1
 ?alp
 	jsr	?doky
-	lda	topx+1
+	lda	topy
 	bne	?emp
 	tay
 	lda	#bank4
@@ -2453,6 +2453,7 @@ ascupl			; Ascii upload
 	jmp	?mlp
 ?nlp
 	jsr	close3	; All done, go to terminal
+	jsr	ropen	; R: must be reopened after close3
 	jmp	goterm
 
 ?galp
@@ -2474,14 +2475,14 @@ ascupl			; Ascii upload
 	cmp	#19	; XOFF
 	bne	?nxf
 	ldx	#1
-	stx	topx+1
+	stx	topy
 	jsr	?nk
 	jmp	?ot
 ?nxf
 	cmp	#17	; XON
 	bne	?nxn
 	ldx	#0
-	stx	topx+1
+	stx	topy
 	jsr	?nk
 	jmp	?ot
 ?nxn
@@ -2502,22 +2503,23 @@ ascupl			; Ascii upload
 	cmp	#27
 	bne	?ne
 	jsr	close3
+	jsr	ropen	; R: must be reopened after close3
 	pla
 	pla
 	jmp	goterm
 ?ne
 	cmp	#112	; "p"
 	bne	?nk2
-	lda	topx+1
+	lda	topy
 	eor	#1
-	sta	topx+1
+	sta	topy
 ?nk
 	pha
 	lda	prfrom
 	pha
 	lda	prfrom+1
 	pha
-	lda	topx+1
+	lda	topy
 	beq	?t0
 	ldx	#>?pop
 	ldy	#<?pop
@@ -2883,18 +2885,18 @@ xmdini			; Initialization for X/Y/Zmodem
 	dex
 	dey
 	bpl	?lw
-	jsr	getscrn
+	jsr	getscrn			; close menu window
 	lda	#0
 	sta	clock_enable
-	jsr	erslineraw_a
+	jsr	erslineraw_a	; clear menu bar
 	ldx	#>xmdtop1
 	ldy	#<xmdtop1
-	jsr	prmesgnov
+	jsr	prmesgnov		; set menu bar display
 	ldx	#>xmdtop2
 	ldy	#<xmdtop2
 	jsr	prmesgnov
 	lda	#10
-	jsr	purge
+	jsr	purge			; wait for silence on input line
 	ldx	#>xmdlwn
 	ldy	#<xmdlwn
 	jsr	drawwin
@@ -2914,17 +2916,18 @@ xmdini			; Initialization for X/Y/Zmodem
 	ldy	#0
 	jsr	prxferfl
 ?nox
-	lda	#176
+	; zero packet and kb displays
+	lda	#'0+128
 	sta	xpknum+3
 	sta	xkbnum+3
-	lda	#160
+	lda	#32+128
 	ldx	#5
 ?lp3
 	sta	xpknum+4,x
 	sta	xkbnum+4,x
 	dex
 	bpl	?lp3
-	lda	ymodem	; Block starts at #0 for ymodem..
+	lda	ymodem	; Block starts at 0 for ymodem, 1 for xmodem
 	eor	#1
 	sta	block
 	lda	#$40	; Data-buffer pointer
@@ -2935,9 +2938,8 @@ xmdini			; Initialization for X/Y/Zmodem
 	sta	xmdsave
 	sta	retry
 	sta	bcount
-	sta	topx+1
+	sta	topy
 	sta	crcchek
-	jsr	close3
 	ldx	#>msg9	; waiting
 	ldy	#<msg9
 	jsr	fildomsg
@@ -2993,7 +2995,7 @@ ymdcont			; Xmodem [-1K] / Ymodem [-G] batch
 	lda	#0
 	sta	xm128
 	sta	topx
-;	jmp	?tm2	; Skip CRC for testing
+;	jmp	?tm2	; Disable CRC for testing
 ?lp
 	lda	#'C        ; Try using CRC check init
 	ldx	ymodemg
@@ -3001,85 +3003,73 @@ ymdcont			; Xmodem [-1K] / Ymodem [-G] batch
 	lda	#'G        ; G for Ymodem-G
 ?yg
 	jsr	rputch
-	jsr	rgetstat	; Response to 'C'?
-	lda	bcount
-	bne	?ok1
-	ldx	#180
+	ldx #180		; Wait up to 3 seconds for response to 'C'/'G'
 ?lp2
-	jsr	xmdkey
-	jsr	vdelay
-	txa
-	and	#$1f
-	beq	?nc
 	stx	temp
 	jsr	rgetstat
-	lda	bcount
 	bne	?ok1
-        ldx temp
-?nc
+	jsr	xmdkey
+	jsr	vdelay
+	ldx temp
 	dex
 	bne	?lp2
-	inc	topx
+	inc	topx		; Send up to 3 C's before giving up.
 	lda	topx
 	cmp	#3
-        bne ?lp
-	jmp	?tm2
-?ok1
+	bne ?lp
+	jmp	?tm2		; give up - go for checksum method
+?ok1				; ok - got response to C/G
 	lda	#0
 	sta	topx
-	lda	#1	; Yes, we can use CRC.
-	sta	crcchek
+	lda	#1
+	sta	crcchek		; Yes, we can use CRC.
 	jmp	?tm3
 ?tm2
 	lda	ymodem
 	beq	?ym
-	jmp	xdnrtry	; Ymodem cancels if no CRC!
+	jmp	xdnrtry		; Ymodem cancels if no CRC!
 ?ym
 	ldx	#>xmdcsm	; Checksum only
 	ldy	#<xmdcsm
 	jsr	prmesgnov
-	lda	#21
+	lda	#xmd_NAK	; Send NAK to start transfer
 	jsr	rputch
-	ldx	#>msg9	; waiting
+	ldx	#>msg9		; waiting
 	ldy	#<msg9
 	jsr	fildomsg
 ?tm3
-	jsr	getn2
-	pha
-	ldx	#>msg3	; Getting data
+	ldx	#>msg3		; Getting data
 	ldy	#<msg3
 	jsr	fildomsg
-	pla
 	jmp	begxdl
 xdnmnlp
 	lda	putbt
-	cmp	#6
+	cmp	#xmd_ACK
 	bne	?ok
-	ldx	ymodemg
-	bne	?nk
+	ldx	ymodemg		; Ymodem-G: do not sent ACKs
+	bne	begxdl
 ?ok
 	jsr	rputch
-?nk
-	jsr	getn2
 begxdl
+	lda	#0
+	sta	chksum
+	sta	crcl
+	sta	crch
+	jsr	getn2		; Get the first byte of block
 	sta	xmdblock
-	ldx	#0
-	stx	chksum
-	stx	crcl
-	stx	crch
-	cmp	#24	; can
-	beq	?cn
-	cmp	#4	; eot
+	cmp	#xmd_CAN	; is it CAN (cancel)?
+	bne	?nocn
+	jmp	xdncan
+?nocn
+	cmp	#xmd_EOT	; is it EOT (end of transmission)?
 	bne	?ne
 	jmp	xdnend
-?cn
-	jmp	xdncan
 ?ne
-	jsr	getn2
+	jsr	getn2		; get second and third bytes
 	sta	xmdblock+1
 	jsr	getn2
 	sta	xmdblock+2
-	lda	outdat
+	lda	outdat		; save some info in case this block has to be dropped
 	sta	xmdsave
 	lda	outdat+1
 	sta	xmdsave+1
@@ -3097,31 +3087,31 @@ begxdl
 	pha
 	jsr	getn2	; get byte
 	jsr	calccrc	; calculate CRC or checksum
-	ldy	#255
-	ldx	eoltrns	; eol translation?
+	ldy	#255	; flag that character is not to be dropped
+	ldx	eoltrns	; incoming eol translation?
 	beq	?ek
-	cmp	#9
+	cmp	#9		; convert TAB to ASCII
 	bne	?notb
 	lda	#127
 ?notb
 	dex
-	cmp	#10	; lf
+	cmp	#10		; lf?
 	bne	?nlf
 	lda	lftb,x
-	tay
+	tay			; if A=0 here then Y will signal that this character is to be dropped
 	jmp	?ek
 ?nlf
-	cmp	#13	; cr
+	cmp	#13		; cr?
 	bne	?ek
 	lda	crtb,x
 	tay
 ?ek
-	ldx	ymdbk1	; Are we in Ymodem?
-	cpx	#2	; Is there a known file length?
-	bne	?sd	; Is this block part of a file?
-	ldx	ymdln+2
-	cpx	ymdpl+2	; Is the file complete (Filler part of
-	bne	?sy	; last block)?
+	ldx	ymdbk1
+	cpx	#2		; Is there a known file length (Ymodem)?
+	bne	?sd		; If not, go store this byte
+	ldx	ymdln+2	; If yes, check if we're grabbing data past the end of the file
+	cpx	ymdpl+2
+	bne	?sy
 	ldx	ymdln+1
 	cpx	ymdpl+1	; (Don't touch A or Y)
 	bne	?sy
@@ -3129,39 +3119,39 @@ begxdl
 	cpx	ymdpl
 	beq	?en
 ?sy
-	inc	ymdpl	; No, inc. counter
+	inc	ymdpl	; No, increment counter
 	bne	?sd
 	inc	ymdpl+1
 	bne	?sd
 	inc	ymdpl+2
 ?sd
-	cpy	#0	; Character filtered out (EOL
-	beq	?en	; conversion)?
+	cpy	#0		; Character filtered out (due to EOL conversion)?
+	beq	?en		; if so skip storing this byte
 	ldx	#bank0
 	ldy	#0
-	jsr	staoutdt	; store data
-	inc	outdat
+	jsr	staoutdt	; store data byte
+	inc	outdat		; increment data store pointer
 	bne	?en
 	inc	outdat+1
 ?en
 	pla
 	tay
 	iny
-	cpy	#128
+	cpy	#128	; have we received 128 bytes (basic Xmodem block size)?
 ?lpg
 	bne	?lp
 	lda	xmdblock	; Test header information..
-	cmp	#1
-	beq	?pkd
-	cmp	#2	; 1-k packet?
-	bne	?pbad
+	cmp	#xmd_SOH
+	beq	?pkd		; SOH means Xmodem 128 byte packet, so we're done
+	cmp	#xmd_STX	; STX means 1k packet
+	bne	?pbad		; anything else is a bad packet
 	ldy	#0
-	inc	s764
+	inc	s764		; for a 1k packet simply repeat the acquisition loop 8 times
 	lda	s764
 	cmp	#8
-	bne	?lpg
+	bne	?lpg		; use trampoline (direct branch to ?lp is too far)
 ?pkd
-	lda	xmdblock+1
+	lda	xmdblock+1	; ensure block number and its ones-complement match
 	tax
 	clc
 	adc	xmdblock+2
@@ -3169,11 +3159,11 @@ begxdl
 	bne	?pbad
 	txa
 	inx
-	cpx	block	; Check for rare case of block
-	bne	?ns	; retransmission (ack messes up and
-	lda	#6	; turns into a nak)
-	sta	putbt	; Resend an ACK
-	lda	xmdsave	; Discard extra block
+	cpx	block	; Check if received block number is one less than expected. This may happen
+	bne	?ns		; if an ACK gets mistaken for a NAK due to line noise, so the previous block
+	lda	#xmd_ACK	; is retransmitted. In this case, send an ACK so that sender proceeds,
+	sta	putbt	; and discard this block.
+	lda	xmdsave	; restore information stored before receiving block
 	sta	outdat
 	lda	xmdsave+1
 	sta	outdat+1
@@ -3183,20 +3173,14 @@ begxdl
 	sta	ymdpl+1
 	lda	xmdsave+4
 	sta	ymdpl+2
-
 	jmp	xdnmnlp
 ?ns
-	cmp	block
-	bne	?pbad
-	sec
-	lda	#255
-	sbc	block
-	cmp	xmdblock+2
-	bne	?pbad
-	jsr	getn2
+	cmp	block	; is this the block number we're expecting?
+	bne	?pbad	; if not, drop packet and NAK
+	jsr	getn2	; get checksum byte, or CRC hi.
 	ldx	crcchek
-	beq	?csm
-	cmp	crch
+	beq	?csm	; checksum mode? go check it.
+	cmp	crch	; verify CRC
 	bne	?crcbd1
 	jsr	getn2
 	cmp	crcl
@@ -3209,28 +3193,28 @@ begxdl
 ?csm
 	cmp	chksum
 	bne	?pbad
-?cok
+?cok			; all correctness checks passed
 	lda	ymodem
 	beq	?noy
 	lda	ymdbk1
 	cmp	#1
 	bne	?noy
-	jmp	ydob1
+	jmp	ydob1	; We're in Ymodem and expecting a batch packet - go process it
 ?noy
-	lda	#6	; ack - Good block received
+	lda	#xmd_ACK	; ack - Good block received
 	sta	putbt
-	lda	retry
+	lda	retry		; was retry message previously shown?
 	beq	?rt
-	ldx	#>msg3	; Getting data
+	ldx	#>msg3		; replace it with "Getting data"
 	ldy	#<msg3
 	jsr	fildomsg
 	lda	#0
 	sta	retry
 ?rt
-	ldx	#>xpknum
+	ldx	#>xpknum	; increment user displayed packet counter
 	ldy	#<xpknum
 	jsr	incnumb
-	lda	xmdblock
+	lda	xmdblock	; increment KB counter (but only once in 8 blocks in 128 byte block mode)
 	cmp	#2
 	beq	?nl
 	inc	xm128
@@ -3244,15 +3228,20 @@ begxdl
 	ldy	#<xkbnum
 	jsr	incnumb
 ?nk
-	inc	block
+	inc	block		; increment expected block number
 	lda	ymodemg
 	beq	?yg
-	jsr	xdsavdat
+	jsr	xdsavdat	; Ymodem-G - immediately save data without buffering or closing port
+	jsr	ropendl		; doesn't really reopen, but fixes IOCB
 	jmp	?ygk
 ?yg
-	lda	outdat+1
+	lda	outdat+1	; if outdat > #$7c00 (less than 1K free in buffer) then save to disk.
 	cmp	#$7c
 	bcc	?dk
+	bne ?sv
+	lda outdat
+	beq ?dk
+?sv
 	jsr	close2dl
 	ldx	#>msg4	; writing to disk
 	ldy	#<msg4
@@ -3270,9 +3259,9 @@ begxdl
 ?dk
 	jmp	xdnmnlp
 xdnchkbad
-	lda	ymodemg	; no retries in Ymodem-G..
+	lda	ymodemg
 	beq	?yg
-	jmp	xdnrtry
+	jmp	xdnrtry	; no retries in Ymodem-G - abort
 ?yg
 	ldx	#>msg9	; waiting
 	ldy	#<msg9
@@ -3283,10 +3272,10 @@ xdnchkbad
 	lda	vframes_per_sec
 	jsr	purge
 
-	lda	#21	; Send a nak
+	lda	#xmd_NAK	; Send a nak
 	sta	putbt
 
-	lda	xmdsave	; Discard bad block
+	lda	xmdsave		; Discard bad block
 	sta	outdat
 	lda	xmdsave+1
 	sta	outdat+1
@@ -3299,45 +3288,45 @@ xdnchkbad
 
 	inc	retry
 	lda	retry
-	cmp	#10
+	cmp	#10			; max retries
 	beq	xdnrtry
 	ldy	retry
 	jsr	number
 	lda	numb+2
 	sta	msg7+6
-	ldx	#>msg7	; retry
+	ldx	#>msg7		; retry
 	ldy	#<msg7
 	jsr	fildomsg
 	jmp	xdnmnlp
 xdnrtry
-	ldx	#>msg2	; Aborted
-	ldy	#<msg2
+	ldx	#>msg10		; Data error, fail
+	ldy	#<msg10
 	jsr	fildomsg
-	lda	#24	; can twice to abort at other end
+	lda	#xmd_CAN	; CAN twice to abort at other end
 	jsr	rputch
-	lda	#24
+	lda	#xmd_CAN
 	jsr	rputch
 	lda	#0
 	sta	ymodem
 	jmp	endxdn
 xdncan
-	ldx	#>msg6	; Remote aborted
+	ldx	#>msg6		; Remote aborted
 	ldy	#<msg6
 	jsr	fildomsg
 	lda	#0
 	sta	ymodem
 	jmp	endxdn
 xdnend
-	ldx	#>msg1	; Done
+	ldx	#>msg1		; Done
 	ldy	#<msg1
 	jsr	fildomsg
-	lda	#6	; ack
+	lda	#xmd_ACK	; ack (send even if ymodem-g)
 	jsr	rputch
 endxdn
 	jsr	close2dl
-	lda	ymdbk1	; block 1 - batch block containing
-	cmp	#1	; filename wasn't received, so no
-	beq	?g1	; disk save
+	lda	ymdbk1		; block 1 - batch block containing
+	cmp	#1			; filename wasn't received, so no
+	beq	?g1			; disk save
 	jsr	xdsavdat
 ?g1
 	jsr	close3
@@ -3366,6 +3355,7 @@ endxmdn2
 	jsr	getscrn
 	jmp	goterm
 
+; gets byte from R:, waits up to 3 seconds.
 getn2
 	jsr	xmdkey
 	lda	bcount
@@ -3399,7 +3389,7 @@ xdsavdat
 	cmp	#1
 	beq	?g1
 
-	lda	outdat+1
+	lda	outdat+1	; make sure buffer isn't empty
 	cmp	#$40
 	bne	?g
 	lda	outdat
@@ -3410,8 +3400,8 @@ xdsavdat
 	bne	?o
 ?g1
 	jsr	xmdkey
-	ldx	#$30	; open file if not open yet
-	lda	#3	; "open #3,8,0,filename"
+	ldx	#$30	; open file (if already open, this will harmlessly return error 129)
+	lda	#3		; "open #3,8,0,filename"
 	sta	iccom+$30
 	lda	#<xferfile
 	sta	icbal+$30
@@ -3432,8 +3422,8 @@ xdsavdat
 	bne	?o
 	rts
 ?o
-	lda	#11	; block-put #3,buffer,
-	sta	iccom+$30	; outdat-$4000
+	lda	#11			; block-put #3,buffer,outdat-$4000
+	sta	iccom+$30
 	lda	#<buffer
 	sta	icbal+$30
 	lda	#>buffer
@@ -3460,9 +3450,9 @@ dnlerr
 	jmp	zmderr
 ?nz
 	jsr	ropendl
-	lda	#24	; can twice to abort at other end
+	lda	#xmd_CAN	; CAN twice to abort at other end
 	jsr	rputch
-	lda	#24
+	lda	#xmd_CAN
 	jsr	rputch
 	jsr	close2dl
 	jsr	close3
@@ -3484,16 +3474,16 @@ xmderr
 	ldx	#>msg5
 	ldy	#<msg5
 
+; flag last byte of message with bit 7 set (use cbyte)
 fildomsg
 	stx	cntrh
 	sty	cntrl
-	ldx	#0
-	lda	#160
+	ldx	#18
+	lda	#32+128
 ?lp1
 	sta	xmdmsg+3,x
-	inx
-	cpx	#19
-	bne	?lp1
+	dex
+	bpl	?lp1
 	ldy	#0
 ?lp2
 	lda	(cntrl),y
@@ -3515,23 +3505,23 @@ incnumb
 ?lp1
 	dey
 	lda	(cntrl),y
-	cmp	#160
+	cmp	#32+128
 	beq	?lp1
 ?lp2
 	clc
 	lda	(cntrl),y
 	adc	#1
 	sta	(cntrl),y
-	cmp	#186
+	cmp	#'9+1+128
 	bcc	?done
-	lda	#176
+	lda	#'0+128
 	sta	(cntrl),y
 	dey
 	cpy	#2
 	bne	?lp2
 	ldy	#9
 	lda	(cntrl),y
-	cmp	#160
+	cmp	#32+128
 	bne	?zero
 	dey
 ?lp3
@@ -3543,14 +3533,14 @@ incnumb
 	cpy	#2
 	bne	?lp3
 	iny
-	lda	#177
+	lda	#'1+128
 	sta	(cntrl),y
 	jmp	?done
 ?zero
 	ldy	#3
-	lda	#176
+	lda	#'0+128
 	sta	(cntrl),y
-	lda	#160
+	lda	#32+128
 ?lp4
 	iny
 	sta	(cntrl),y
@@ -3561,6 +3551,7 @@ incnumb
 	ldy	cntrl
 	jmp	prmesg
 
+; Check for key press. Esc will abort the transfer and exit. Other keys are ignored.
 xmdkey
 	lda	764
 	cmp	#255
@@ -3583,9 +3574,9 @@ xmdkey
 	jsr	fildomsg
 	lda	ymodemg
 	beq	?g
-	lda	#21	; nak twice to abort Ymodem-G
+	lda	#xmd_NAK	; nak twice to abort Ymodem-G
 	jsr	rputch
-	lda	#21
+	lda	#xmd_NAK
 	jsr	rputch
 ?g
 	jsr	sendcans	; Abort at other end..
@@ -3609,8 +3600,11 @@ xmdkey
 	rts
 
 ydob1			; Handle Ymodem batch block
-	lda	#6
-	jsr	rputch	; Acknowledge block
+	lda	ymodemg
+	bne	?yg
+	lda	#xmd_ACK
+	jsr	rputch	; Acknowledge block (but not in Ymodem-G)
+?yg
 	inc	block
 	lda	#2
 	sta	ymdbk1
@@ -3651,7 +3645,7 @@ zmgetnm			; Zmodem uses this too.
 ?dl
 	ldx	#bank0	; Get rid of sent pathname
 	jsr	ldabotx
-	cmp	#47
+	cmp	#47		; slash
 	beq	?dk
 	dey
 	bpl	?dl
@@ -3671,15 +3665,15 @@ zmgetnm			; Zmodem uses this too.
 	txa
 	cpy	#0	; is it a number in 1st char?
 	bne	?nb
-	cmp	#48
+	cmp	#'0
 	bcc	?nb
-	cmp	#58
+	cmp	#'9+1
 	bcs	?nb
-	lda	#95
+	lda	#95	; change to underscore
 ?nb
-	cmp	#97	; lower --> uppercase
+	cmp	#'a	; lower --> uppercase
 	bcc	?cs
-	cmp	#122
+	cmp	#'z+1
 	bcs	?cs
 	sec
 	sbc	#32
@@ -3691,7 +3685,7 @@ zmgetnm			; Zmodem uses this too.
 	pla
 	tay
 	pla
-	cmp	#0
+;	cmp	#0
 	beq	?o
 	eor	#128
 	sta	prchar
@@ -3764,7 +3758,7 @@ zmgetnm			; Zmodem uses this too.
 	pla		; Add new number
 	tax
 	sec
-	sbc	#48
+	sbc	#'0
 	clc
 	adc	ymdln
 	sta	ymdln
@@ -3811,19 +3805,25 @@ zmgetnm			; Zmodem uses this too.
 	bne	?zk
 	jmp	zopenfl	; Zmodem - special open
 ?zk
-	lda	ymdbk1
-	pha
+	lda	ymdbk1	; Ymodem - open file. This could have been done later (after receiving first data block)
+	sta temp	; but prefer to do it here, to catch disk errors and to prevent problems in Ymodem-G.
 	lda	#1
-	sta	ymdbk1
+	sta	ymdbk1	; tells xdsavdat to return after opening.
+	jsr vdelay
+	jsr vdelay	; makes sure last ack was sent
+	jsr close2dl
 	jsr	xdsavdat
-	pla
+	jsr	ropendl
+	jsr vdelay
+	jsr vdelay	; a little pause after opening port and before sending request
+	lda temp
 	sta	ymdbk1
 	lda	#'C
 	ldx	ymodemg
 	beq	?yg
 	lda	#'G        ; G for Ymodem-G
 ?yg
-	sta	putbt	; Send CRC/checksum init for file
+	sta	putbt	; Send C or G request for next packet
 	jmp	xdnmnlp
 
 calccrc			; Table-driven 16-bit CRC calculate
@@ -3887,44 +3887,34 @@ ropendl
 	bne	?ok
 	jmp	ropen
 ?ok
-	rts
-
-purge
-	sta	?p+1
-	lda	#0
-	sta	20
-?em2			; clear buffer
-	jsr	rgetstat
-	lda	bcount
-	ora	bcount+1
-	beq	?ep2
-?e
-	jsr	rgetch
-	dec	bcount
-	lda	bcount
-	bne	?z
-	lda	bcount+1
-	bne	?e
-	beq	?ok
-?z
-	cmp	#255
-	bne	?e
-	dec	bcount+1
-	jmp	?e
-?ok
-	lda	#0
-	sta	20
-?ep2
-	lda	20
-?p	cmp	#99	; self-modified value!
-	bcc	?em2
-	rts
+	ldx #$20
+	lda #13			; Perform one standard status call on serial port to restore IOCB.
+	sta	iccom+$20	; not really sure if this has any positive effect, but it can't hurt
+	jmp	ciov
 
 close2dl
 	lda	ymodemg
 	bne	?ok
 	jmp	close2
 ?ok
+	rts
+	
+; waits for silence for at least (A) vcounts
+purge
+	sta	?p+1
+	lda	#0
+	sta	20
+?lp			; clear buffer
+	jsr	rgetstat
+	beq	?empty
+	jsr	rgetch
+	lda	#0
+	sta	20
+	jmp ?lp
+?empty
+	lda	20
+?p	cmp	#99	; self-modified value!
+	bcc	?lp
 	rts
 
 zopenfl
@@ -3951,7 +3941,7 @@ zopenfl
 ?nf			; Can't find file - no crash
 	ldx	#>?op
 	ldy	#<?op
-?nfg
+;?nfg
 	jsr	fildomsg
 	jsr	close3
 	jsr	prepflnm
@@ -3965,7 +3955,7 @@ zopenfl
 ?frn
 	jsr	zmdkey
 	ldx	flname+1	; Rename incoming if already exists
-	cpx	#'.        ; and no crash info found.
+	cpx	#'.			; and no crash info found.
 	bne	?fr1
 	ldx	#10
 ?frl
@@ -3987,11 +3977,11 @@ zopenfl
 	jsr	prxferfl
 	jmp	zopenfl
 ?er
-	jmp	dnlerr	; Error - display it, and abort
+	jmp	dnlerr		; Error - display it, and abort
 ?rk
 	jsr	close3
 	jsr	zrcvname	; Do we have recover information
-	ldx	#$30	; in "filename.RCV"?
+	ldx	#$30		; in "filename.RCV"?
 	lda	#3
 	sta	iccom+$30
 	lda	#<xferfile
@@ -4003,12 +3993,12 @@ zopenfl
 	lda	#0
 	sta	icaux2+$30
 	jsr	ciov
-	cpy	#170	; No crash - but file already exists
+	cpy	#170		; No crash - but file already exists
 	beq	?frn
 	cpy	#128
 	bcs	?er
 	ldx	#$30
-	lda	#7	; block-get
+	lda	#7			; block-get
 	sta	iccom+$30
 	lda	#0
 	sta	icblh+$30
@@ -4340,9 +4330,9 @@ zrinit
 	jsr	fildomsg
 	lda	#1	; send ZRINIT frame
 	sta	type
-	lda	#$FF
+	lda	#$00
 	sta	zp0
-	lda	#$3F
+	lda	#$40
 	sta	zp1	; Buffer - $4000 size
 	lda	#0
 	sta	zf1
@@ -4641,11 +4631,11 @@ zmderr			; Disk error
 	jmp	mnloop
 
 zeropos			; Zero file-position
-	ldx	#3
 	lda	#$40
 	sta	outdat+1
 	lda	#0
 	sta	outdat
+	ldx	#3
 ?lp
 	sta	filepos,x
 	dex
@@ -5004,8 +4994,23 @@ puthexn			; Send number in hex
 	rts
 
 outpck	.byte	"**",24,"B1122334455chcl",13,10,17
+?en
 
 sendpck
+	lda #outpck?en-outpck
+	sta ?len+1
+; if this is a ZACK(3) or ZFIN(8), don't send the XON (last byte).
+	lda outpck+4
+	cmp #'0
+	bne ?ok
+	lda outpck+5
+	cmp #'3
+	beq ?no_xon
+	cmp #'8
+	bne ?ok
+?no_xon
+	dec ?len+1
+?ok
 	ldx	#0
 ?lp
 	txa
@@ -5015,6 +5020,7 @@ sendpck
 	pla
 	tax
 	inx
+?len
 	cpx	#21
 	bne	?lp
 	rts
@@ -5032,10 +5038,7 @@ getzm
 	sta	ztime
 ?lp
 	jsr	rgetstat	; check stat for in data
-	lda	bcount
 	bne	?ok2
-	lda	bcount+1
-	bne	?ok
 	jsr	zmdkey
 	lda	20
 	cmp	vframes_per_sec
@@ -5081,18 +5084,17 @@ zmdkey
 	rts
 
 sendcans
-	ldx	#0
+	ldx	#8
 ?l1
 	txa
 	pha
-	lda	#24	; 8 CAN, 10 ^H
+	lda	#xmd_CAN	; 8 CAN, 10 ^H
 	jsr	rputch
 	pla
 	tax
-	inx
-	cpx	#8
+	dex
 	bne	?l1
-	ldx	#0
+	ldx	#10
 ?l2
 	txa
 	pha
@@ -5100,7 +5102,6 @@ sendcans
 	jsr	rputch
 	pla
 	tax
-	inx
-	cpx	#10
+	dex
 	bne	?l2
 	rts

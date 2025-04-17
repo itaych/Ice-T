@@ -587,13 +587,13 @@ rt8_to_menu_convert
 	sta menuclk,x
 	rts
 
-goymdm
+gozmdm
 	jsr	boldoff
 	lda	#bank2
 	sta	banksw
 	sta	banksv
-	lda	#255
-	sta	ymodemg
+;	lda	#255	;
+;	sta	ymodemg	; TODO is this needed??
 	jmp	zmddnl
 
 goterm
@@ -1245,7 +1245,7 @@ ropen			; Sub to open R: (uses config)
 	jsr	gropen
 	cpy	#128
 	bcc	ropok
-	jsr	boldclr	; clear boldface display becuase it interferes with error window
+	jsr	boldclr	; clear boldface display because it interferes with error window
 	ldx	#>norhw
 	ldy	#<norhw
 	jsr	drawwin
@@ -1503,11 +1503,8 @@ buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is 
 	lda	#bank0
 	sta	banksw
 	jsr	rgetstat	; R: status command
-	lda	bcount	; Check R: buffer
-	bne	?bf
-	lda	bcount+1
-	bne	?bf
-	lda	bufget	; Check my buffer
+	bne	?bf			; jump if any data
+	lda	bufget		; Check my buffer
 	cmp	bufput
 	bne	?ok
 	lda	bufget+1
@@ -1516,7 +1513,7 @@ buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is 
 	lda	mybcount+1
 	cmp	#$40
 	beq	?okn
-	ldx	#1	; Report: buffer empty
+	ldx	#1			; Report: buffer empty
 ?o2
 	lda	banksv
 	sta	banksw
@@ -1708,7 +1705,10 @@ rputvector	jmp r_dummy_rts
 
 rgetstat
 	ldx #$20
-rstatvector	jmp r_dummy_rts
+rstatvector	jsr r_dummy_rts
+	lda bcount
+	ora bcount+1	; Z flag will be set if buffer empty.
+	rts
 
 ;        -- Ice-T --
 ;  A VT-100 terminal emulator
@@ -3265,6 +3265,7 @@ nofefe
 
 	lda	#0
 	sta	online
+	sta bcount+1
 ;	sta	clock_cnt
 ;	sta	clock_update
 ;	sta	timer_1sec

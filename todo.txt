@@ -2,7 +2,6 @@ ice-t
 -----
 1. proper detection of online status?
 2. Flow control can cause visual bugs or crashes, especially when entering dial menu.
-3. Does file transfer even work??
 
 move DLI code into VBI1 and disable DLI. (done)
 read RT8 less often (after 59 frames, read every frame until change seen) (done)
@@ -17,18 +16,49 @@ use "H:" if no "D:" (done)
 seol stuff in vt2.asm (done)
 reset term when hanging up and dialing (done)
 VT52 emulation plus keypad and arrows, not including graphics characters (done)
+VT102 and ANSI-BBS emulation (done)
+	- sources: http://www.vt100.net/docs/vt102-ug/chapter5.html
+				http://bjh21.me.uk/all-escapes/all-escapes.txt
 handle_insert_delete_char (done)
+checkerboard character (^X) is broken in dbl width mode. (done)
+graphics chars screw up when switching line to double width. (done)
 
-spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
-	however space should always bold/unbold if overwriting an existing char!
-	that should fix emacs tetris.
-colors are ugly if screen is inverse.
-maybe do black text by enabling inverse video. Then background color takes priority.
-investigate file xfers
+file xfers:
+	x/ymodem failed due to close3 (done)
+	ymodem-g sent redundant ACKs (done)
+	zmodem sent redundant XON (done)
+	x/ymodem: is only 15K of 16K buffer being used? (done)
+	ymodem-g: doesn't work on real atari (probably wontfix)
+	vt3: see "todo" and figure it out. (done)
+	zmodem: why do we request buffer size 3fff and not 4000? (prob. done but check deeper when reviewing code)
+	zmodem: why don't we send a challenge?
+	zmodem: (linux) why does linux version overflow? maybe need to be changed to not send break (mode 1). do we send a break today?
+	xmodem upload: consider uncommenting. (altirra will break it though - can't send 0xff!)
+	NOTES: in Altirra "raw" mode, emulated Atari can receive any character, but cannot send 0xFF.
+			Altirra "telnet" can't do any file transfer except Zmodem of plain text files.
+	Altirra telnet doesn't identify as any terminal type.
+	Altirra also has broken printer driver. (fixed in 2.40)
 
-- sources: http://www.vt100.net/docs/vt102-ug/chapter5.html
-           http://bjh21.me.uk/all-escapes/all-escapes.txt
+colors:
+	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
+		however space should always bold/unbold if overwriting an existing char!
+		that should fix emacs tetris.
+	colors are ugly if screen is inverse. perhaps have dual color table, one for regular one for inverse.
+	maybe do black text by enabling inverse video. Then background color takes priority.
+private extensions:
+	NOTE: Esc Q or Esc R are 'private' unused codes.
+	- Esc Qi M   enable bold without setting color. Any use of Esc [ _ m disables.
+	- Esc Qi n1;c1;c2;c3;c4;c5 [;n2;c1;c2;c3;c4;c5].. C   set all 5 colors for horizontal lines. 255/absent = no change.
+	- Esc Qi _ L   set(1)/unset(0 or blank) scroll lock for color background.
+	- Esq Qi _ S/T    force scroll down/up color table by _ lines.
+	
+gen new icet.dat for release
 
+known issues:
+double width does not support 8-bit chars.
+some characters (tilde/grave accent/curly brackets) misbehave when switching line width.
+areas containing nothing but the checkerboard character may be considered blank by insert/delete char routines.
+	
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
 e address byte
 ? expr

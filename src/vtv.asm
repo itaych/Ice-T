@@ -35,7 +35,7 @@ invon		.ds 1
 g0set		.ds 1
 g1set		.ds 1
 chset		.ds 1
-useset		.ds 1
+useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
 seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
 newlmod		.ds 1
 vt52mode	.ds 1	; VT-52 mode (host controlled)
@@ -131,7 +131,7 @@ dli_counter	.ds 1
 
 rt8_detected	.ds 1
 vframes_per_sec	.ds 1	; 50/60 depending on video system
-clock_cnt	.ds 1	; count increases each video frame
+clock_cnt		.ds 1	; count increases each video frame
 time_correct_cnt .ds 2 ; counter to correct slight time drift
 
 ; spare
@@ -142,6 +142,17 @@ time_correct_cnt .ds 2 ; counter to correct slight time drift
 	.endif
 
 ; Other	program equates
+xmd_SOH  =	$01
+xmd_STX  =	$02
+xmd_EOT  =	$04
+xmd_ENQ  =	$05
+xmd_ACK  =	$06
+xmd_LF   =	$0a
+xmd_CR   =	$0d
+xmd_XON  =	$11
+xmd_XOFF =	$13
+xmd_NAK  =	$15
+xmd_CAN  =	$18
 
 ; skips next 1-byte or 2-byte instruction, see http://www.6502.org/tutorials/6502opcodes.html#BIT
 ; (note: this is a BIT opcode, so affects flags N V Z)
@@ -178,12 +189,14 @@ xtraln		.ds 320
 xmdblock	.ds 3
 xmdsave		.ds 5
 xm128		.ds 1
-ymodem		.ds 1
-ymdbk1		.ds 1
-ymdpl		.ds 3
-ymdln		.ds 3
-ymodemg		.ds 2
-zmauto		.ds 3
+ymodem		.ds 1	; 0 in xmodem, 1 in ymodem, 255 in zmodem
+ymdbk1		.ds 1	; 0 in xmodem or (ymodem and invalid file size), 
+					; 1 in ymodem before getting file info,
+					; 2 when ymodem got batch packet with valid file size
+ymdpl		.ds 3	; offset in ymodem file, 3-byte integer
+ymdln		.ds 3	; length of file in ymodem
+ymodemg		.ds 2	; first byte indicates ymodem-g transfer. second byte indicates user warning should be shown.
+zmauto		.ds 1	; indicates receiving ^X B00 sequence (in Terminal mode) to automatically start Zmodem.
 
 ; Zmodem equates
 
@@ -204,13 +217,13 @@ trfile	.ds	1
 ztime	.ds	1
 
 ; spare
-		.ds	24
+		.ds	26
 
 	.if	* <> $8180
 	.error "* <> $8180!!"
 	.endif
 
-boldpm	=	$8180	; For boldfaced text - P/M underlay
+boldpm	=	$8180	; P/M underlay for bold/blink/color text.
 ;boldp0	=	$8200
 ;boldp1	=	$8280
 ;boldp2	=	$8300
@@ -222,7 +235,7 @@ chrtblh	=	$8c80
 charset	=	$8d00	; main character set
 txscrn	=	$9100	; text mirror
 txlinadr =	$9880	; line addresses within text mirror
-tabs	=	$98b0	; tab stops
+tabs	=	$98b0	; tab stops, 80 bytes
 pcset	=	$9900	; secondary (>128) character set
 
 	.bank
@@ -258,7 +271,7 @@ screen	=	$9fb0
 	.error "* <> screen-640!!"
 	.endif
 
-; at screen is an unused line (as it crosses a 4K boundary) of 320 bytes
+; at 'screen' is an unused line (as it crosses a 4K boundary) of 320 bytes
 	.bank
 	*=	$9fb0
 linadr	.ds	50
@@ -440,7 +453,7 @@ autowrap	.byte 1
 delchr		.byte 0
 bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
 bckcolr		.byte 0
-eoltrns		.byte 1
+eoltrns		.byte 0		; EOL translation for incoming files
 ansiflt		.byte 0
 ueltrns		.byte 0
 ansibbs		.byte 0		; VT-102 (0), ANSI-BBS (1), VT-52 (2)
@@ -614,20 +627,27 @@ captfull
 tilmesg1
 	.byte	"Ice-T __"
 tilmesg3
-	.byte	(80-60)/2,10,60
+	.byte	(80-tilmesg3_len)/2,10,tilmesg3_len
 svscrlms
 ;	.byte	"Version 2.76, October 10, 2013. Contact: itaych@gmail.com"
-	.byte	"Version 2.8.0(alpha3) Oct 20 2013. Contact: itaych@gmail.com"
-	
-; set these manually, they affect the answerback string (response to ctrl-e)
-version_str = svscrlms+8
-version_strlen = 13
+;	.byte	"Version 2.8.0(alpha4) Oct 23 2013. Contact: itaych@gmail.com"
+
+	.byte	"Version "
+version_str
+	.byte 	"2.8.0(alpha4)"
+version_str_end
+	.byte	" Oct 23 2013. Contact: itaych@gmail.com"
+tilmesg3_end
+
+tilmesg3_len = tilmesg3_end-svscrlms
+version_strlen = version_str_end-version_str
 	
 pstbl	.byte	0, 16, 1
 
 crtb	.byte	155
 lftb	.byte	0, 155, 155
 
+; used by file xfer and dialing screens
 xmdtop2
 	.byte	72,0,7
 	.byte	"| Ice-T"

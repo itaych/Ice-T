@@ -317,30 +317,21 @@ expnorsh
 
 dovt100			; ANSI/VT100 emulation code
 
-; Test characters following ^X - B00 is a trigger for
-; Zmodem, anything else is to be displayed normally.
+; Test characters following ^X. "B00" is a trigger for Zmodem,
+; anything else cancels the sequence and is displayed normally.
 
+	; zmauto is usually 0, 1 after ^X and counting up.
 	ldx	zmauto
-	beq	?zm
-	sta	zmauto,x
-	cmp	#18
-	beq	?z1
-	inc	zmauto
-	cpx	#3
-	bne	?nz
-	lda	#0
-	sta	zmauto
-	lda	zmauto+1
-	cmp	#'B
-	bne	?ng
-	lda	zmauto+2
-	cmp	#'0
-	bne	?ng
-	lda	zmauto+3
-	cmp	#'0
-	bne	?ng
+	beq	?zm_done
+	cmp ?zm_string-1,x
+	bne ?bad
+	cpx #3
+	bne ?not_done
+	; ok, we got a trigger. Erase some junk from the screen (two ZPAD characters, 
+	; appearing as asterisks) and jump to Zmodem download.
 	ldx	#0
-?l
+	stx zmauto
+?lp1
 	txa
 	pha
 	lda	?et,x
@@ -349,40 +340,44 @@ dovt100			; ANSI/VT100 emulation code
 	tax
 	inx
 	cpx	#6
-	bne	?l
-	jmp	goymdm
-?et	.byte	8,8,32,32,8,8     ; String for erasing Zmodem junk (bs bs space space bs bs)
-?ng
-	ldx	#1
-?nl
-	txa
-	pha
-	lda	zmauto,x
-	jsr	dovt100
+	bne	?lp1
 	pla
-	tax
-	inx
-	cpx	#4
-	bne	?nl
-?nz
+	pla
+	jmp	gozmdm
+?et	.byte	8,8,32,32,8,8     ; String for erasing Zmodem junk (bs bs space space bs bs)
+?zm_string	.byte "B00"
+	
+?not_done
+	inc zmauto
 	rts
-?z1
-	lda	#0
-	sta	zmauto
-	ldx	#1
-	lda	zmauto,x
-	cmp	#18
-	beq	?zm
-	tay
+?bad				; got partial trigger then something else: flush to terminal and finish.
+	dec zmauto		; change zmauto to contain amount of bytes we've partially received.
+	beq ?zm_done	; if there were none, we're done. go process this character.
+	pha				; push character we've just received
+	ldx	#0
+	ldy zmauto
+	stx zmauto
+?lp2
 	txa
 	pha
 	tya
+	pha
+	lda	?zm_string,x
 	jsr	dovt100
+	pla
+	tay
 	pla
 	tax
 	inx
-	jmp	?z1
-?zm
+	dey
+	bne	?lp2
+	lda #0
+	sta zmauto
+	pla	; restore character and continue processing it as normal.
+?zm_done
+
+; End Zmodem init
+
 	ldx	capture
 	beq	?nocapture
 
@@ -614,29 +609,29 @@ notgrph
 	dex
 	lda	lnsizdat,x		; check line size
 	beq	nospch			; = 0 (normal)? nothing to do
-	cmp	#4
-	bcs	nospch
+;	cmp	#4
+;	bcs	nospch
 	lda	dblgrph
 	bne	nospch
 	lda	#0				; perform a few translations necessary in 40-column mode
 	sta	useset
 	lda	prchar
-	cmp	#96
+	cmp	#96				; grave accent
 	bne	bgno96
 	lda	#30
 	jmp	ysspch
 bgno96
-	cmp	#123
+	cmp	#123			; open curly brace
 	bne	bgno123
 	lda	#28
 	jmp	ysspch
 bgno123
-	cmp	#125
+	cmp	#125			; close curly brace
 	bne	bgno125
 	lda	#29
 	jmp	ysspch
 bgno125
-	cmp	#126
+	cmp	#126			; tilde
 	bne	nospch
 	lda	#31
 ysspch
@@ -710,12 +705,9 @@ ctrlcode_jumptable_end
 	.endif
 
 ctrlcode_1b		; Escape
-	lda	#<esccode
-	sta	trmode+1
-	lda	#>esccode
-	sta	trmode+2
-ctrlcode_unused
-	rts
+	ldy	#<esccode
+	ldx	#>esccode
+	jmp setnextmode
 
 ctrlcode_05		; ^E - transmit answerback ("Ice-T <version>")
 	ldx #>tilmesg1
@@ -730,6 +722,7 @@ ctrlcode_05		; ^E - transmit answerback ("Ice-T <version>")
 ctrlcode_07		; ^G - bell
 	lda	#14
 	sta	dobell
+ctrlcode_unused
 	rts
 
 ctrlcode_0d		; ^M - CR
@@ -765,7 +758,7 @@ ctrlcode_08		; ^H - Backspace
 ?ok
 	jmp	reset_seol
 
-ctrlcode_18		; ^X - CAN - cancel esc / begin Zmodem packet
+ctrlcode_18		; ^X - CAN - cancel Esc sequence / begin Zmodem packet
 	lda	#1
 	sta	zmauto
 ctrlcode_1a		; ^Z - SUB, same as CAN.
@@ -777,12 +770,12 @@ ctrlcode_1a		; ^Z - SUB, same as CAN.
 	bne	docan
 	rts
 docan
-	lda	#<regmode
-	sta	trmode+1
-	lda	#>regmode
-	sta	trmode+2
-	lda	#0		; Since an escape sequence was in progress, output checkerboard character to indicate error
-	jmp	regmode
+	ldy	#<regmode
+	ldx	#>regmode
+	jsr setnextmode
+	; Since an escape sequence was in progress, output checkerboard character to indicate error
+	lda #0
+	jmp regmode
 
 ctrlcode_09		; ^I - Tab
 	; if we're on a wide line make sure we don't skip past 40 columns
@@ -922,20 +915,18 @@ esccode_vt52_unset_gfx	; unset graphics mode
 
 ; Esc Y n1 n2 - position cursor
 esccode_vt52_setpos
-	lda	#<esccode_vt52_setpos_1
-	sta	trmode+1
-	lda	#>esccode_vt52_setpos_1
-	sta	trmode+2
-	rts
+	ldy	#<esccode_vt52_setpos_1
+	ldx	#>esccode_vt52_setpos_1
+	jmp setnextmode
+
 esccode_vt52_setpos_1
 	sec
 	sbc #31
 	sta numstk
-	lda	#<esccode_vt52_setpos_2
-	sta	trmode+1
-	lda	#>esccode_vt52_setpos_2
-	sta	trmode+2
-	rts
+	ldy	#<esccode_vt52_setpos_2
+	ldx	#>esccode_vt52_setpos_2
+	jmp setnextmode
+	
 esccode_vt52_setpos_2
 	sec
 	sbc #31
@@ -963,15 +954,13 @@ esccode_vt52_decanm
 ; End of VT-52 code
 
 esccode_brak	; '[' - start escape sequence with arguments (CSI)
-	lda	#<brakpro_first_char
-	sta	trmode+1
-	lda	#>brakpro_first_char
-	sta	trmode+2
 	lda	#255
 	sta	finnum
 	lda	#0
-	sta	qmark	; mark that we didn't get a question mark character after '['
-	rts
+	sta	qmark	; mark that we didn't (yet) get a question mark character after '['
+	ldy	#<brakpro_first_char
+	ldx	#>brakpro_first_char
+	jmp setnextmode
 
 esccode_ind		; D - down 1 line
 	jsr	cmovedwn
@@ -1073,18 +1062,14 @@ esccode_parop	; ( - start seq for g0
 esccode_parcl	; ) - start seq for g1
 	lda	#1
 	sta	gntodo
-	lda	#<parpro
-	sta	trmode+1
-	lda	#>parpro
-	sta	trmode+2
-	rts
+	ldy	#<parpro
+	ldx	#>parpro
+	jmp setnextmode
 	
 esccode_hash	; # - start for line size
-	lda	#<hash_process
-	sta	trmode+1
-	lda	#>hash_process
-	sta	trmode+2
-	rts
+	ldy	#<hash_process
+	ldx	#>hash_process
+	jmp setnextmode
 
 esccode_resttrm	; c - Reset terminal
 	lda	#1
@@ -1168,6 +1153,12 @@ hash_process
 ; check values 3-7, which change the line size
 no_fill_e
 
+	sec
+	sbc	#'3			; subtract ASCII value of digit 3 so we have 0-4
+	cmp	#5
+	bcc	?ok			; 3/4/5/6/7 - change size
+	jmp	fincmnd		; some other value, quit
+?ok
 changesize_templine = numstk+$80
 
 	pha
@@ -1176,12 +1167,6 @@ changesize_templine = numstk+$80
 	ldx	ty
 	stx	y
 	dex
-	sec
-	sbc	#'3			; subtract ASCII value of digit 3 so we have 0-4
-	cmp	#5
-	bcc	?ok			; 3/4/5/6/7 - change size
-	jmp	fincmnd		; some other value, quit
-?ok
 	tay
 	lda	sizes,y		; translate command to internal size value
 	cmp	lnsizdat,x
@@ -1297,10 +1282,9 @@ parpro
 	jmp	fincmnd
 
 brakpro_first_char	; process first char after Esc [ (which may be a question mark)
-	ldx	#<brakpro
-	stx	trmode+1	; next char cannot be a '?' so do not accept one
-	ldx	#>brakpro
-	stx	trmode+2
+	ldy	#<brakpro
+	ldx	#>brakpro	; next char cannot be a '?' so do not accept one
+	jsr setnextmode
 	cmp	#63			; is this a question mark?
 	bne	brakpro
 	lda	#1
@@ -2254,10 +2238,13 @@ csicode_cbt				; Z - move backwards n tab stops
 fincmnd_reset_seol
 	jsr	reset_seol
 fincmnd
-	lda	#<regmode
-	sta	trmode+1
-	lda	#>regmode
-	sta	trmode+2
+	ldy	#<regmode
+	ldx	#>regmode
+
+; set next mode for terminal. receives character handler for next byte in X/Y.
+setnextmode
+	sty	trmode+1
+	stx	trmode+2
 	rts
 
 reset_seol
@@ -2632,9 +2619,9 @@ printerm
 ; Parameters for line size:
 
 ; 0 - normal-sized characters
-; 1 - x2 width, single	height
-; 2 - x2 double height, upper
-; 3 - x2 double height, lower
+; 1 - x2 width, single height
+; 2 - x2 width, double height, upper half
+; 3 - x2 width, double height, lower half
 
 	lda	y
 	tay
@@ -2649,22 +2636,26 @@ printerm
 	lda	linadr+1,x
 	sta	cntrh
 	ldx	prchar
+	lda	invsbl
+	beq	?noinv		; 'invisible' mode: change to space
+	ldx	#32
+?noinv
 	tya
-	beq	notxprn
+	beq	notxprn	; if y=0 no need to handle text mirror
 	lda	lnsizdat-1,y
 	beq	ptxreg
-	lda	x
-	cmp	#40
-	bcc	ptxxok
-	lda	#39
 
 ; Text mirror - double-size text
 
-ptxxok
+	lda	x
+	cmp	#40
+	bcc	?xok
+	lda	#39
+?xok
 	asl	a
 	tay
 	txa
-	and	#127
+	and	#127		; double width does not support chars >128 (PC set)!
 	tax
 	sta	(ersl),y
 	iny
@@ -2673,22 +2664,21 @@ ptxxok
 	lda	revvid
 	beq	notxprn
 	lda	eitbit
-	bne	notxprn
+	bne	notxprn		; reverse video and in 7-bit mode? use bit 7 to indicate inverse
+	lda	#128+32
+	sta	(ersl),y	; also, store an inverse space in the adjacent location
 	dey
 	txa
-	ora	#128
+	ora	#$80		
 	sta	(ersl),y
-	iny
-	lda	#128+32
-	sta	(ersl),y
-	jmp	notxprn
+	bmi	notxprn		; always branches
 
 ; Text mirror - normal-size text
-
+; bold/unbold is also handled here (todo: why is this different from dbl size logic?)
 ptxreg
 	ldy	x
 	lda	(ersl),y
-	sta	outdat
+	sta	outdat	; remember character we're overwriting
 	cpx	#32
 	bne	?db		; Space character: no bold/unbold as this may pointlessly ruin an adjacent character.
 	lda	undrln	; but if Underlined/Inverse/Bold change to 127 so we know it's there if it needs to be overwritten later
@@ -2726,20 +2716,21 @@ ptxreg
 	ora	#128
 	sta	(ersl),y
 
+; done with text mirror
+
 notxprn
 	lda	rush
 	beq	ignrsh
 	lda	y
 	beq	ignrsh
-invprt
 	rts
 ignrsh
-	lda	invsbl
-	bne	invprt
 	ldy	#0
 	txa
 	bpl	nopcchar
+	; character >= 128 - this is part of the PC character set.
 	sty	prchar+1
+	; multiply by 8 to find location in character set
 	asl	a
 	asl	a
 	rol	prchar+1
@@ -2753,6 +2744,7 @@ ignrsh
 	sta	plc2+2
 	jmp	prt1
 nopcchar
+	; for characters < 128 we have a lookup table
 	lda	chrtbll,x
 	sta	prchar
 	sta	plc2+1
@@ -2760,37 +2752,23 @@ nopcchar
 	sta	prchar+1
 	sta	plc2+2
 prt1
-	ldx	y
-	lda	lnsizdat-1,x
-	cmp	#4
-	bcc	?ok
-	tya
-	sta	lnsizdat-1,x
-?ok
+	; check line size. for double width lines jump to psiznot0
+	ldy	y
+	lda	lnsizdat-1,y
 	sta	temp
-	tax
-	beq	psiz0
+	beq ?sz0
+	jmp psiznot0
 
-	cmp	#1
-	bne	pno1
-	jmp	psiz1
-pno1
-	cmp	#2
-	bne	pno2
-	jmp	psiz2
-pno2
-	jmp	psiz3
-
-psiz0
+?sz0
+	; A = 0 at this point
 	ora	undrln
 	ora	revvid
 	bne	ps0ok
-	lda	outdat
+	lda	outdat	; are we overwriting a space?
 	cmp	#32
 	bne	ps0ok
 
-; Special fast routine if no special mode on
-; (note: regs x and y are 0)
+; Special fast routine if no special mode on and no character to overwrite
 
 	lda	x		; divide X by 2, remainder in reg.x
 	and	#1
@@ -2812,8 +2790,8 @@ psiz0
 lp
 	ldy yindextab,x ; in vt1.asm
 plc2	lda	$ffff,x	; (prchar),y
-plc1	and	#0 ; postbl,x
-	eor	(cntrl),y
+plc1	and	#0 		; postbl,x
+	eor	(cntrl),y	; changing this to self-modified code is not worth it
 	sta	(cntrl),y
 	dex
 	bmi ?done
@@ -2823,14 +2801,16 @@ plc1	and	#0 ; postbl,x
 ?done
 	rts
 
+; regular 80-column print routine supporting all rendition modes
+
 ps0ok
-	ldy	revvid
-	dey
+	ldy	revvid	; inverse?
+	dey			; 1 becomes 0, 0 becomes 255
 	sty	?ep+1
-	bne	?i
-	lda	#0
-	sta	?ep+1
-?i
+;	bne	?i
+;	lda	#0
+;	sta	?ep+1
+;?i
 	ldy	#7
 ?b
 	lda	(prchar),y
@@ -2839,10 +2819,6 @@ ps0ok
 	dey
 	bpl	?b
 
-psizok
-	lda temp	; do not underline if size=2 (upper half of double height)
-	cmp #2
-	beq ?nu
 	lda	undrln	; add underline (or reverse underline)
 	beq	?nu
 	lda	revvid
@@ -2851,10 +2827,6 @@ psizok
 ?ku
 	sta	chartemp+7
 ?nu
-	lda	temp
-	beq	?s
-	jmp	prbgch
-?s
 	lda	x
 	and	#1
 	tax
@@ -2892,25 +2864,53 @@ psizok
 ?done
 	rts
 
+; Double width character handling
+
+psiznot0
+	; for double width, note that characters under 28 must take glyphs from our custom
+	; character set (rather than the internal OS set) and double their width.
+	cpx #32
+	bcs ?nospecial	; 32 and up - nothing special to do here
+	ldy #1
+	sty useset		; use custom font
+	cpx #28			; 28-31 are grave-accent/tilde/curly-braces in double format within custom font,
+	bcs ?nospecial	; so don't set pixel-doubling flag
+	sty dblgrph
+?nospecial
+
+	; update character set pointers to OS font if useset flag is off.
+	lda	useset
+	bne ?done
+	lda	prchar+1
+	clc
+	adc	#>($e000-charset)
+	sta	prchar+1
+?done
+
+	; check size (regular height/top-half/bottom-half)
+	lda	#0
+	tax
+	tay
+	lda temp
+	cmp	#3
+	beq	psiz3
+	cmp	#2
+	beq	psiz2
+
+	; regular height: copy whole character
 psiz1
-	jsr	pbchsdo
-psz1lp
 	lda	(prchar),y
 	jsr	dblchar
 	sta	chartemp,y
 	iny
 	cpy	#8
-	bne	psz1lp
-	jmp	psizoki
+	bne	psiz1
+	beq	psizoki		; always branches
 
-psiz2
-	jsr	pbchsdo
-	jmp	psz23lp
-
+	; half-height: copy half character, suplicating lines
 psiz3
-	jsr	pbchsdo
-	ldy	#4
-psz23lp
+	ldy	#4	; bottom half: start from middle
+psiz2
 	lda	(prchar),y
 	jsr	dblchar
 	sta	chartemp,x
@@ -2919,7 +2919,8 @@ psz23lp
 	inx
 	iny
 	cpx	#8
-	bne	psz23lp
+	bne	psiz2
+
 psizoki
 	lda	boldface
 	beq	?ndb
@@ -2940,25 +2941,20 @@ psizoki
 	dey
 	bpl	?i
 ?ni
-	jmp	psizok
 
-pbchsdo
-	lda	#0
-	tax
-	tay
-	lda	useset
-	beq	usatst
-	txa
-	rts
-usatst
-	lda	prchar+1
-	clc
-	adc	#>($e000-charset)
-	sta	prchar+1
-	txa
-	rts
+	lda	undrln	; add underline (or reverse underline)
+	beq	?nu
+	lda temp	; do not underline if size=2 (upper half of double height)
+	cmp #2
+	beq ?nu
+	lda	revvid
+	beq	?ku
+	lda	#255
+?ku
+	sta	chartemp+7
+?nu
 
-prbgch
+	; draw the character.
 	lda	x
 	cmp	#40
 	bcc	pxok
@@ -2984,6 +2980,43 @@ prbiglp
 	iny
 	cpy	#8
 	bne	prbiglp
+	
+	; done with double-width character. restore a couple of flags.
+	lda #0
+	sta useset
+	sta dblgrph
+	rts
+
+; doubles the size of a 4-pixel character to 8 pixels
+; (may not use x/y regs)
+dblchar
+	sta	dbltmp1
+	sta	dbltmp2
+	lda	dblgrph
+	beq	?done
+	lda	#0
+	sta	dbltmp2
+	lda #$8
+	sta fltmp
+?lp
+	lda	dbltmp1
+	and	fltmp
+	beq ?z
+	sec
+	rol	dbltmp2
+	sec
+	rol	dbltmp2
+	bcc ?endlp	; always branches
+?z
+	clc
+	rol dbltmp2
+	clc
+	rol dbltmp2
+?endlp
+	lsr fltmp
+	bne ?lp
+?done
+	lda	dbltmp2
 	rts
 
 ; sanity check to make sure lnsizdat table is not corrupt
@@ -2998,46 +3031,6 @@ chklnslp
 ?ok
 	dex
 	bpl	chklnslp
-	rts
-
-; doubles the size of a 4-pixel character to 8 pixels
-dblchar
-	sta	dbltmp1
-	sta	dbltmp2
-	lda	dblgrph
-	beq	dblnotdo
-	lda	#0
-	sta	dbltmp2
-	lda	dbltmp1
-	and	#$88
-	jsr	dblchdo
-	lda	dbltmp1
-	and	#$44
-	jsr	dblchdo
-	lda	dbltmp1
-	and	#$22
-	jsr	dblchdo
-	lda	dbltmp1
-	and	#$11
-	jsr	dblchdo
-
-dblnotdo
-	lda	dbltmp2
-	rts
-
-dblchdo
-	cmp	#0
-	beq	dblch2
-	sec
-	rol	dbltmp2
-	sec
-	rol	dbltmp2
-	rts
-dblch2
-	clc
-	rol	dbltmp2
-	clc
-	rol	dbltmp2
 	rts
 
 ; Boldface stuff in vt22.asm
