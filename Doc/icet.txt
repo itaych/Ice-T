@@ -786,8 +786,8 @@ know whether what you just pressed actually did something.
 
 Pressing a key with START held down is like Meta-[key], which means it sends
 an Escape before that key. For example, START-x will send a Meta-x, or
-"Esc x". This does not work with keys that send more than one code, like
-the arrow keys.
+"Esc x". This has no effect with keys that send more than one byte, like the
+arrow keys.
 Pressing anything with Select held down will send that code with the
 high bit set. Like Start-key, it only works with the "simple" keys. I doubt
 it'll ever need to be used, but when offline you can test the PC character

@@ -34,6 +34,9 @@ connect
 	ldx	#>sts3
 	ldy	#<sts3
 	jsr	prmesgnov
+	lda #0
+	sta captold
+	jsr captbfdo
 	lda	online
 	beq	?o
 	ldx	#>sts2
@@ -323,7 +326,7 @@ dovt100			; ANSI/VT100 emulation code
 ; Test characters following ^X. "B00" is a trigger for Zmodem,
 ; anything else cancels the sequence and is displayed normally.
 
-	; zmauto is usually 0, 1 after ^X and counting up.
+	; zmauto is usually 0, but set to 1 after ^X then counts up.
 	ldx	zmauto
 	beq	?zm_done
 	cmp ?zm_string-1,x
@@ -346,7 +349,10 @@ dovt100			; ANSI/VT100 emulation code
 	bne	?lp1
 	pla
 	pla
+	lda #1
+	sta z_came_from_vt_flag
 	jmp	gozmdm
+
 ?et	.byte	8,8,32,32,8,8     ; String for erasing Zmodem junk (bs bs space space bs bs)
 ?zm_string	.byte "B00"
 	
@@ -360,7 +366,7 @@ dovt100			; ANSI/VT100 emulation code
 	ldx	#0
 	ldy zmauto
 	stx zmauto
-?lp2
+?lp4
 	txa
 	pha
 	tya
@@ -373,7 +379,7 @@ dovt100			; ANSI/VT100 emulation code
 	tax
 	inx
 	dey
-	bne	?lp2
+	bne	?lp4
 	lda #0
 	sta zmauto
 	pla	; restore character and continue processing it as normal.
@@ -417,14 +423,14 @@ dovt100			; ANSI/VT100 emulation code
 	beq	?end
 ?ne
 	ldx	captplc
-	stx	cntrl
+	stx	outdat
 	ldx	captplc+1
 	cpx	#$80
 	beq	?end
-	stx	cntrh
+	stx	outdat+1
 	ldy	#0
 	ldx	#bank4
-	jsr	stacntrl
+	jsr	staoutdt
 	inc	captplc
 	lda	captplc
 	bne	?end
@@ -1146,7 +1152,7 @@ changesize_templine = numstk+$80
 ?not_same
 	tay
 	lda	lnsizdat,x	; remember old value
-	sta	scvar1
+	sta	topx		; used as temp here
 	tya
 	sta	lnsizdat,x	; and set new value
 	lda	szlen,y		; get size of new line (80 or 40 columns)
@@ -1168,7 +1174,7 @@ changesize_templine = numstk+$80
 	sta (ersl),y		; blank old text line
 	iny
 	inx
-	lda	scvar1			; previously 80 columns?
+	lda	topx			; previously 80 columns?
 	beq	?szlp2v			; yes, don't do anything special
 	iny					; no - we're switching from 40 to 80, so skip 1 byte when reading because in 40-col
 ?szlp2v					; characters are spaced 1 byte apart in ascii mirror.
@@ -5575,9 +5581,9 @@ dodial
 	stx	temp
 	lda	#32
 ?lp3
-	sta	modstr+3,x
+	sta	modstr_copy+3,x
 	inx
-	cpx	#25
+	cpx	#modstr_max_length
 	bne	?lp3
 	ldx	#0
 	txa
@@ -5615,19 +5621,25 @@ dodial
 	inc	temp
 	jmp	?lf
 ?ncr
-	sta	modstr+3,x
+	sta	modstr_copy+3,x
 	inx
 ?lf
-	cpx	#25
+	cpx	#modstr_max_length
 	beq	?en
 	txa
 	pha
 	jmp	?wt
 ?en
-	ldx	#>modstr
-	ldy	#<modstr
+	ldx #2
+?enlp
+	lda modstr,x
+	sta modstr_copy,x
+	dex
+	bpl ?enlp
+	ldx	#>modstr_copy
+	ldy	#<modstr_copy
 	jsr	prmesgy
-	lda	modstr+3
+	lda	modstr_copy+3
 	cmp	#'C			; Did reply start with 'C'?
 	bne	?noc		; no - we failed to connect
 	lda	#1			; yes - we're online!
@@ -6086,11 +6098,12 @@ dilmnu
 diltop
 	.byte	1,0,14
 	.byte	"Dialing menu |"
-modstr
-	.byte	0,24,25
-	.byte	155
-	.byte	"-- Bill Kendrick! :) --"
-	.byte	155
+
+modstr_max_length = 40
+modstr_copy = numstk+$80
+modstr	; output string returned by modem. This is copied to modstr_copy and the message is appended
+	.byte	0,24,modstr_max_length
+
 hangupmsg
 	.byte	0,24,12
 	.byte	"Hanging up.."
@@ -6148,13 +6161,17 @@ doprompt2		; Accept Input Routine
 
 ; x/y point	to data string (so data is 4 bytes *before* given pointer)
 
+prpdat = numstk+$100 - 43	; Prompt routine's data
+
+?prplen = botx
+
 	sty	topx
 	dex
 	stx	topx+1
 	lda	#0
 	sta	ersl
 	sta	ersl+1
-	ldy	#252
+	ldy	#252	; 256-4
 	lda	(topx),y
 	lsr	a
 	bcc	?i
@@ -6173,7 +6190,7 @@ doprompt2		; Accept Input Routine
 	iny
 	lda	(topx),y
 	sta	prpdat+2
-	sta	prplen
+	sta	?prplen
 	iny
 	inc	topx+1
 ?lp
@@ -6181,13 +6198,13 @@ doprompt2		; Accept Input Routine
 	jsr	prtrans
 	sta	prpdat+3,y
 	iny
-	cpy	prplen
+	cpy	?prplen
 	bne	?lp
 	lda	#0
 	sta	numb
 	lda	#1
 	sta	numb+1
-prlp
+?prlp
 	ldx	numb
 	lda	prpdat+3,x
 	eor	#128
@@ -6220,11 +6237,11 @@ prlp
 ?or
 	inc	numb
 	lda	numb
-	cmp	prplen
+	cmp	?prplen
 	bne	?ok
 	dec	numb
 ?ok
-	jmp	prlp
+	jmp	?prlp
 ?nr
 	cmp	#30
 	bne	?nl
@@ -6239,7 +6256,7 @@ prlp
 	bne	?k1
 	inc	numb
 ?k1
-	jmp	prlp
+	jmp	?prlp
 ?nl
 	cmp	#126
 	bne	?nod
@@ -6250,7 +6267,7 @@ prlp
 
 	lda	numb
 	bne	?k2
-	jmp	prlp
+	jmp	?prlp
 ?k2
 	dec	numb
 	jmp	?dod
@@ -6270,12 +6287,12 @@ prlp
 	lda	prpdat+3+1,y
 	sta	prpdat+3,y
 	iny
-	cpy	prplen
+	cpy	?prplen
 	bne	?dlp
 	lda	#32
 	jsr	prtrans
 	sta	prpdat+3-1,y
-	jmp	prlp
+	jmp	?prlp
 ?nop
 	cmp	#155
 	bne	?noe
@@ -6286,7 +6303,7 @@ prlp
 	ldy	#<prpdat
 	jsr	prmesg
 
-	ldx	prplen
+	ldx	?prplen
 	dex
 ?elp
 	lda	prpdat+3,x
@@ -6316,7 +6333,7 @@ prlp
 ?o
 	sta	(topx),y
 	iny
-	cpy	prplen
+	cpy	?prplen
 	bne	?el2
 	rts
 
@@ -6333,15 +6350,15 @@ prlp
 	beq	?ncl
 	ldy	#0
 	sty	numb+1
-?kl			; Clear previous name if first
-	lda	#32	; key hit is a letter (that is, the
-	jsr	prtrans	; user doesn't wish to edit the
+?kl					; Clear previous name if first
+	lda	#32			; key hit is a letter (that is, the
+	jsr	prtrans		; user doesn't wish to edit the
 	sta	prpdat+3,y	; older name).
 	iny
-	cpy	prplen
+	cpy	?prplen
 	bne	?kl
 ?ncl
-	ldx	prplen
+	ldx	?prplen
 	dex
 	cpx	numb
 	beq	?noi
@@ -6358,7 +6375,7 @@ prlp
 	sta	prpdat+3,y
 	jmp	?or
 ?noc
-	jmp	prlp
+	jmp	?prlp
 
 prtrans
 	cmp	#0
@@ -6404,7 +6421,7 @@ rputstring
 	bne ?lp
 	rts
 
-; receives criterion in Accumulator, jump table hi/lo in X/Y.
+; Jump to address according to jump table. Receives criterion in Accumulator, jump table hi/lo in X/Y.
 parse_jumptable
 	sta temp
 	stx cntrh

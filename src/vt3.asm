@@ -705,8 +705,7 @@ savcfg			; Save configuration
 	sta	icblh+$20
 	lda	#bank1
 	jsr	bankciov
-	cpy	#128
-	bcs	?er
+	bmi	?er
 
 	ldx	#0
 ?lp
@@ -1990,27 +1989,29 @@ vweof
 	sta	cmph+1
 	jsr close3
 	lda crcl
-	beq ?n1
+	beq viewloop
 	jmp viewloop_dumpvt
-?n1
 	
-	; if partial read ended on a page boundary add 1 space byte to mark EOF (EOF is recognized
-	; when reaching cmpl/cmph and cmpl is nonzero)
-	lda	cmpl+1
-	bne	viewloop
-	inc	cmpl+1
-	lda	#1
-	sta	cntrl
-	lda	cmph+1
-	sta	cntrh
-	lda	#32
-	ldx	#bank4
-	ldy	#0
-	jsr	stacntrl
 viewloop
-	ldy	#0
+	; check if we're at end of buffer
+	lda prfrom+1
+cmph	cmp #0	; self modified
+	bne	vwok
+	lda	prfrom
+cmpl	cmp #0	; self modified
+	bne	vwok
+	; was buffer full? if yes, load more data from file. if no, we're done.
+	lda	cmph+1
+	cmp #$80
+	beq	?ok2
+	jmp	quitvwk
+?ok2
+	jmp	getdat
+vwok
 	lda	#bank4
-	jsr	ldaprfrm
+	ldy	prfrom
+	ldx prfrom+1
+	jsr	lda_xy_banked
 	cmp	#155
 	bne	?ret
 	jsr	ret		; ATASCII EOL
@@ -2077,7 +2078,8 @@ viewloop
 	ldx	#8
 ?ctlp
 	lda	ctldat,x
-	tay				; inverse entire <ctrl-x> string if original char was inverse
+	beq ?ninv		; don't inverse terminating null
+	tay				; inverse rest of <ctrl-x> string if original char was inverse
 	pla
 	pha
 	rol	a
@@ -2093,10 +2095,7 @@ viewloop
 	ldx	#0
 ?splp
 	lda	vewdat,x
-	cmp	#33			; '!' character? we're done
-	beq	?x
-	cmp	#33+128		; inverse '!' - also done
-	beq	?x
+	beq	?x			; null character - we're done
 	sta	prchar
 	stx	topx
 	jsr	print
@@ -2110,7 +2109,7 @@ viewloop
 	inx
 	jmp	?splp
 
-?nct
+?nct				; not a control character - print it
 	pla
 	sta	prchar
 	jsr	print
@@ -2120,26 +2119,13 @@ viewloop
 	bne	?x
 	jsr	ret
 ?x
-	clc
-	lda	prfrom
-	adc	#1
-	sta	prfrom
-	lda	prfrom+1
-	adc	#0
-	sta	prfrom+1
-cmph	cmp #0	; self modified
-	bne	vwok
-	lda	prfrom
-cmpl	cmp #0	; self modified
-	bne	vwok
-	lda	cmpl+1
-	beq	?ok2
-	jmp	quitvwk
-?ok2
-	jmp	getdat
-vwok
+	inc	prfrom
+	bne ?prfrominc
+	inc prfrom+1
+?prfrominc
 	jmp	viewloop
-ret
+	
+ret					; move to next line, prompt if at end of page necessary
 	lda	#0
 	sta	x
 	inc	y
@@ -2237,14 +2223,10 @@ viewloop_dumpvt
 ?ok2
 	jmp	getdat
 ?ok
-	ldy #0
-?rdfroml lda #$ff	; self modified
-	sta prfrom
-?rdfromh lda #$ff	; self modified
-	sta prfrom+1
-	ldy	#0
+?rdfroml ldy #$ff	; self modified (lo address to read)
+?rdfromh ldx #$ff	; self modified (hi address to read)
 	lda	#bank4
-	jsr	ldaprfrm
+	jsr	lda_xy_banked
 	ldx #>dovt100?nocapture
 	ldy #<dovt100?nocapture
 	jsr jsrbank1
@@ -2504,12 +2486,10 @@ ascupl			; Ascii upload
 	lda	topy
 	bne	?emp
 	tay
-?read_l	lda #0	; self-modified
-	sta prfrom
-?read_h	lda #0	; self-modified
-	sta prfrom+1
+?read_l	ldy #0	; self-modified (lo)
+?read_h	ldx #0	; self-modified (hi)
 	lda	#bank4
-	jsr	ldaprfrm
+	jsr	lda_xy_banked
 	cmp	#155
 	bne	?nel	; EOL translation if requested
 	ldx	ueltrns
@@ -2731,8 +2711,6 @@ chkcapt			; Check if capture is off and empty
 	lda	#1
 	rts
 
-;
-
 ;        -- Ice-T --
 ;  A VT-100 terminal emulator
 ;      by Itay Chamiel
@@ -2743,237 +2721,7 @@ chkcapt			; Check if capture is off and empty
 
 ;		-- File transfers --
 
-;xmdupl			; Xmodem Upload - preliminary.
-;	lda	#41
-;	sta	xpknum
-;	sta	xkbnum
-;	ldx	#17
-;	jsr	xmdini
-;?sl
-;	jsr	getupl
-;	cmp	#'C        ; CRC check?
-;	beq	?uc
-;	cmp	#21	; NAK (checksum)?
-;	bne	?sl
-;	ldx	#>xmdcsm	; Use checksum.
-;	ldy	#<xmdcsm
-;	jsr	prmesgnov
-;	jmp	?go
-;?uc
-;	lda	#1	; Use CRC.
-;	sta	crcchek
-;?go
-;;	lda	#1	; Tell host we're here, so it won't
-;;	jsr	rputch	; switch to checksum while
-;;			; disk data loads in..
-;	ldx	#>msg8
-;	ldy	#<msg8	; loading
-;	jsr	fildomsg
-;	jsr	xmdkey
-;	jsr	close2
-;	ldx	#$30	; open file if not open yet
-;	lda	#3	; "open #3,4,0,filename"
-;	sta	iccom+$30
-;	lda	#<xferfile
-;	sta	icbal+$30
-;	lda	#>xferfile
-;	sta	icbah+$30
-;	lda	#4
-;	sta	icaux1+$30
-;	lda	#0
-;	sta	icaux2+$30
-;	jsr	ciov
-;	cpy	#129	; already open?..
-;	beq	?ok
-;	cpy	#128
-;	bcs	?err
-;?ok
-;	lda	#7	; block-get #3,buffer,$4000
-;	sta	iccom+$30
-;	lda	#<buffer
-;	sta	icbal+$30
-;	lda	#>buffer
-;	sta	icbah+$30
-;	lda	#$40
-;	sta	icblh+$30
-;	lda	#$0
-;	sta	icbll+$30
-;	ldx	#$30
-;	lda	#bank0
-;	jsr	bankciov
-;	lda	#0
-;	sta	outdat
-;	lda	#$80
-;	sta	outdat+1
-;	cpy	#136
-;	bne	?nef
-;	lda	#1
-;	sta	topx	; eof indicator
-;	lda	icbll+$30
-;	sta	outdat
-;	clc
-;	lda	#$40
-;	adc	icblh+$30
-;	sta	outdat+1
-;	jsr	close3
-;	jmp	?ner
-;?nef
-;	lda	#0
-;	sta	topx
-;	cpy	#128
-;	bcc	?ner
-;?err
-;	jsr	xmderr
-;	ldx	#7
-;?clp
-;	txa
-;	pha
-;	lda	#24	; can 8 times to abort at other end
-;	jsr	rputch
-;	pla
-;	tax
-;	dex
-;	bpl	?clp
-;	jsr	close3
-;	jsr	ropen
-;	jmp	endxmdn
-;?ner
-;	ldx	#>msg0	; sending
-;	ldy	#<msg0
-;	jsr	fildomsg
-;	jsr	ropen
-;	lda	#0
-;	sta	botx
-;	lda	#$40
-;	sta	botx+1
-;?ml
-;	lda	#1
-;	jsr	rputch
-;	lda	block
-;	jsr	rputch
-;	sec
-;	lda	#255
-;	sbc	block
-;	jsr	rputch
-;	ldy	#0
-;	sty	chksum
-;	sty	crcl
-;	sty	crch
-;?ulp
-;	lda	botx+1
-;	cmp	outdat+1
-;	bne	?o
-;	lda	botx
-;	cmp	outdat
-;	bne	?o
-;	tya
-;	pha
-;	lda	#26
-;	jsr	calccrc
-;	jsr	rputch
-;	pla
-;	tay
-;	jmp	?c
-;?o
-;	tya
-;	pha
-;	ldy	#0
-;	ldx	#bank0
-;	jsr	ldabotx
-;	jsr	calccrc
-;	jsr	rputch
-;	pla
-;	tay
-;?c
-;	inc	botx
-;	bne	?k
-;	inc	botx+1
-;?k
-;	iny
-;	cpy	#128
-;	bne	?ulp
-;	lda	crcchek
-;	beq	?cd
-;	lda	crch
-;	jsr	rputch
-;	lda	crcl
-;	jsr	rputch
-;	jmp	?co
-;?cd
-;	lda	chksum
-;	jsr	rputch
-;?co
-;	inc	block
-;	jsr	getupl
-;	cmp	#6	; ack
-;	bne	?en
-;
-;	ldx	#>xpknum	; Update stat
-;	ldy	#<xpknum
-;	jsr	incnumb
-;	lda	block
-;	and	#7
-;	bne	?nk
-;	ldx	#>xkbnum
-;	ldy	#<xkbnum
-;	jsr	incnumb
-;?nk
-;	lda	botx+1
-;	cmp	outdat+1
-;	bne	?gml
-;	lda	botx
-;	cmp	outdat
-;	bne	?gml
-;	lda	topx	; EOF?
-;	bne	?el
-;	jmp	?go
-;?gml	jmp	?ml
-;?el
-;	lda	#4	; End of transmission..
-;	jsr	rputch
-;	jsr	getupl
-;	cmp	#6
-;	bne	?el
-;?en
-;	jsr	ropen
-;	jmp	endxmdn
-;
-;getupl
-;	jsr	xmdkey
-;	lda	bcount
-;	beq	?ok1
-;?ok2
-;	dec	bcount
-;	jmp	rgetch
-;?ok1
-;	lda	#0
-;	sta	20
-;	sta	topx
-;?lp
-;	jsr	rgetstat	; check stat for in data
-;	lda	bcount
-;	bne	?ok2
-;	lda	bcount+1
-;	bne	?ok
-;	jsr	xmdkey
-;	lda	20
-;	cmp	vframes_per_sec
-;	bcc	?lp
-;	inc	topx
-;	lda	#0
-;	sta	20
-;	lda	topx
-;	cmp	#30	; half-minute timeout..
-;	bne	?lp
-;	pla
-;	pla
-;	jmp	endxmdn
-;?ok
-;	lda	#255
-;	sta	bcount
-;	jmp	rgetch
-
-xmdini			; Initialization for X/Y/Zmodem
+xmdini			; Common initialization for X/Y/Zmodem transfers
 	lda	#0
 	sta	mnmnucnt
 	ldy	#8
@@ -2996,8 +2744,8 @@ xmdini			; Initialization for X/Y/Zmodem
 	ldx	#>xmdtop2
 	ldy	#<xmdtop2
 	jsr	prmesgnov
-	lda	#10
-	jsr	purge			; wait for silence on input line
+;	lda	#10
+;	jsr	purge_serialport		; wait for silence on input line
 	ldx	#>xmdlwn
 	ldy	#<xmdlwn
 	jsr	drawwin
@@ -3046,8 +2794,363 @@ xmdini			; Initialization for X/Y/Zmodem
 	jsr	fildomsg
 	rts
 
-ymdgdn			; Ymodem-G Download
-	lda	ymodemg+1
+; Xmodem Upload
+
+xmdupl
+
+?pktbuf = numstk+$40
+?outstanding_byte = topx	; outstanding byte due to Return->CR/LF conversion overflowing a packet
+?xupl_readptr = botx	; buffer read pointer, also uses boty. 
+?xupl_buftop = fltmp	; buffer top
+?pktsize = topy
+?can_cnt = putbt
+		
+	lda	#0
+	sta	ymodem		; indicate ymodem off - so filename will be prompted
+	sta ymodemg		; prevent abort code from sending two NAKs
+	sta ymdbk1		; these 3 writes...
+	sta outdat
+	lda #$40
+	sta outdat+1	; ...prevent xdsavdat from doing anything if called (during abort)
+	lda	#'X
+	sta	xmdlwn+5	; change _modem to Xmodem
+	lda	#14
+	sta	xmdlwn+3	; change size of window to hide lower line
+	lda	#41
+	sta	xpknum		; change X position of numbers, as "sent" is shorter than "received"
+	sta	xkbnum
+	ldx	#17			; offset to "upload" and "sent" strings in 'xmdoper' table
+	jsr	xmdini		; show window, prompt for file name
+
+	; open file
+	
+	ldx	#>msg8
+	ldy	#<msg8		; "loading"
+	jsr	fildomsg
+	ldx	#$30
+	lda	#3			; "open #3,4,0,filename"
+	sta	iccom+$30
+	lda	#<xferfile
+	sta	icbal+$30
+	lda	#>xferfile
+	sta	icbah+$30
+	lda	#4
+	sta	icaux1+$30
+	lda	#0
+	sta	icaux2+$30
+	jsr	ciov
+	bmi ?err
+	ldx	#>msg9
+	ldy	#<msg9		; "loading"
+	jsr	fildomsg
+
+	; get 1st char from receiver, switch to cksum if needed
+	
+?char1lp
+	jsr getn2_upl
+	cmp	#'C			; Is other side requesting CRC check?
+	beq	?uc
+	cmp	#xmd_NAK	; NAK (other side requests checksum)?
+	bne	?char1lp
+	ldx	#>xmdcsm	; Use checksum.
+	ldy	#<xmdcsm
+	jsr	prmesgnov
+	jmp	?go
+?uc
+	lda	#1			; Use CRC.
+	sta	crcchek
+?go
+	jsr ?read
+	lda #0
+	sta ?outstanding_byte
+	lda #1
+	sta	block
+	jmp ?mnloop
+
+	; handle disk error
+
+?err
+	jsr	xmderr
+?abort
+	ldx	#7
+?clp
+	txa
+	pha
+	lda	#xmd_CAN		; can 8 times to abort at other end
+	jsr	rputch
+	pla
+	tax
+	dex
+	bpl	?clp
+?quit
+	jsr	close3
+	jsr	ropen
+	jmp	endxmdn
+
+	; main loop
+?mnloop
+	; if we have an outstanding byte from previous packet, we're not done (don't check for EOF)
+	lda ?outstanding_byte
+	bne ?not_eof
+	; check if we're at EOF
+	jsr ?chk_eof
+	beq ?not_eof
+	; ok, we're at EOF.
+	ldx	#>msg1
+	ldy	#<msg1		; "done"
+	jsr	fildomsg
+	; send EOT and wait for ACK. Abort after 10 fails.
+	lda #10
+	sta retry
+?eof_lp
+	dec retry
+	bmi ?abort
+	lda #xmd_EOT
+	jsr	rputch
+	jsr getn2_upl
+	cmp #xmd_ACK
+	bne ?eof_lp
+	; all done!
+	jsr	close3
+	jsr	ropen
+	jmp endxmdn2
+?not_eof
+
+	; construct an XMODEM output packet.
+
+	; prepare packet header
+	lda #xmd_SOH
+	sta ?pktbuf
+	lda block
+	sta ?pktbuf+1
+	lda block
+	eor #255
+	sta ?pktbuf+2
+	
+	ldx #0
+	stx	chksum
+	stx	crcl
+	stx	crch
+
+?fil_pkt_lp
+	txa
+	pha
+	; check for outstanding byte (it does not need EOL conversion)
+	lda ?outstanding_byte
+	beq ?no_outstanding
+	ldx #0
+	stx ?outstanding_byte
+	beq ?fil_pkt_gotbyte	; branch always
+?no_outstanding
+	jsr ?chk_eof		; are we at EOF?
+	beq ?not_eof2
+	lda #xmd_CPMEOF		; yes - pad with CPMEOF bytes until end of packet
+	jmp ?fil_pkt_gotbyte
+?not_eof2
+	; read the next byte from the buffer and increment buffer pointer.
+	ldy ?xupl_readptr
+	ldx ?xupl_readptr+1
+	lda	#bank0
+	jsr lda_xy_banked
+	inc ?xupl_readptr
+	bne ?no_hibyte
+	inc ?xupl_readptr+1
+?no_hibyte
+	
+	; EOL translation if requested
+	ldx	ueltrns
+	cpx	#3
+	beq	?fil_pkt_gotbyte
+
+	cmp	#155
+	bne	?neol	
+	ldx	ueltrns
+	cpx	#2
+	bne	?n2
+	lda	#10		; LF
+	bne ?fil_pkt_gotbyte	; always branch
+?n2
+	lda	#13		; CR
+	cpx	#1
+	beq	?fil_pkt_gotbyte
+	ldx	#10		; and another LF
+	stx ?outstanding_byte
+	bne ?fil_pkt_gotbyte	; always branch
+
+?neol
+	cmp	#127	; TAB conversion
+	bne	?fil_pkt_gotbyte
+	lda	#9
+
+?fil_pkt_gotbyte
+	jsr calccrc	; calculate checksum/CRC for this byte
+	tay
+	pla
+	tax
+	tya
+	sta ?pktbuf+3,x
+	inx
+	cpx #128
+	bne ?fil_pkt_lp
+	
+	; append checksum/CRC
+	lda #3+128+2
+	sta ?pktsize
+	lda	crcchek
+	beq	?cd
+	lda	crch
+	sta ?pktbuf+3+128
+	lda	crcl
+	sta ?pktbuf+3+128+1
+	jmp	?co
+?cd
+	dec ?pktsize
+	lda	chksum
+	sta ?pktbuf+3+128
+?co
+	lda #0
+	sta retry
+?pkt_send
+
+	; send packet
+	ldx #0
+?pkt_send_lp
+	txa
+	pha
+	lda ?pktbuf,x
+	jsr rputch
+	pla
+	tax
+	inx
+	cpx ?pktsize
+	bne ?pkt_send_lp
+	
+	; get response from receiver
+	lda #0
+	sta ?can_cnt
+?resp_lp
+	jsr	getn2_upl
+	cmp #xmd_NAK
+	bne ?nonak
+	; handle NAK
+	inc	retry
+	lda	retry
+	cmp	#10			; max retries
+	beq	?retry_fail
+	tay
+	jsr	number
+	lda	numb+2
+	sta	msg7+6
+	ldx	#>msg7		; retry
+	ldy	#<msg7
+	jsr	fildomsg
+	jmp	?pkt_send
+?retry_fail
+	ldx	#>msg10		; Data error, fail
+	ldy	#<msg10
+	jsr	fildomsg
+	jmp ?abort
+?nonak
+	cmp #xmd_CAN
+	bne ?nocan
+	inc ?can_cnt
+	lda ?can_cnt
+	cmp #2
+	bne ?resp_lp
+	jmp ?abort
+?nocan
+	cmp #xmd_ACK
+	bne ?resp_lp
+	inc retry
+	lda retry
+	beq ?no_retry_msg
+	ldx	#>msg0		; "sending"
+	ldy	#<msg0
+	jsr	fildomsg
+	lda #0
+	sta retry
+?no_retry_msg
+	inc block
+	ldx	#>xpknum	; Update stat
+	ldy	#<xpknum
+	jsr	incnumb
+	lda	block
+	and	#7
+	bne	?nk
+	ldx	#>xkbnum
+	ldy	#<xkbnum
+	jsr	incnumb	
+?nk
+	jmp ?mnloop
+	
+?read
+	ldx	#>msg8
+	ldy	#<msg8		; "loading"
+	jsr	fildomsg
+	ldx	#$30
+	lda	#7			; block-get #3,buffer,$4000
+	sta	iccom+$30
+	lda	#<buffer
+	sta	icbal+$30
+	sta ?xupl_readptr
+	lda	#>buffer
+	sta	icbah+$30
+	sta ?xupl_readptr+1
+	lda	#$40
+	sta	icblh+$30
+	lda	#$0
+	sta	icbll+$30
+	lda	#bank0
+	jsr	bankciov
+	bpl ?no_err
+	cpy #136
+	beq ?no_err
+	pla
+	pla
+	jmp ?err
+?no_err
+	; set buffer end pointer
+	clc
+	lda #<buffer
+	adc icbll+$30
+	sta ?xupl_buftop
+	lda #>buffer
+	adc icblh+$30
+	sta ?xupl_buftop+1
+	ldx	#>msg0
+	ldy	#<msg0		; "sending"
+	jsr	fildomsg
+	rts
+
+?chk_eof		; checks whether we're at EOF. Reads more if necessary. On return A=1 if EOF, 0 otherwise.
+	lda ?xupl_readptr
+	cmp ?xupl_buftop
+	bne ?chk_eof_not_eof
+	lda ?xupl_readptr+1
+	cmp ?xupl_buftop+1
+	bne ?chk_eof_not_eof
+	; we're at end of buffer. check if this is the end of the file
+	cmp #$80
+	bne ?chk_eof_ateof
+	jsr ?read		; buffer was full so read more data and re-check
+	jmp ?chk_eof
+?chk_eof_ateof
+	lda #1
+	rts
+?chk_eof_not_eof
+	lda #0
+	rts
+
+xuptimeout
+	ldx #>msg2
+	ldy #<msg2
+	jsr	fildomsg
+	jmp xmdupl?quit
+
+; Ymodem-G Download
+
+ymdgdn			
+	lda	ymodemg_warn
 	beq	?k2
 	ldx	#>ymgwin
 	ldy	#<ymgwin
@@ -3059,12 +3162,15 @@ ymdgdn			; Ymodem-G Download
 ?ok
 	jsr	getscrn
 	lda	#0
-	sta	ymodemg+1
+	sta	ymodemg_warn
 ?k2
 	lda	#1
 	sta	ymodemg
 	jmp	ymdgcont
-ymddnl			; Ymodem Download
+
+; Ymodem Download
+
+ymddnl
 	lda	#0
 	sta	ymodemg
 ymdgcont
@@ -3077,7 +3183,9 @@ ymdgcont
 	sta	xmdlwn+3
 	jmp	ymdcont
 
-xmddnl			; Xmodem/Xmodem-1K Download
+; Xmodem Download
+
+xmddnl			
 	lda	#0
 	sta	ymodem
 	sta	ymdbk1
@@ -3087,7 +3195,9 @@ xmddnl			; Xmodem/Xmodem-1K Download
 	lda	#14
 	sta	xmdlwn+3
 
-ymdcont			; Xmodem [-1K] / Ymodem [-G] batch
+; Common code for Xmodem [-1K] / Ymodem [-G] batch
+
+ymdcont
 	lda	#45
 	sta	xpknum
 	sta	xkbnum
@@ -3371,7 +3481,7 @@ xdnchkbad
 ; Bad block	received -	wait for 1 second of silence
 
 	lda	vframes_per_sec
-	jsr	purge
+	jsr	purge_serialport
 
 	lda	#xmd_NAK	; Send a nak
 	sta	putbt
@@ -3403,10 +3513,11 @@ xdnrtry
 	ldx	#>msg10		; Data error, fail
 	ldy	#<msg10
 	jsr	fildomsg
-	lda	#xmd_CAN	; CAN twice to abort at other end
-	jsr	rputch
-	lda	#xmd_CAN
-	jsr	rputch
+	jsr sendcans	; send 8 CANs to abort at other end
+;	lda	#xmd_CAN	; CAN twice to abort at other end
+;	jsr	rputch
+;	lda	#xmd_CAN
+;	jsr	rputch
 	lda	#0
 	sta	ymodem
 	jmp	endxdn
@@ -3450,14 +3561,21 @@ endxdn
 	jsr	getscrn
 	jmp	ymdgcont
 endxmdn
-	lda	vframes_per_sec
-	jsr	purge
+	lda	vframes_per_sec		; 1 second
+	jsr	purge_serialport
 endxmdn2
 	jsr	getscrn
 	jmp	goterm
 
-; gets byte from R:, waits up to 3 seconds.
+; X/Ymodem: gets byte from R:, waits up to 3 seconds.
 getn2
+	lda #3
+	sta ?sec+1
+	lda #<xdnchkbad
+	sta ?err+1
+	lda #>xdnchkbad
+	sta ?err+2
+?start
 	jsr	xmdkey
 	lda	bcount
 	beq	?ok1
@@ -3465,7 +3583,10 @@ getn2
 	dec	bcount
 	jmp	rgetch
 ?ok1
-	lda	#0
+	; a is 0
+	sta topx		; seconds counter
+?lp1
+	lda #0
 	sta	20
 ?lp
 	jsr	rgetstat	; check stat for in data
@@ -3475,15 +3596,29 @@ getn2
 	bne	?ok
 	jsr	xmdkey
 	lda	20
-	cmp	#180
+	cmp	vframes_per_sec
 	bcc	?lp
+	inc topx
+	lda	topx
+?sec	cmp	#3			; self-modified timeout in seconds
+	bne	?lp1
 	pla
 	pla
-	jmp	xdnchkbad
+?err	jmp	xdnchkbad	; self-modified jump address on error
 ?ok
 	lda	#255
 	sta	bcount
 	jmp	rgetch
+
+; similar to getn2, for upload (45 second timeout)
+getn2_upl
+	lda #45
+	sta getn2?sec+1
+	lda #<xuptimeout
+	sta getn2?err+1
+	lda #>xuptimeout
+	sta getn2?err+2
+	jmp getn2?start
 
 xdsavdat
 	lda	ymdbk1
@@ -3538,8 +3673,7 @@ xdsavdat
 	ldx	#$30
 	lda	#bank0
 	jsr	bankciov
-	cpy	#128
-	bcs	dnlerr
+	bmi	dnlerr
 	rts
 dnlerr
 	jsr	xmderr
@@ -3575,7 +3709,8 @@ xmderr
 	ldx	#>msg5
 	ldy	#<msg5
 
-; flag last byte of message with bit 7 set (use cbyte)
+; Output status message in file transfer window. X/Y points to message,
+; last byte of message is flagged by bit 7 set (use cbyte)
 fildomsg
 	stx	cntrh
 	sty	cntrl
@@ -3589,7 +3724,7 @@ fildomsg
 ?lp2
 	lda	(cntrl),y
 	tax
-	ora	#128
+	ora	#128	; set bit 7 to make message inverse
 	sta	xmdmsg+3,y
 	iny
 	txa
@@ -3598,6 +3733,7 @@ fildomsg
 	ldy	#<xmdmsg
 	jmp	prmesg
 
+; increment and display number string given at x/y
 incnumb
 	stx	cntrh
 	sty	cntrl
@@ -3605,7 +3741,7 @@ incnumb
 ?lp1
 	dey
 	lda	(cntrl),y
-	cmp	#32+128
+	cmp	#32+128		; find least significant (ones) digit
 	beq	?lp1
 ?lp2
 	clc
@@ -3679,6 +3815,14 @@ xmdkey
 	lda	#xmd_NAK
 	jsr	rputch
 ?g
+	; wait 1 sec (in xmodem upload, this puts a brief wait between packet and CANs)
+	lda	#0
+	sta	20
+?w
+	lda	20
+	cmp	vframes_per_sec
+	bne	?w
+	
 	jsr	sendcans	; Abort at other end..
 	jsr	close2dl
 	lda	xmdsave	; Save all verified data
@@ -3694,7 +3838,7 @@ xmdkey
 	ldy	#<xwtqut
 	jsr	fildomsg
 	lda	vframes_per_sec
-	jsr	purge
+	jsr	purge_serialport
 	jmp	endxmdn2
 ?key
 	rts
@@ -3716,7 +3860,7 @@ ydob1			; Handle Ymodem batch block
 	sta	outdat+1
 
 	ldy	#0
-	ldx	#bank0
+	lda	#bank0
 	jsr	ldabotx
 	cmp	#0
 	bne	?g
@@ -3736,14 +3880,14 @@ ydob1			; Handle Ymodem batch block
 zmgetnm			; Zmodem uses this too.
 	ldy	#0
 ?g
-	ldx	#bank0
+	lda	#bank0
 	jsr	ldabotx
 	iny
 	cmp	#32
 	bne	?g
 	dey
 ?dl
-	ldx	#bank0	; Get rid of sent pathname
+	lda	#bank0	; Get rid of sent pathname
 	jsr	ldabotx
 	cmp	#47		; slash
 	beq	?dk
@@ -3756,7 +3900,7 @@ zmgetnm			; Zmodem uses this too.
 	lda	#9
 	sta	y
 ?l
-	ldx	#bank0
+	lda	#bank0
 	jsr	ldabotx
 	tax
 	pha
@@ -3801,7 +3945,7 @@ zmgetnm			; Zmodem uses this too.
 ?o
 	ldy	#0
 ?f
-	ldx	#bank0
+	lda	#bank0
 	jsr	ldabotx
 	cmp	#0
 	beq	?z
@@ -3810,7 +3954,7 @@ zmgetnm			; Zmodem uses this too.
 ?gnn	jmp	?nn
 ?z
 	iny
-	ldx	#bank0
+	lda	#bank0
 	jsr	ldabotx
 	cmp	#0
 	beq	?gnn
@@ -3825,7 +3969,7 @@ zmgetnm			; Zmodem uses this too.
 	sta	ymdln+1
 	sta	ymdln+2
 ?n
-	ldx	#bank0	; Get file length
+	lda	#bank0	; Get file length
 	jsr	ldabotx
 	cmp	#32
 	beq	?gr
@@ -3926,7 +4070,8 @@ zmgetnm			; Zmodem uses this too.
 	sta	putbt	; Send C or G request for next packet
 	jmp	xdnmnlp
 
-calccrc			; Table-driven 16-bit CRC calculate
+; Calculate 16-bit CRC or checksum on byte in A, depending on 'crcchek'
+calccrc
 	ldx	crcchek
 	bne	?go
 	tax
@@ -3937,7 +4082,7 @@ calccrc			; Table-driven 16-bit CRC calculate
 	rts
 ?go
 
-; Table-driven
+; Table-driven CRC calculation
 
 calccrc2
 	pha
@@ -3999,18 +4144,17 @@ close2dl
 ?ok
 	rts
 	
-; waits for silence for at least (A) vcounts
-purge
+; waits for silence on serial port for at least (A) vcounts, discarding any data received
+purge_serialport
 	sta	?p+1
+?mlp
 	lda	#0
 	sta	20
 ?lp			; clear buffer
 	jsr	rgetstat
 	beq	?empty
 	jsr	rgetch
-	lda	#0
-	sta	20
-	jmp ?lp
+	jmp ?mlp
 ?empty
 	lda	20
 ?p	cmp	#99	; self-modified value!
@@ -4109,8 +4253,7 @@ zopenfl
 	lda	#<filepos
 	sta	icbal+$30
 	jsr	ciov
-	cpy	#128
-	bcs	?er
+	bmi	?er
 	ldx	#>?crv
 	ldy	#<?crv
 	jsr	fildomsg
@@ -4128,14 +4271,13 @@ zopenfl
 	lda	#0
 	sta	icaux2+$30
 	jsr	ciov
-	cpy	#128
-	bcs	?er
+	bmi	?er
 	lda	#0
 	sta	ymdbk1
 	jsr	ropen
 	rts
 
-?op	.cbyte	"Opening file"
+?op		.cbyte	"Opening file"
 ?crv	.cbyte	"Crash recovery..."
 
 zrcvname		; Convert file name to crash-info name
@@ -4216,11 +4358,14 @@ recvfile		; Create recover file
 	rts
 
 zmddnl			; Zmodem download
+	lda #0
+	sta z_came_from_vt_flag
+zmddnl_from_vt
 	jsr	zeropos
-	lda	#255
-	sta	ymodem
 	lda	#0
 	sta	ymdbk1
+	lda	#255
+	sta	ymodem
 	lda	#'Z
 	sta	xmdlwn+5
 	lda	#15
@@ -4238,15 +4383,33 @@ zmddnl			; Zmodem download
 ;	sta	bcount+1
 	lda	#1
 	sta	crcchek
-	
-.if 1
-	jmp zrinit				; assume we got a ZRQINIT, jump to ZRINIT.
-.else
-	jmp frameok?sendchal	; send a ZCHALLENGE, then proceed to main loop (zmd_mnloop)
-.endif
+	sta z_read_from_buffpl
+	; if we came from vt, we know we got the ZPAD-ZPAD-ZDLE-B00 sequence, so 
+	; continue getting packet header from that point.
+	; else just jump to zmodem main loop
+	lda z_came_from_vt_flag
+	beq zmd_mnloop
+	ldx #0
+	stx crcl
+	stx crch
+	stx type
+	inx
+	stx hexg
+	jmp zmd_mnloop?lp
 	
 zmd_mnloop
+	lda #0
+	sta retry
+?can_loop
 	jsr	getzm	; get a byte from serial port
+	cmp #xmd_CAN
+	bne ?no_can
+	inc retry
+	lda retry
+	cmp #5
+	bne ?can_loop				; if we get 5 consecutive CANs...
+	jmp zabrtfile_nosendcans	; abort, no need to send CANs of our own
+?no_can
 	cmp	#zmd_ZPAD
 	bne	zmd_mnloop	; waiting for a frame header at this point
 
@@ -4258,6 +4421,7 @@ zmd_mnloop
 	beq	?s
 	cmp	#zmd_ZDLE	; ZPAD must be followed by ZDLE
 	bne	zmd_mnloop
+?got_zdle
 	jsr	getzm
 	ldx	#0
 	stx	hexg		; flag that this is a binary header (unless we get a ZHEX next)
@@ -4450,7 +4614,7 @@ frameok			; Frame passes check
 	ldy	#0
 	sty	botx
 ?zs
-	ldx	#bank0
+	lda	#bank0
 	jsr	ldabotx
 	sta	attnst,y
 	iny
@@ -4702,27 +4866,26 @@ noack
 
 ?nofin
 	cmp	#zmd_type_ZABORT
-	beq	?en
+	beq	zabrtfile
 	cmp	#zmd_type_ZFERR
-	beq	?en
+	beq	zabrtfile
 	cmp	#zmd_type_ZCOMPL
-	beq	?en
+	beq	zabrtfile
 	ldx	#>?unk
 	ldy	#<?unk
 	jsr	fildomsg
 	jmp	zmd_mnloop
 ?unk	.cbyte	"Unknown command"
 
-?en
-
 zabrtfile
+	jsr	sendcans
+zabrtfile_nosendcans
 	lda	xmdsave
 	sta	outdat
 	lda	xmdsave+1
 	sta	outdat+1
-	jsr	sendcans
-	ldx	#>?en
-	ldy	#<?en
+	ldx	#>msg2
+	ldy	#<msg2		; "aborted"
 	jsr	fildomsg
 	jsr	close2
 	lda	trfile
@@ -4732,14 +4895,16 @@ zabrtfile
 	jsr	close3
 	jsr	recvfile
 	jsr	ropen
-	lda	#1
-	jsr	purge
 	ldx	#>xwtqut
 	ldy	#<xwtqut
 	jsr	fildomsg
-	jmp	ovrnout
-
-?en	.cbyte	"Session cancel!"
+	lda	#1
+	jsr	purge_serialport
+	ldx	#>msg11
+	ldy	#<msg11
+	jsr	fildomsg
+;	jmp	ovrnout
+;?en	.cbyte	"Session cancel!"
 
 ; Over-and-out routine. Waits a couple of seconds for "OO" from remote, and quits.
 ovrnout
@@ -5016,7 +5181,6 @@ sendattn		; Send remote's Attention signal
 
 ?atp	.cbyte	"Sending Attn string"
 
-
 sendrpos		; Send ZRPOS
 	ldx	#>?z
 	ldy	#<?z
@@ -5189,6 +5353,17 @@ sendpck
 
 ; Wait for a byte from serial port; poll for keyboard and time out if nothing is received.
 getzm
+	; at startup read with buffpl to clear any previous data (until empty). Afterwards use direct read from port.
+	lda z_read_from_buffpl
+	beq ?no_read_buffpl
+	jsr buffpl
+	cpx #0
+	bne ?buffpl_done
+	rts
+?buffpl_done
+	lda #0
+	sta z_read_from_buffpl
+?no_read_buffpl
 	jsr	zmdkey	; check for keyboard (user may press Esc to abort)
 	lda	bcount
 	beq	?ok1
@@ -5247,12 +5422,13 @@ zmdkey
 ?k
 	rts
 
+; Send cancel sequence: 8 bytes of CAN, 10 bytes of ^H
 sendcans
 	ldx	#8
 ?l1
 	txa
 	pha
-	lda	#xmd_CAN	; 8 CAN, 10 ^H
+	lda	#xmd_CAN
 	jsr	rputch
 	pla
 	tax
@@ -5262,7 +5438,7 @@ sendcans
 ?l2
 	txa
 	pha
-	lda	#8
+	lda	#8		; ^H
 	jsr	rputch
 	pla
 	tax

@@ -82,14 +82,10 @@ nodoinv		.ds 1
 numofwin	.ds 1
 topx		.ds 1
 topy		.ds 1
-prplen
 botx		.ds 1
 boty		.ds 1
 
 ersl		.ds 2
-scvar1		.ds 1
-scvar2		.ds 2
-scvar3		.ds 2
 
 scrlsv		.ds 2
 look		.ds 1
@@ -135,7 +131,7 @@ clock_cnt		.ds 1	; count increases each video frame
 time_correct_cnt .ds 2	; counter to correct slight time drift
 
 ; spare
-	.ds 3
+	.ds 8
 	
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
@@ -154,6 +150,7 @@ xmd_XON  =	$11
 xmd_XOFF =	$13
 xmd_NAK  =	$15
 xmd_CAN  =	$18
+xmd_CPMEOF =	$1A
 
 ; Zmodem constants
 
@@ -218,7 +215,7 @@ wind1	=	$7a00	; 1.5k
 
 ; Bank 2 - Menus and data
 
-wind2	=	$7800	; 1k
+wind2	=	$7810	; 1k - moved up a bit from $7800 to make room for vt3.asm code
 wind3	=	$7c00	; 1k
 
 ; Bank 3 - Backscroll buffer
@@ -240,7 +237,8 @@ ymdbk1		.ds 1	; 0 in xmodem or (ymodem and invalid file size),
 					; 2 when ymodem got batch packet with valid file size
 ymdpl		.ds 3	; offset in ymodem file, 3-byte integer
 ymdln		.ds 3	; length of file in ymodem
-ymodemg		.ds 2	; first byte indicates ymodem-g transfer. second byte indicates user warning should be shown.
+ymodemg		.ds 1	; indicates ymodem-g transfer.
+ymodemg_warn	.ds 1	; indicates user warning for Ymodem-G should be shown.
 zmauto		.ds 1	; indicates receiving ^X B00 sequence (in Terminal mode) to automatically start Zmodem.
 
 ; Zmodem equates
@@ -263,10 +261,12 @@ filepos	.ds	4
 filesav	.ds	4
 trfile	.ds	1	; flag whether we're currently receiving file data
 ztime	.ds	1
+z_came_from_vt_flag	.ds 1
+z_read_from_buffpl	.ds 1
 ;zchalflag	.ds 1	; have we challenged this sender yet?
 
 ; spare
-		.ds	26
+		.ds	24
 
 	.if	* <> $8180
 	.error "* <> $8180!!"
@@ -642,7 +642,7 @@ sts2
 
 sts21	.byte	"Press Shift-Esc for menu."
 	.byte	"Use dialer to get online."
-;	.byte	"    Please register!     "
+;	.byte	"    Please register!     "		; yeah well, like that's gonna happen
 ;	.byte	" Support 8-bit software! "
 
 capsonp
@@ -669,7 +669,7 @@ bufcntdt	.byte "        "
 captpr		.byte 71,0,8
 captdt		.byte "        "
 captfull
-	.byte	64,0,8
+	.byte	71,0,8
 	.byte	"--Full--"
 	
 ; Title screen messages are in end of vtdt.asm (bank 2) except for version string
@@ -685,7 +685,7 @@ svscrlms
 version_str
 	.byte 	"2.8.0(alpha4)"
 version_str_end
-	.byte	" Oct 23 2013. Contact: itaych@gmail.com"
+	.byte	" Nov 24 2013. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms
@@ -700,11 +700,5 @@ lftb	.byte	0, 155, 155
 xmdtop2
 	.byte	72,0,7
 	.byte	"| Ice-T"
-
-prpdat			; Prompt routine's data
-	.byte	155, 155, 155
-	.byte	"This file is sponsor"
-	.byte	"ed by the letter F."
-	.byte	155
 
 ;  End of data (For menu data see VTDT, VT23)

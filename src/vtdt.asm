@@ -54,9 +54,9 @@ icesoft		     ; IceSoft logo for title screen
 
 ; End of title screen data
 	
-escdat	.byte	"<Esc>!"			; used by text file viewer to display non-printable characters
-ctldat	.byte	"<Ctrl-F>!"
-vewdat	.byte	155, "Blabber!"
+escdat	.byte	"<Esc>",0			; used by text file viewer to display non-printable characters
+ctldat	.byte	"<Ctrl-F>",0
+vewdat	= numstk+$80
 
 mnmnuxdt
 	.byte	5,1,10
@@ -291,7 +291,7 @@ settmrw
 	.byte	"Ok"
 
 xfrwin
-	.byte	50,1,69,9
+	.byte	50,1,69,10
 	.byte	+$80," Toggle capture "
 	.byte	" Save capture.. "
 	.byte	" ASCII upload.. "
@@ -299,9 +299,10 @@ xfrwin
 	.byte	" Ymodem receive "
 	.byte	" Ymodem-G recv. "
 	.byte	" Zmodem receive "
+	.byte	" Xmodem send    "
 xfrdat
-	.byte	1,7,16
-	.byte	52,2,52,3,52,4,52,5,52,6,52,7,52,8
+	.byte	1,8,16
+	.byte	52,2,52,3,52,4,52,5,52,6,52,7,52,8,52,9
 xfrtbl
 	.word	tglcapt-1
 	.word	svcapt-1
@@ -310,6 +311,7 @@ xfrtbl
 	.word	ymddnl-1
 	.word	ymdgdn-1
 	.word	zmddnl-1
+	.word	xmdupl-1
 
 filwin
 	.byte	40,1,59,13
@@ -345,7 +347,6 @@ endoffl
 	.byte	1,24,25
 	.byte	+$80," End of file - press Esc "
 
-
 namnmwin
 	.byte	30,10,51,13
 	.byte	"First character   "
@@ -380,7 +381,7 @@ answin
         .byte " Filter ANSI codes  "
 ansdat
         .byte 1,2,20
-        .byte 56, 6, 56, 7
+        .byte 56,6,56,7
 uelwin
         .byte 56,4,73,9
         .byte " EOL -> CR/LF "
@@ -565,6 +566,7 @@ msg7	.cbyte	"Retry x"
 msg8	.cbyte	"Loading data"
 msg9	.cbyte	"Waiting..."
 msg10	.cbyte	"Data error, fail!"
+msg11	.cbyte	"Exiting..."
 xwtqut	.cbyte	"Waiting for quiet.."
 
 xferfile

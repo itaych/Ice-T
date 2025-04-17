@@ -229,7 +229,7 @@ dodl
 
 	lda	#1
 	sta	ty
-	sta	ymodemg+1
+	sta	ymodemg_warn
 
 	lda	#0
 	sta	zmauto
@@ -592,9 +592,7 @@ gozmdm
 	lda	#bank2
 	sta	banksw
 	sta	banksv
-;	lda	#255	;
-;	sta	ymodemg	; TODO is this needed??
-	jmp	zmddnl
+	jmp	zmddnl_from_vt
 
 goterm
 	lda	savflow
@@ -2932,27 +2930,22 @@ staoutdt
 	stx	banksw
 	rts
 
-stacntrl
-	stx	banksw
-	sta	(cntrl),y
-	ldx	banksv
-	stx	banksw
-	rts
-
 ldabotx
-	stx	banksw
+	sta	banksw
 	lda	(botx),y
 	ldx	banksv
 	stx	banksw
 	rts
 
-ldaprfrm
-	sta	banksw
-	lda	(prfrom),y
+lda_xy_banked
+	sta banksw
+	sty ?read_adr+1
+	stx ?read_adr+2
+?read_adr	lda	$ffff
 	ldx	banksv
 	stx	banksw
 	rts
-
+	
 jsrbank1
 	sty ?addr+1
 	stx ?addr+2
@@ -2974,19 +2967,13 @@ bankciov
 	jsr	ciov
 	lda	banksv
 	sta	banksw
+	tya				; sets negative flag if there was an error
 	rts
 
 goscrldown
-	lda	banksv
-	pha
-	lda	#bank1
-	sta	banksw
-	sta	banksv
-	jsr	scrldown
-	pla
-	sta	banksv
-	sta	banksw
-	rts
+	ldx #>scrldown
+	ldy #<scrldown
+	jmp jsrbank1
 
 doprompt
 	lda	banksv
@@ -3602,6 +3589,9 @@ mktxlnadrs
 
 	jmp	norst
 
+?vl		.ds 2
+?acl	.ds 2
+
 ; offsets to R:, D:, H: in HATABS.
 ?device_r_pos .byte 255
 ?device_d_pos .byte 255
@@ -3610,6 +3600,3 @@ mktxlnadrs
 ; offsets to each PM for bold (5 hi, 5 lo)
 ?tb_hi	.byte	$00,$00,$01,$01,$02
 ?tb_lo	.byte	$00,$80,$00,$80,$00
-
-?vl	.ds	2
-?acl	.ds	2
