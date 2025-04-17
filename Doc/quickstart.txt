@@ -30,7 +30,7 @@ atdI irc.atarichat.net 800     (an IRC chat gateway)
 atdI www.atarinews.org 23      (the Atarinews.Org BBS. user: bbs, pw: bbs)
 
 Option and Select (F4/F3) can be used to scroll back through your history.
-Press Ctrl-1 to pause when text is scrolling too fast.
+Press Ctrl-1 to pause if text is scrolling too fast.
 You can close a connection with Ctrl-Shift-H (Hangup).
 Access the main menu with Shift-Esc.
 

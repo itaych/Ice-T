@@ -3,13 +3,13 @@
 
  by Itay Chamiel - (c)1993-2013
 
- Version 2.75 - October 1, 2013
+ Version 2.76 - October 10, 2013
 
  Email: itaych@gmail.com
 
 Features:
 
-* Complete VT-102 and ANSI-BBS emulation, including boldface/blink support.
+* Complete VT-100 and ANSI-BBS emulation, including boldface/blink support.
 * Takes advantage of XE/upgraded-XL banked RAM to provide many features.
 * Incredible speed - supports up to 19,200 baud, with no data loss!
 * Readable 80-columns, usable even with color TV.
@@ -29,6 +29,20 @@ version). That version has a number of bugs, and I abandoned it when I moved
 on to a new version for the more capable 128K machines.
 
 Version history:
+
+2.76 - October 10, 2013
+----
+SpartaDOS: TDLINE is now disabled automatically in nearly all versions (2.x,
+3.x, SDX 4.4 and above).
+Fixed some cases where CPU intensive events such as clearing the screen could
+cause data loss.
+VT100: Many improvements to emulation with the goal of conforming to the VT100
+specification as closely as possible; now passes all tests in the 'vttest'
+suite relevant to VT100 emulators.
+- Added Origin mode, LEDs, DECREQTPARM (request terminal parameters) command.
+- Answerback string changed to "Ice-T".
+- Shift-Break now sends longer break signal, as per the VT100 spec.
+- Various misbehaviors, bugs and glitches fixed.
 
 2.75 - October 1, 2013
 ----
@@ -217,18 +231,15 @@ software to install them. The 850, P:R: connection, and anything else that
 hooks up through the SIO or joystick ports, definitely needs such a file.
 
 Included with this disk are a number of such handlers. ATARI850.HND is for the
-850 interface. PRCONN2.HND is an alternative handler for the P:R: Connection
-(known as PRC.SYS from the PRC's original disk). The rest of the .HND files
-were taken from the Bobterm archive, and are included for your convenience - I
-credit Bob Puff for collecting these.
+850 interface. The rest of the .HND files were taken from the Bobterm archive,
+and are included for your convenience - I credit Bob Puff for collecting these.
 
 For MyDOS users, Ice-T is capable of loading the R: handler automatically if
 it is needed. Rename the appropriate file to RS232.COM and make sure it is
 located in the 'current' path (D:) when Ice-T is loading.
 
 SpartaDOS users are advised to create a batch file that will load the R:
-handler, then load Ice-T. SDX users must disable TDLINE and use 'X' to load
-the program.
+handler, then load Ice-T. SDX users must use 'X' to load the program.
 
 For other DOSes (such as Atari DOS) there is no easy solution other than to
 load the R: handler manually each time, rename it to AUTORUN.SYS or prepend it
@@ -239,7 +250,10 @@ handler. In APE's (R:) Internet Modem settings, make sure to select "Identify
 as VT100" or "Refuse Negotiation" for best results. If you do not do this (or
 are using an older version of APE that doesn't have this option) the Telnet
 client will identify as a VT-52 causing incorrect control codes to be sent and
-garbage to be displayed on the screen with most destinations.
+garbage to be displayed on the screen with most destinations. Also, APE may
+discard LF (line feed) characters coming from the remote host, preventing the
+cursor from advancing a line when it should. To fix this behavior, type ATB1
+in APE's Server (AT modem simulator) mode, then connect with ATD.
 
 If you happen to be upgrading from an old (pre-2.7) version, make sure there
 is no ICET.DAT file on your disk or in the "D:" directory.
@@ -286,7 +300,7 @@ plain text applications such as Norton Commander, with the main menu bar on
 top of the screen and windows that drop down from the current selection
 casting shadows on the background.
 You may move the highlighted bar with the arrow keys (with or without holding
-down Control). You make a selection with the Spacebar or with <Return>, and
+down Control). You make a selection with the space bar or with <Return>, and
 back off into the previous menu without changing anything by pressing <Esc>.
 Shift-Esc will, in most menus, bring you back to the terminal.
 In the main-menu bar, the down arrow will work like the Return key, and open
@@ -339,11 +353,11 @@ quiet 'tick' sound, or no click at all.
 
 Special: Select one of the special display modes. "None" is for none at all.
 
-* Boldface - enables boldface characters. This uses a player/missile "underlay"
-to highlight characters. The four players and the four missiles (grouped into
-a fifth player) are quadrupled in horizontal size and spread across the
-screen. Since each player is 8 pixels wide, we have a total of 40 pixels,
-which means that a normal character adjacent to a bold character may be
+* Bold text - enables displaying bold (bright) text. This uses a player/missile
+"underlay" to highlight characters. The four players and the four missiles
+(grouped into a fifth player) are quadrupled in horizontal size and spread
+across the screen. Since each player is 8 pixels wide, we have a total of 40
+pixels, which means that a normal character adjacent to a bold character may be
 incorrectly displayed as bold. However in most cases boldfaced words are
 separated from normal words by at least one space, so this should usually
 have no visible effect.
@@ -351,7 +365,7 @@ Since player/missile graphics require additional DMA time for ANTIC, this will
 cause a minor performance hit, however effort has been made to disable this
 DMA when no bold characters are actually visible on the screen.
 
-* Blink - enables support for blinking characters.
+* Blinking text - enables support for blinking characters.
 This is internally identical to bold, except that the PMs are
 black (obscuring the blinking characters), and alternate on/off every
 half second.
@@ -359,11 +373,11 @@ half second.
 A real VT-100 terminal is able to display both bold and blinking characters,
 but due to the Atari's limitations only one or the other is possible at a time.
 
-* Fine Scroll - enables fine scrolling in the terminal and file viewer.
-This scroll is done in VBI, which means that new data continues to be displayed
-while the scroll is taking place. This is useful when reading a lot of
-scrolling text on a slow connection, but can slow you down excessively in
-other cases. I recommend trying it.
+* Fine Scrolling - enables smooth scrolling of the text in the terminal and
+file viewer. This scroll is done in VBI (a background process), which means
+that new data continues to be displayed while the scroll is taking place. This
+is useful when reading a lot of scrolling text on a slow connection, but can
+slow you down excessively in other cases. I recommend trying it.
 
 Background: You can select the background hue and whether the text is light on
 a dark background or vice versa. Monochrome monitor users should only use
@@ -426,9 +440,9 @@ by selecting that option).
 Changing this setting WILL alter the current state, though (leaving this
 menu by hitting Esc will not).
 
-Emulation: Choose VT-102 or ANSI-BBS. I only know of one difference
+Emulation: Choose VT-100 or ANSI-BBS. I only know of one difference
 between these two (ANSI homes the cursor when clearing the
-screen, VT-102 does not).
+screen, VT-100 does not).
 
 Delete key: Some hosts will only recognize $7F as delete, and others will
 need ^H. Choose the one suitable for yours, or the one used most often.
@@ -443,7 +457,7 @@ ATASCII  - 155 ($9B), the Atari "return", is recognized as an EOL. Also,
 
 Status calls: This setting is fairly crucial for proper operation of this
 software. Basically, if you're using anything faster than 4800, use
-"constantly". 850 users should use "normal". This setting determines
+"Constant". 850 users should use "Normal". This setting determines
 how often the R: input buffer is emptied into Ice-T's large 16K buffer
 (indicated by the Bf: indicator), when Ice-T is already busy emptying
 this large buffer to the screen. The issue is that most interfaces (not the
@@ -457,9 +471,9 @@ The 850, and any interface fully compatible with it, will use a 2K input
 buffer. Many other devices ignore CIO requests for larger buffers, and use
 128 bytes. The amount of characters processed in between emptying the R:
 buffer is:
-Normal     - 1024 bytes
-Very Often - 16 bytes
-Constantly - 1 byte.
+Normal   - 1024 bytes
+Medium   - 16 bytes
+Constant - 1 byte.
 If the 16K buffer is empty, status calls are done constantly in all cases.
 
 Flow control: Choose between XON/XOFF, Rush, neither or both.
@@ -770,7 +784,7 @@ Here is a list of legal keys:
 Local-function keys:
 Shift-Esc      Exit to menu
 ^1             Pause (indicated in status line)
-Break or ^Esc  Send break
+Break or ^Esc  Send 0.23 second break signal (or 3.5 seconds with Shift key)
 Caps           Toggle Caps lock (indicated in status line)
 Shift-Caps     Set caps lock to on
 ^Shift-P       Print screen

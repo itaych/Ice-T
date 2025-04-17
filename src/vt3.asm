@@ -1757,7 +1757,7 @@ svcapt			; Save capture to disk
 	bne	?nf
 
 	ldx	#60
-	ldy	#4
+	ldy	#6
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
@@ -2259,7 +2259,7 @@ ascupl			; Ascii upload
 	cmp	#102	; f
 	bne	?nf
 	ldx	#64
-	ldy	#5
+	ldy	#7
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
@@ -4812,7 +4812,12 @@ sendattn		; Send remote's Attention signal
 	iny
 	cmp	#221	; Send BREAK
 	bne	?nb
+	tya
+	pha
+	ldy #1
 	jsr	dobreak
+	pla
+	tay
 	jmp	?lp
 ?nb
 	cmp	#222	; Pause 1 second

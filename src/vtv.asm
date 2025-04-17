@@ -16,7 +16,6 @@
 sv712		.ds 1
 cntrl		.ds 1
 cntrh		.ds 1
-; pos			.ds 1
 x			.ds 1
 y			.ds 1
 prchar		.ds 2
@@ -49,7 +48,6 @@ invsbl		.ds 1
 boldface	.ds 1	; graphic rendition on
 gntodo		.ds 1
 qmark		.ds 1
-cprv1		.ds 1
 modedo		.ds 1
 ckeysmod	.ds 1
 finnum		.ds 1
@@ -58,6 +56,7 @@ digitgot	.ds 1
 gogetdg		.ds 1
 scrltop		.ds 1	; top of scrolling area, 1-24
 scrlbot		.ds 1	; bottom of scrolling area, 1-24
+origin_mode	.ds 1	; Origin mode
 tx			.ds 1
 ty			.ds 1
 flashcnt	.ds 1
@@ -130,13 +129,15 @@ crch		.ds 1
 
 nowvbi		.ds 1
 
+virtual_led	.ds 1
+
 rt8_detected	.ds 1
 vframes_per_sec	.ds 1	; 50/60 depending on video system
 clock_cnt	.ds 1	; count increases each video frame
 time_correct_cnt .ds 2 ; counter to correct slight time drift
 
 ; spares
-	.ds 1
+	.ds 0
 	
 end_page_zero
 	.if	end_page_zero > $100
@@ -265,15 +266,21 @@ diltmp2	.ds	1
 	.bank
 	*=	$aff0
 chartemp	.ds 8
-cprd		.ds 8
-dlst2		.ds $103
-lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
 block		.ds 1
 putbt		.ds 1
 retry		.ds 1
 chksum		.ds 1
 rsttbl		.ds 3
-; **		.ds 12
+			.ds 1 ; spare
+dlst2		.ds $103
+
+.if	dlst2&$FF > 0
+.error "dlst2 unaligned!"
+.endif
+
+lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
+; some free bytes here
+			.ds 27
 
 dlist	=	$bef0
 
@@ -407,6 +414,9 @@ digraph
 	.byte	204,170,170,0,68,68,119,0  ; nl
 	.byte	170,170,68,0,119,34,34,0   ; vt
 
+leds_off_char	.byte $00,$44,$44,$00,$00,$44,$44,$00
+leds_on_char	.byte $ee,$ee,$ee,$00,$ee,$ee,$ee,$00
+
 sizes	.byte	2,3,0,1,0
 szlen	.byte	80,40,40,40
 
@@ -423,8 +433,7 @@ sccolors
 	.byte	14,4,0,12	; Dark text on light background
 
 deciddata
-	.byte	27
-	.byte	"[?1;0c"
+	.byte	27,  "[?1;0c"
 
 kretrn	=	128
 kup		=	129
@@ -442,7 +451,7 @@ kctrl1	=	140
 
 deltab	.byte	127,8
 
-scrnname	.byte "P:"
+p_device_name	.byte "P:"
 
 prntwin
 	.byte	30,7,49,10
@@ -520,12 +529,6 @@ rushpr
 ststmr
 	.byte	8,0,8
 	.byte	"00:00:00"
-capsonp
-	.byte	47,0,2
-	.byte	"Cp"
-capsoffp
-	.byte	47,0,2
-	.byte	"  "
 sts2
 	.byte	17,0,29
 	.byte	"| Official waste of space.. |"
@@ -535,11 +538,17 @@ sts21	.byte	"Press Shift-Esc for menu."
 ;	.byte	"    Please register!     "
 ;	.byte	" Support 8-bit software! "
 
+capsonp
+	.byte	46,0,1
+	.byte	"C"
+capsoffp
+	.byte	46,0,1
+	.byte	" "
 numlonp
-	.byte	50,0,1
+	.byte	48,0,1
 	.byte	"N"
 numloffp
-	.byte	50,0,1
+	.byte	48,0,1
 	.byte	" "
 sts3
 	.byte	52,0,28
@@ -561,9 +570,9 @@ tilmesg2
 	.byte	(80-75)/2,8,75
 	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2013 Itay Chamiel."
 tilmesg3
-	.byte	(80-56)/2,10,56
+	.byte	(80-57)/2,10,57
 svscrlms
-	.byte	"Version 2.75, October 1, 2013. Contact: itaych@gmail.com"
+	.byte	"Version 2.76, October 10, 2013. Contact: itaych@gmail.com"
 .if 1
 tilmesg4
 	.byte	(80-75)/2,13,71

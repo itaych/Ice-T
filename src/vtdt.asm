@@ -41,7 +41,7 @@ setmnu
 	.byte	" Delete sends "
 	.byte	" End of line  "
 	.byte	" Status calls "
-	.byte	" Soft. flow   "
+	.byte	" Flow control "
 	.byte	" Save config  "
 setmnudta
 	.byte	1,10,14
@@ -104,7 +104,7 @@ setlocd
 
 setansw
 	.byte	44,5,57,8
-	.byte	"  VT-102  "
+	.byte	" VT-100   "
 	.byte	" ANSI-BBS "
 setansd
 	.byte	1,2,10
@@ -120,20 +120,20 @@ seteold
 	.byte	48,8,48,9,48,10
 
 setfstw
-	.byte	46,8,61,12
-	.byte	"   Normal   "
-	.byte	" Very often "
-	.byte	" Constantly "
+	.byte	46,8,59,12
+	.byte	" Normal   "
+	.byte	" Medium   "
+	.byte	" Constant "
 setfstd
-	.byte	1,3,12
+	.byte	1,3,10
 	.byte	48,9,48,10,48,11
 
 setflww
 	.byte	46,9,59,14
-	.byte	"   None   "
+	.byte	" None     "
 	.byte	" Xon/Xoff "
-	.byte	"  ",34,"Rush",34,"  "
-	.byte	"   Both   "
+	.byte	" ",34,"Rush",34,"   "
+	.byte	" Both     "
 setflwd
 	.byte	1,4,10
 	.byte	48,10,48,11,48,12,48,13
@@ -155,22 +155,22 @@ setwrpd
 	.byte	46,5,46,6
 
 setclkw
-	.byte	34,2,49,6
-	.byte	"    None    "
-	.byte	"   Simple   "
-	.byte	"  Standard  "
+	.byte	34,2,47,6
+	.byte	" None     "
+	.byte	" Simple   "
+	.byte	" Standard "
 setclkd
-	.byte	1,3,12
+	.byte	1,3,10
 	.byte	36,3,36,4,36,5
 
 setscrw
-	.byte	36,3,53,8
-	.byte	"    None      "
-	.byte	"  Boldface    "
-	.byte	"   Blink      "
-	.byte	" Fine scroll  "
+	.byte	36,3,55,8
+	.byte	" None           "
+	.byte	" Bold text      "
+	.byte	" Blinking text  "
+	.byte	" Fine scrolling "
 setscrd
-	.byte	1,4,14
+	.byte	1,4,16
 	.byte	38,4,38,5,38,6,38,7
 
 setcolw
@@ -317,8 +317,8 @@ pthpr
 eolwin
 	.byte	56,3,67,8
 	.byte	" None   "
-	.byte	"  CR    "
-	.byte	"  LF    "
+	.byte	" CR     "
+	.byte	" LF     "
 	.byte	" Either "
 eoldat
 	.byte	1,4,8
@@ -401,7 +401,7 @@ tgldat
 	.byte	"OffOn "
 
 svcwin
-	.byte	58,2,77,9
+	.byte	58,4,77,11
 	.byte	"Save capture:   "
 svcfil	.byte	"123456789012    "
 	.byte	"Return - Save   "
@@ -410,7 +410,7 @@ svcfil	.byte	"123456789012    "
 	.byte	"Esc - Abort     "
 
 ascwin
-	.byte	62,3,77,11
+	.byte	62,5,77,13
 	.byte	"Send file:  "
 asufil	.byte	"            "
 	.byte	"F - Change  "

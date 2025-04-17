@@ -5,13 +5,17 @@ ice-t
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
 
+add to inittab or equivalent:
+dt:12345:respawn:/sbin/agetty -L ttyS0 9600 vt100
+
+or just: sudo /sbin/agetty -L ttyS0 9600 vt100
+
+;tilmesg6
+;	.byte	(80-75)/2,24,75
+;	.byte	"''Terminal je t'aime, I love you terminal, bella mia!'' --Meir Ariel (1942-1999)"
+
 col80:
 ------
-update credits (done)
-crash on exit to dos (done)
-default should be white text on black background (done)
-arrows w/ or w/o ctrl (done)
-fix fixme's (general cleanup) (done)
 hang when moving up in 'gandhi' txt file
 garbage when moving up in icet doc
 try to name unnamed labels/variables
@@ -24,3 +28,40 @@ lda v1
 cmp v2
 bcc ---> v1<v2
 bcs ---> v1>=v2
+
+
+
+------------
+Telnet Negotiation on Altirra:
+
+Ubuntu:  ff fd 18  ff fd 20  ff fd 23  ff fd 27
+	Start use: term tpye, term speed, X location, env.option
+Altirra: ff fc 18  ff fc 20  ff fc 23  ff fc 27             
+	Won't use any of the above
+Ubuntu:  ff fb 03  ff fd 01  ff fd 1f  ff fb 05  ff fd 21
+	Will use Supress GA, Start use Echo, 1f. Will use 05, Start use 21.
+Altirra: ff fd 03  ff fc 01  ff fc 1f  ff fe 05  ff fc 21
+	Start use Supress GA, Won't use Echo, 1f. Stop use 05. Won't use 21.
+Ubuntu:  ff fb 01                                         
+	Will use Echo.
+Altirra: ff fd 01            
+	Start use Echo.
+
+Telnet Negotiation on APE:
+
+Ubuntu:  ff fd 18  ff fd 20  ff fd 23  ff fd 27            
+	Start use: term type, term speed, X location, env.option
+APE:     ff fb 18  ff fc 20  ff fc 23  ff fc 27                                                
+	Will use term type. Won't use any of the others.
+Ubuntu:  ff fa 18 01 ff f0
+	Subnegotiate Term type, 1, end subnegotiation
+APE:     ff fa 18 00 56 54 31 30 30 ff f0           
+	Subnegotiate Term type, 0, "VT100", end subnegotiation
+Ubuntu:  ff fb 03  ff fd 01  ff fd 1f  ff fb 05  ff fd 21
+	Will use Supress GA, Start use Echo, 1f. Will use 05, Start use 21.
+APE:     ff fd 03  ff fc 1f  ff fe 05  ff fc 21
+	Start use Supress GA, Won't use 1f, Stop use 05, Won't use 21
+Ubuntu:  ff fb 01                                         
+	Will use Echo.
+APE:     ff fd 01                                         
+	Start use Echo.

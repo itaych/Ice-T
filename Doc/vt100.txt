@@ -1,6 +1,6 @@
 -----------------------------------------------------------
                    VT100 Commands
-     as implemented in Ice-T Terminal Emulator v2.7x
+     as implemented in Ice-T Terminal Emulator v2.76+
                    by Itay Chamiel
 
 Based on list from Omnicom's documentation, by David Young.
@@ -37,7 +37,7 @@ Line and column numbers start at 1.
 
 Control characters
 ------------------
-^E  Send "Answerback" response, 4 characters (*): Ctrl-P + Ctrl-P 0
+^E  Send "Answerback" response, in this case the text "Ice-T".
 ^G  Bell, flash border color.
 ^H  Cursor left one character. No effect if cursor on col 1
 ^I  Tab. Cursor moves to next tabstop, or to column 80 if no further tabs.
@@ -49,16 +49,12 @@ Control characters
 ^M  Carriage-Return, move cursor to col 1
 ^N  Invoke G1 character set (see "Esc )" commands)
 ^O  Invoke G0 character set (see "Esc (" commands)
-^X or ^Y  Abort any Esc sequence currently in progress. If a sequence was in progress
-    and ^X or ^Y were sent, the checkerboard character is displayed to inform
-    of an error. If not - the code is ignored.
+^X or ^Y  Abort any Esc sequence currently in progress. If a sequence was in
+    progress and ^X or ^Y were sent, the checkerboard character is displayed
+    to inform of an error. If not - the code is ignored.
 ^X B00 - Begin a Zmodem session. This is the beginning of the ZRQINIT frame.
 ^[  Escape. Begins a new Escape-sequence, cancelling any other which may have
     been in progress. (^[ is 27 or Esc.)
-
-(*) This answerback string is the one Telix (PC comm. program) returns.
-    I believe it is used for Compuserve transfers, and that it ought to be
-    configurable by the user.
 
 Esc x Codes
 -----------
@@ -79,14 +75,14 @@ These commands are also recognized if they do not receive any parameter
 (Esc [ x), or if they receive less than the required amount of parameters.
 In these cases, the default(s) replace the required number.
 
-Esc [ __ A  (none/0 --> 1) Cursor up __ lines, does not scroll, stops at edge
-          of screen
+Esc [ __ A  (none/0 --> 1) Cursor up __ lines, does not scroll, stops if at
+          edge of screen (or scroll margin in Origin mode).
 Esc [ __ B  Down, same as above
 Esc [ __ C  Forward, same as above, cursor stays on same line
 Esc [ __ D  Backward, same as above
 Esc [ __ ; __ H  (none/0 --> 1,1) Set cursor to row, col. If any parameter is
-          not within range (80 for x or 24 for y) they are truncated to 80
-          or 24. 0 is converted to 1.
+          not within range (1-80 for x or 1-24 for y, or scroll region in
+          Origin mode) they are truncated appropriately. 0 is converted to 1.
 Esc [ __ J  (none --> 0) Erase part of the screen:
           0 - cursor position to end of line (inclusive) and all lines below
           1 - cursor position to start of line (inclusive) and all lines above
@@ -108,30 +104,43 @@ Esc [ __ h  (20 only accepted) 20 - Set newline mode
           Pressing Return on keyboard sends cr + lf
           Not 20 - ignore command.
 Esc [ __ l (20 only accepted) opposite of above, Reset newline mode
-          lf = lf alone
-          return sends lf alone
+          Receiving an lf will be treated as lf alone
+          Pressing Return on keyboard sends cr alone
           Not 20 - ignore command.
-Esc [ ? __ h  Set mode, see below
-Esc [ ? __ l  Reset mode, see below
+Esc [ ? __ ; ... ; __ h  Set mode(s), see below
+Esc [ ? __ ; ... ; __ l  Reset mode(s), see below
 Parameter          Set           Reset
  1 - cursor keys   Application   Numeric
- 3 - columns       clear screen in both cases
+ 3 - columns       132 column mode not supported, but in either case clear
+                   screen, home cursor, reset scrolling margins.
  5 - screen color  Reverse-vid   Normal
+ 6 - Origin mode   On            Off (in Origin mode cursor remains only
+                   within scrolling margins. Homes cursor.)
  7 - autowrap      On            Off
 Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
  Select rendition mode(s) for text, parsed in the order they appear:
  0 - Reset to normal   1 - Boldface        4 - Underline
  5 - Blink             7 - Reverse video   8 - Invisible (writes blank spaces)
+Esc [ __ ; ... ; __ q Virtual LEDs control. 0 turns all off, 1-4 turns on the
+            respective LED.
 Esc [ __ n  (none --> 5)
             Device Status Report. Response depends on parameter:
             5: response is "ready" - Esc [0n
-            6: report cursor position - Esc [ row ; col R
+            6: report cursor position (relative to top of scroll region if in
+               Origin mode) - Esc [ row ; col R
 Esc [ __ ; __ r (defaults: 1,24) Set top and bottom scrolling margins.
             1 and 24, for example, mean the entire screen scrolls.
             14 and 24 cause the last 10 lines to scroll. 14,24 mean lines
-            14 to 24 INCLUSIVE.
+            14 to 24 INCLUSIVE. Cursor is moved to home - top of scrolling
+            region in Origin mode, top of screen otherwise.
 Esc [ __ s (Parameter ignored) Same as Esc 7
 Esc [ __ u (Parameter ignored) Same as Esc 8
+Esc [ __ x (default: 0) Request Terminal Parameters. In response to values 0
+            or 1, returns the string: Esc [ N1;1;1;N2;N2;1;0x
+            where N1 is 2 if arg was 0, 3 if arg was 1,
+            and N2 depends on current baud rate setting:
+            48, 56, 64, 72, 88, 104, 112, 120 for 300, 600, 1200, 1800, 2400,
+            4800, 9600 and 19200 baud respectively.
 
 Other Escape sequences
 ----------------------
@@ -145,8 +154,7 @@ Esc # 4 Double-Height, bottom half
 Esc # 5 Normal size
 Esc # 6 Double-width
 Esc # 7 Normal size
-Esc # 8 Fill screen with the letter E for screen adjustment (useless, but
-        was too easy to implement)
+Esc # 8 Fill screen with the letter E for screen adjustment
 
 The line-changing commands preserve anything already on that line, unless
 an 80-column line is changed into a 40-column line. In that case, the

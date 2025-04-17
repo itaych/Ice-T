@@ -441,7 +441,7 @@ dodl
 	lda	#>break_handler
 	sta	$237
 
-	ldx	#0	; Clear text mirror
+	ldx	#23*2	; Clear text mirror
 ?ml
 	lda	txlinadr,x
 	sta	cntrl
@@ -453,10 +453,9 @@ dodl
 	sta	(cntrl),y
 	dey
 	bpl	?lp
-	inx
-	inx
-	cpx	#48
-	bne	?ml
+	dex
+	dex
+	bpl	?ml
 
 	lda rt8_detected
 	bne ?nodli
@@ -589,6 +588,7 @@ resttrm			; Reset most VT100 settings
 	lda	#0
 	sta	newlmod
 	sta	invon
+	sta	origin_mode
 	sta	useset
 	sta	undrln
 	sta	boldface
@@ -600,6 +600,7 @@ resttrm			; Reset most VT100 settings
 	sta	savchs
 	sta	ckeysmod
 	sta	numlock
+	sta	virtual_led
 	lda	#1
 	sta	g1set
 	sta	savg1
@@ -1054,6 +1055,12 @@ yindextab ; table of y offsets
 	.byte 216,0,40,80,120,160,200,240
 	
 clrscrn			; Clear screen
+	; copy text mirror to scrollback buffer, and clear text mirror
+	lda	banksv
+	pha
+	lda	#bank3
+	sta	banksw
+	sta banksv
 	ldx	#0
 ?mlp
 	lda	txlinadr,x
@@ -1061,8 +1068,6 @@ clrscrn			; Clear screen
 	lda	txlinadr+1,x
 	sta	cntrh
 	ldy	#0
-	lda	#bank3
-	sta	banksw
 ?lp
 	lda	(cntrl),y
 	sta	(scrlsv),y
@@ -1073,32 +1078,26 @@ clrscrn			; Clear screen
 	bne	?lp
 	lda	looklim
 	cmp	#76
-	beq	?ok1
+	beq	?ok
 	dec	looklim
-?ok1
-	clc
-	lda	scrlsv
-	adc	#80
-	sta	scrlsv
-	lda	scrlsv+1
-	adc	#0
-	sta	scrlsv+1
-	cmp	#$7f
-	bcc	?ok
-	lda	scrlsv
-	cmp	#$c0
-	bcc	?ok
-	lda	#$40
-	sta	scrlsv+1
-	lda	#$00
-	sta	scrlsv
 ?ok
+	jsr incscrl
+; tend to the serial port buffer every 4 lines copied
+	txa
+	and #$7
+	bne ?nobuff
+	jsr	buffifnd	; does not affect X
+?nobuff
 	inx
 	inx
 	cpx	#48
 	bne	?mlp
-	lda	banksv
+	
+	pla
+	sta	banksv
 	sta	banksw
+	
+	; clear boldface PMs and line sizes
 	jsr	boldclr
 	jsr	rslnsize
 
@@ -1114,13 +1113,15 @@ clrscrnraw		; Clear JUST the screen, nothing else
 	sta	cntrl
 	lda	linadr+1,y
 	sta	cntrh
-	jsr	buffifnd
+	; both of these JSRs do not affect x register
 	jsr	erslineraw
+	jsr	buffifnd
 	inx
 	cpx	#25
 	bne	?lp
 	rts
 
+; increments pointer to save location in scrollback buffer by 1 line
 incscrl
 	clc
 	lda	scrlsv
@@ -1435,26 +1436,18 @@ calcbufln		; Calculate mybcount
 	sta	mybcount
 	lda	bufput+1
 	sbc	bufget+1	; mybcount=put-get
-	sta	mybcount+1
-	cmp	#$40	; but if get>put..
-	bcc	?ok
+	bpl ?ok			; positive result? great. but if get>put..
 
 ; mybcount  = ($8000-get)+(put-$4000)
 ;		= $8000-get+put-$4000
 ;		= put-get+$4000
-	sec
-	lda	bufput
-	sbc	bufget
-	sta	mybcount
-	lda	bufput+1
-	sbc	bufget+1
 	clc
 	adc	#$40
-	sta	mybcount+1
 ?ok
+	sta	mybcount+1
 	rts
 
-buffdo			; Buffer manager
+buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is pending
 	lda	#bank0
 	sta	banksw
 	jsr	rgetstat	; R: status command
@@ -1678,9 +1671,9 @@ break_handler
 	pha
 	lda brkkey_enable
 	beq ?no
-	lda #59
-	sta 764
-?no
+	lda #59		; this is a keyboard code unused by any real key. insert it
+	sta 764		; into the keyboard buffer. In 'keytab' it is mapped to the
+?no				; 'send break signal' command.
 	pla
 brk_exit
 	jmp $ffff
@@ -1998,7 +1991,6 @@ vbdn1lp
 	jsr	vbscrtld2
 	inc	fscroldn
 	jsr	vbdl2
-;	jsr	testd
 	jmp	endvbi
 vbchd2
 	cmp	#2
@@ -2017,7 +2009,6 @@ vbchd2
 	jsr	vbscrtld
 	inc	fscroldn
 	jsr	vbdl1
-;	jsr	testd
 	jmp	endvbi
 vbcp21
 	ldx	#0
@@ -2033,10 +2024,6 @@ vbcp2lp
 	lda	dlst2+$102
 	sta	dlist+$102
 	rts
-;testd
-;	lda	#60
-;	sta	$100
-;	rts
 vbchd3
 	cmp	#3
 	bne	vbchd4
@@ -2047,7 +2034,6 @@ vbchd3
 	jsr	vbscrtld2
 	inc	fscroldn
 	jsr	vbdl2
-;	jsr	testd
 	jmp	endvbi
 vbcp12
 	ldx	#0
@@ -2073,7 +2059,6 @@ vbchd4
 	jsr	vbscrtld
 	inc	fscroldn
 	jsr	vbdl1
-;	jsr	testd
 	jmp	endvbi
 vbchd5
 	cmp	#5
@@ -2085,7 +2070,6 @@ vbchd5
 	jsr	vbscrtld2
 	inc	fscroldn
 	jsr	vbdl2
-;	jsr	testd
 	jmp	endvbi
 vbchd6
 	cmp	#6
@@ -2097,7 +2081,6 @@ vbchd6
 	jsr	vbscrtld
 	inc	fscroldn
 	jsr	vbdl1
-;	jsr	testd
 	jmp	endvbi
 vbchd7
 	cmp	#7
@@ -2109,7 +2092,6 @@ vbchd7
 	jsr	vbscrtld2
 	inc	fscroldn
 	jsr	vbdl2
-;	jsr	testd
 	jmp	endvbi
 vbchd8
 	cmp	#8
@@ -2153,7 +2135,6 @@ vbnod8
 	lda	#0
 	sta	fscroldn
 	jsr	vbdl1
-;	jsr	testd
 	jmp	endvbi
 
 vbscrtlu		; Make top line scroll up
@@ -2283,7 +2264,6 @@ vbdl2			; Set dlist 2
 vbchu1			; Fine Scroll UP
 	cmp	#1
 	bne	vbchu2
-;	jsr	testd
 	jsr	vbcp12
 	lda	scrltop	; 1 up
 	asl	a
@@ -2349,7 +2329,6 @@ vbuplp1
 vbchu2
 	cmp	#2
 	bne	vbchu3
-;	jsr	testd
 	jsr	vbcp21
 	inc	vbfm	; 2 up
 	inc	vbfm
@@ -2365,7 +2344,6 @@ vbchu2
 vbchu3
 	cmp	#3
 	bne	vbchu4
-;	jsr	testd
 	jsr	vbcp12
 	inc	vbfm	; 3 up
 	inc	vbto
@@ -2377,7 +2355,6 @@ vbchu3
 vbchu4
 	cmp	#4
 	bne	vbchu5
-;	jsr	testd
 	jsr	vbcp21
 	inc	vbfm	; 4 up
 	inc	vbto
@@ -2389,7 +2366,6 @@ vbchu4
 vbchu5
 	cmp	#5
 	bne	vbchu6
-;	jsr	testd
 	jsr	vbcp12
 	inc	vbfm	; 5 up
 	inc	vbto
@@ -2401,7 +2377,6 @@ vbchu5
 vbchu6
 	cmp	#6
 	bne	vbchu7
-;	jsr	testd
 	jsr	vbcp21
 	inc	vbfm	; 6 up
 	inc	vbto
@@ -2413,7 +2388,6 @@ vbchu6
 vbchu7
 	cmp	#7
 	bne	vbchu8
-;	jsr	testd
 	jsr	vbcp12
 	inc	vbfm	; 7 up
 	inc	vbto
@@ -2425,7 +2399,6 @@ vbchu7
 vbchu8
 	cmp	#8
 	bne	vbnou8
-;	jsr	testd
 	jsr	vbcp21
 	inc	vbfm	; 8 up
 	inc	vbto
@@ -2553,8 +2526,23 @@ chk1s
 
 erslineraw		; Erase line in screen (at cntrl)
 	lda	#255
+filline_custom_value
 	ldy	#0
 ?a
+	sta	(cntrl),y	; unroll both loops a bit (must be power of 2)
+	iny
+	sta	(cntrl),y
+	iny
+	sta	(cntrl),y
+	iny
+	sta	(cntrl),y
+	iny
+	sta	(cntrl),y
+	iny
+	sta	(cntrl),y
+	iny
+	sta	(cntrl),y
+	iny
 	sta	(cntrl),y
 	iny
 	bne	?a
@@ -2563,17 +2551,30 @@ erslineraw		; Erase line in screen (at cntrl)
 ?b
 	sta	(cntrl),y
 	dey
+	sta	(cntrl),y
+	dey
+	sta	(cntrl),y
+	dey
+	sta	(cntrl),y
+	dey
+	sta	(cntrl),y
+	dey
+	sta	(cntrl),y
+	dey
+	sta	(cntrl),y
+	dey
+	sta	(cntrl),y
+	dey
 	bpl	?b
 	rts
 
 rslnsize		; Reset line-size table
 	lda	#0
-	tax
-rslnloop
+	ldx #23
+?lp
 	sta	lnsizdat,x
-	inx
-	cpx	#24
-	bne	rslnloop
+	dex
+	bpl	?lp
 	rts
 
 doquit			; Quit program
@@ -3013,6 +3014,7 @@ dpcloop2
 	dex
 	bpl	dpcloop2
 	inx
+.if 1					; '0' to disable partial load feature
 ?lp
 	lda	#bank1
 	sta	banksw
@@ -3031,6 +3033,7 @@ dpcloop2
 	pla
 	jmp	init			; No, jump straight to init
 ?ok
+.endif
 	lda	#bank0
 	sta	banksw
 	rts

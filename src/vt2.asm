@@ -58,6 +58,7 @@ connect
 	jsr	shctrl1
 	jsr	shcaps
 	jsr	shnuml
+	jsr ledsdo
 	ldx	#>sts3
 	ldy	#<sts3
 	jsr	prmesgnov
@@ -114,7 +115,6 @@ noflsh
 	pha
 	jsr	bufcntdo
 	pla
-	tax
 	beq	bufgot
 
 	lda	didrush
@@ -687,16 +687,20 @@ ctrlcode
 	sta	trmode+2
 	rts
 noesc
-	cmp	#5	; ^E - transmit answerback
+	cmp	#5	; ^E - transmit answerback ("Ice-T")
 	bne	noctle
-	lda	#16
+	ldx #0
+?lp
+	txa
+	pha
+	lda tilmesg1,x
 	jsr	rputch
-	lda	#43
-	jsr	rputch
-	lda	#16
-	jsr	rputch
-	lda	#48
-	jmp	rputch
+	pla
+	tax
+	inx
+	cpx #5
+	bne ?lp
+	rts
 noctle
 	cmp	#7	; ^G - bell
 	bne	nobell
@@ -767,20 +771,28 @@ nocan
 	beq	yscan
 	cmp	#9	; ^I - Tab
 	bne	noht
-eqci
+	
+	; if we're on a wide line make sure we don't skip past 40 columns
+	ldy ty
+	dey
+	ldx lnsizdat,y	; get line width
+	ldy szlen,x		; get corresponding number of chars (40 or 80)
+	dey				; subtract by 1
+	sty temp		; and store it
+	
 	ldx	tx
 findtblp
 	inx
-	cpx	#79
+	cpx	temp		; at edge of screen?
 	bcs	donetab2
-	lda	tabs,x
-	bne	donetab1
+	lda	tabs,x		; no. is there a tab stop here?
+	bne	donetab1	; yes, done
 	jmp	findtblp
 donetab1
 	stx	tx
 	jmp	rseol
 donetab2
-	ldx	#79
+	ldx	temp
 	stx	tx
 	jmp	rseol
 noht
@@ -836,7 +848,6 @@ nori
 	bne	nodeckpam
 	lda	#0
 	sta	numlock
-;	jsr	vdelayr
 	jsr	shnuml
 	jmp	fincmnd
 nodeckpam
@@ -844,7 +855,6 @@ nodeckpam
 	bne	nodeckpnm	; > - Num on
 	lda	#1
 	sta	numlock
-;	jsr	vdelayr
 	jsr	shnuml
 	jmp	fincmnd
 nodeckpnm
@@ -974,7 +984,7 @@ nofle
 	stx	y
 	dex
 	sec
-	sbc	#51			; ASCII value of digit 3
+	sbc	#51			; subtract ASCII value of digit 3 so we have 0-4
 	cmp	#5
 	bcc	?ok			; 3/4/5/6/7 - change size
 	jmp	fincmnd		; some other value, quit
@@ -1059,6 +1069,14 @@ szprchng
 	sta	boldface
 	pla
 	sta	invsbl
+	; check if cursor is now out of bounds
+	lda tx
+	cmp szprchng+1
+	bcc ?ok
+	ldx szprchng+1
+	dex
+	stx tx
+?ok
 	jmp	fincmnd			; done
 
 fille			; Fill screen with E's
@@ -1112,6 +1130,7 @@ flelp1
 	inx
 	cpx	#8
 	bne	flelpx
+	jsr	buffifnd
 	lda	y
 	cmp	#24
 	bne	flelpy
@@ -1244,46 +1263,50 @@ hvp1
 	lda	#1
 	sta	numstk+1
 hvp2
-	lda	numstk
-	sta	ty
-	dec	ty
-	lda	ty
-	cmp	#255
-	bne	hvp3
-	lda	#0
-	sta	ty
-hvp3
-	cmp	#24
-	bcc	hvpok1
-	lda	#23
-	sta	ty
-hvpok1
-	inc	ty
-	dec	numstk+1
-	lda	numstk+1
-	sta	tx
-	cmp	#255
-	bne	hvp4
-	lda	#0
-	sta	tx
-hvp4
+	lda	numstk	; new Y coordinate
+	bne ?ok1
+	lda #1
+?ok1
+	cmp #25
+	bcc ?ok2
+	lda #24
+?ok2
+	ldx origin_mode
+	beq ?ok3
+	clc
+	adc scrltop
+	sec
+	sbc #1
+	cmp scrlbot
+	bcc ?ok3
+	lda scrlbot
+?ok3
+	sta ty
+
+	lda	numstk+1	; new X coordinate
+	beq ?ok4
+	sec
+	sbc #1			; X - change 1-80 to 0-79
 	cmp	#80
-	bcc	hvpok3
+	bcc	?ok4
 	lda	#79
+?ok4
 	sta	tx
-hvpok3
 	jmp	fincmnd1
 nocup
-	cmp	#102	; f - Position
+	cmp	#102	; f - Position (same as H)
 	beq	hvp
 
-	cmp	#65	; A - Move up
+	cmp	#65	; A - Move cursor up
 	bne	nocuu
 	lda	numstk
+	beq	cuudodef
 	cmp	#255
 	beq	cuudodef
-	cmp	#0
-	bne	cuuok
+	cmp #25
+	bcc cuuok
+	lda #24
+	.byte BIT_skip2bytes
 cuudodef
 	lda	#1
 	sta	numstk
@@ -1291,71 +1314,87 @@ cuuok
 	lda	ty
 	sec
 	sbc	numstk
+	bpl ?ok1
+	lda #1
+?ok1
+	cmp #1
+	bcs ?ok2
+	lda #1
+?ok2
+	ldx origin_mode
+	beq ?ok3
+	cmp scrltop
+	bcs ?ok3
+	lda scrltop
+?ok3
 	sta	ty
-	ldx	ty
-	dex
-	cpx	#24
-	bcs	cuubad
-	jmp	fincmnd1
-cuubad
-	lda	#1
 	sta	ty
 	jmp	fincmnd1
 nocuu
-	cmp	#66	; B - Move down
+	cmp	#66	; B - Move cursor down
 	bne	nocud
 	lda	numstk
+	beq	cuddodef
 	cmp	#255
 	beq	cuddodef
-	cmp	#0
-	bne	cudok
+	cmp #25
+	bcc cudok
+	lda #24
+	.byte BIT_skip2bytes
 cuddodef
 	lda	#1
 	sta	numstk
 cudok
-	lda	numstk
+	lda	ty
 	clc
-	adc	ty
-	sta	ty
-	tax
-	dex
-	cpx	#24
-	bcs	cudbad
-	jmp	fincmnd1
-cudbad
-	lda	#24
+	adc	numstk
+	cmp #25
+	bcc ?ok1
+	lda #24
+?ok1
+	ldx origin_mode
+	beq ?ok2
+	cmp scrlbot
+	bcc ?ok2
+	lda scrlbot
+?ok2
 	sta	ty
 	jmp	fincmnd1
 nocud
-	cmp	#67	; C - Move right
+	cmp	#67	; C - Move cursor right
 	bne	nocuf
 	lda	numstk
+	beq cufdodef
 	cmp	#255
 	beq	cufdodef
-	cmp	#0
-	bne	cufok
+	cmp #81
+	bcc cufok
+	lda #80
+	.byte BIT_skip2bytes
 cufdodef
 	lda	#1
 	sta	numstk
 cufok
-	lda	numstk
+	lda	tx
 	clc
-	adc	tx
-	sta	tx
+	adc	numstk
 	cmp	#80
-	bcs	cufbad
-	jmp	fincmnd1
-cufbad
+	bcc	?ok
 	lda	#79
+?ok
 	sta	tx
 	jmp	fincmnd1
 nocuf
-	cmp	#68	; D - Move left
+	cmp	#68	; D - Move cursor left
 	bne	nocub
 	lda	numstk
 	beq	cubdodef
 	cmp	#255
-	bne	cubok
+	beq cubdodef
+	cmp #81
+	bcc cubok
+	lda #80
+	.byte BIT_skip2bytes
 cubdodef
 	lda	#1
 	sta	numstk
@@ -1363,11 +1402,9 @@ cubok
 	lda	tx
 	sec
 	sbc	numstk
-	sta	tx
-	bcc	cubbad
-	jmp	fincmnd1
-cubbad
-	lda	#0
+	bpl ?ok
+	lda #0
+?ok
 	sta	tx
 	jmp	fincmnd1
 nocub
@@ -1383,7 +1420,7 @@ nocub
 	lda	#1
 	sta	numstk
 ?m1
-	lda	numstk
+	lda	numstk	; top margin (1-23)
 	cmp	#255
 	bne	?m2
 	lda	#1
@@ -1398,38 +1435,35 @@ nocub
 ?m4
 	sta	numstk
 
-	lda	numstk+1
-	bne	?m5
-	lda	#24
-?m5
-	cmp	#25
+	lda	numstk+1	; bottom margin (2-24)
+	cmp	#25		; should cover 255 as well. other invalid values (0,1) are covered soon.
 	bcc	?m6
 	lda	#24
 ?m6
 	sta	numstk+1
 
-	cmp	numstk
-	bcs	?m7
-	bne	?m7
-	lda	#1
+	cmp	numstk	; ensure bottom > top
+	beq ?m7
+	bcs	?m8
+?m7
+	lda	#1		; invalid combination? use defaults
 	sta	numstk
 	lda	#24
 	sta	numstk+1
-?m7
-	lda	fscrolup
-	cmp	#1
-	beq	?m7
-	lda	fscroldn
-	cmp	#1
-	beq	?m7
-	lda	numstk
-	sta	scrltop
+?m8
+	jsr fscrol_critical		; fine scroll critical section? wait
 	lda	numstk+1
 	sta	scrlbot
-	ldx	#1
+	lda	numstk
+	sta	scrltop	; we want scrltop to stay in A
+	ldx	#0		; home cursor to start of line
+	stx tx
+	inx
+	ldy origin_mode
+	beq ?ok		; not origin mode? move cursor to top line of screen
+	tax			; origin mode? move to first line of new scroll region
+?ok
 	stx	ty
-	dex
-	stx	tx
 	jmp	fincmnd1
 nodecstbm
 	cmp	#75	; K - erase in line
@@ -1460,8 +1494,10 @@ elno1
 	jsr	ersline
 	jmp	fincmnd
 noel
-	cmp	#74
-	bne	noed	; J - erase in screen
+	cmp	#74		; J - erase in screen
+	beq ?ed
+	jmp	noed
+?ed
 	lda	numgot
 	bne	ed1
 	sta	numstk
@@ -1474,16 +1510,28 @@ ed1
 ed2
 	cmp	#0
 	bne	edno0
+; 0 - clear from cursor position to end of line (inclusive) and all lines below
+
+	; if cursor is at home, just go and clear the whole screen
+	lda ty
+	cmp #1
+	bne ?not_home
+	lda tx
+	beq edno1
+?not_home
 	jsr	ersfmcurs
 	lda	ty
 	sta	y
+	lda tx		; is cursor at start of line? don't skip this line when resetting line sizes
+	beq ed0lp2
 ed0lp
 	inc	y
+ed0lp2
 	lda	y
 	cmp	#25
 	beq	ed0ok
 
-	tax		; ****
+	tax			; reset line sizes
 	dex
 	lda	#0
 	sta	lnsizdat,x
@@ -1492,12 +1540,14 @@ ed0lp
 
 	sta	ersl
 	jsr	ersline
+	jsr	buffifnd
 	jmp	ed0lp
 ed0ok
 	jmp	fincmnd
 edno0
 	cmp	#1
 	bne	edno1
+; 1 - clear from cursor position to start of line (inclusive) and all lines above
 	lda	#1
 	sta	y
 ed1lp
@@ -1505,7 +1555,7 @@ ed1lp
 	cmp	ty
 	beq	ed1ok
 
-	tax		; ****
+	tax			; reset line sizes
 	dex
 	lda	#0
 	sta	lnsizdat,x
@@ -1514,33 +1564,83 @@ ed1lp
 
 	sta	ersl
 	jsr	ersline
+	jsr	buffifnd
 	inc	y
 	jmp	ed1lp
 ed1ok
 	jsr	erstocurs
+	; is cursor at end of a line? reset line size of this line too
+	ldx ty
+	dex
+	lda lnsizdat,x
+	beq ?done	; line is already small, nothing to be done
+	lda tx
+	cmp #39		; end of (wide) line?
+	bne ?done
+	lda #0		; yes, so reset it.
+	sta lnsizdat,x
+?done
 	jmp	fincmnd
 edno1
+; 2 - clear entire screen. cursor does not move. (ANSI-BBS: home cursor)
 	jsr	clrscrn
 	lda	ansibbs
 	beq	?nc
 	lda	#0
 	sta	tx
 	lda	#1
+	ldx origin_mode
+	beq ?no_org
+	lda scrltop
+?no_org
 	sta	ty
 ?nc
 	jmp	fincmnd
 noed
-	cmp	#99	; c - id device
+	cmp #'q			; q - control LEDs
+	bne noleds
+	lda numgot
+	bne ?ok
+	sta numstk	; no args? put a single 0
+	inc numgot
+?ok
+	ldx #0
+?lp
+	lda numstk,x
+	bne ?notzero
+?zero
+	lda #0
+	sta virtual_led
+	jmp ?next
+?notzero
+	cmp #255
+	beq ?zero
+	cmp #5
+	bcs ?next
+	tay
+	dey
+	lda virtual_led
+	ora led_tbl,y
+	sta virtual_led
+?next
+	inx
+	cpx numgot
+	bne ?lp
+	jsr ledsdo
+	jmp	fincmnd
+led_tbl .byte 1,2,4,8
+
+noleds
+	cmp	#99			; c - id device
 	bne	noda
 	jsr	decid
 	jmp	fincmnd
 noda
-	cmp	#110	; n - device stat
+	cmp	#110	; n - device status
 	beq	yesdsr
 	jmp	nodsr
 yesdsr
 	lda	numgot
-	cmp	#0
 	bne	dsr1
 	lda	#5
 	sta	numstk
@@ -1548,52 +1648,63 @@ dsr1
 	lda	numstk
 	cmp	#5
 	bne	dsrno5
-	ldx	#$20
-	lda	#11
-	sta	iccom+$20
-	lda	#4
-	sta	icbll+$20
-	lda	#0
-	sta	icblh+$20
-	lda	#<dsrdata
-	sta	icbal+$20
-	lda	#>dsrdata
-	sta	icbah+$20
-	jsr	ciov
+	; send status ok
+	ldx	#0
+?lp
+	txa
+	pha
+	lda	dsrdata,x
+	jsr	rputch
+	pla
+	tax
+	inx
+	cpx	#4
+	bne	?lp
 	jmp	fincmnd
 dsrno5
 	cmp	#6
 	beq	dsrys6
 	jmp	dsrno6
 dsrys6
-	lda	#27
+	; report cursor position
+cprd = numstk + $80
+
+	lda	#27	; Esc
 	sta	cprd
-	lda	#91
+	lda	#'[
 	sta	cprd+1
-	lda	#0
-	sta	cprv1
+	ldy	#0	; Y register is a helper in converting values to text
 	lda	ty
+; in origin mode we report Y position relative to scrolling margins.
+	ldx origin_mode
+	beq cprlp1
+	sec
+	sbc scrltop
+	bpl ?ok	; sanity - should never really be negative because cursor must always be in scroll area
+	lda #0
+?ok
+	clc
+	adc #1	; add 1 because scrltop is biased (upper line is 1)
 cprlp1
 	cmp	#10
 	bcc	cprok1
 	sec
 	sbc	#10
-	inc	cprv1
+	iny
 	jmp	cprlp1
 cprok1
 	clc
-	adc	#48
+	adc	#'0
 	sta	cprd+3
-	lda	cprv1
+	tya
 	beq	cpr1
 	clc
-	adc	#48
+	adc	#'0
 cpr1
 	sta	cprd+2
-	lda	#59
+	lda	#';
 	sta	cprd+4
-	lda	#0
-	sta	cprv1
+	ldy	#0
 	lda	tx
 	clc
 	adc	#1
@@ -1602,44 +1713,102 @@ cprlp2
 	bcc	cprok2
 	sec
 	sbc	#10
-	inc	cprv1
+	iny
 	jmp	cprlp2
 cprok2
 	clc
-	adc	#48
+	adc	#'0
 	sta	cprd+6
-	lda	cprv1
+	tya
 	beq	cpr2
 	clc
-	adc	#48
+	adc	#'0
 cpr2
 	sta	cprd+5
-	lda	#82
+	lda	#'R
 	sta	cprd+7
 
-	lda	#0
-	sta	cprv1
+	; send the string
+	ldx	#0
 cprdolp
-	ldx	cprv1
-	lda	cprd,x
-	beq	cprnodo
+	txa
 	pha
-	ldx	#$20
-	lda	#11
-	sta	iccom+$20
-	lda	#0
-	sta	icbll+$20
-	sta	icblh+$20
+	lda	cprd,x
+	beq	?skip	; skip null characters in response string
+	jsr	rputch
+?skip
 	pla
-	jsr	ciov
-cprnodo
-	inc	cprv1
-	lda	cprv1
-	cmp	#8
+	tax
+	inx
+	cpx	#8
 	bne	cprdolp
 dsrno6
 	jmp	fincmnd
 nodsr
+	cmp #'x		; x - DECREQTPARM – Request Terminal Parameters
+	bne not_decreqtparm
+	lda numgot
+	beq ?ok
+	lda numstk
+	cmp #2
+	bcs ?skip
+?ok
+	; A contains 0 or 1. Respond with 2 or 3 respectively in decreqtparm_resptype field.
+	clc
+	adc #'2
+	sta decreqtparm_resptype
+	; put encoded baud rate in xspeed and rspeed fields of response
+	lda baudrate
+	sec
+	sbc #8	; baudrate value is 8-15
+	sta temp
+	asl a
+	adc temp	; multiply x3
+	tax
+	ldy #0
+?blp
+	lda decreqtparm_encoded_baudrates,x
+	sta decreqtparm_xspeed,y
+	sta decreqtparm_rspeed,y
+	inx
+	iny
+	cpy #3
+	bne ?blp
+	; send the response
+	ldx #0
+?lp
+	txa
+	pha
+	lda decreqtparm_string,x
+	cmp #'^
+	beq ?skipchar
+	jsr	rputch
+?skipchar
+	pla
+	tax
+	inx
+	cpx #decreqtparm_string_end-decreqtparm_string
+	bne ?lp
+?skip
+	jmp	fincmnd
+
+decreqtparm_string		.byte 27, "["
+decreqtparm_resptype	.byte "2;1;1;"
+decreqtparm_xspeed		.byte "120;"
+decreqtparm_rspeed		.byte "120;1;0x"
+decreqtparm_string_end
+
+decreqtparm_encoded_baudrates
+	.byte "^48"	; 300
+	.byte "^56"	; 600
+	.byte "^64"	; 1200
+	.byte "^72"	; 1800
+	.byte "^88"	; 2400
+	.byte "104"	; 4800
+	.byte "112"	; 9600
+	.byte "120"	; 19.2k
+
+not_decreqtparm	
 	cmp	#103	; g - clear tabs
 	bne	notbc
 	lda	numgot
@@ -1690,28 +1859,39 @@ norm1
 norm2
 	jmp	norm
 domode			; This part for h and l
-	lda	qmark
-	bne	sm1
-	lda	numgot
-	beq	moddone
-	lda	numstk
-	cmp	#20
-	bne	moddone
+	lda numgot	; loops until argument stack is empty
+	bne ?ok
+	jmp	fincmnd ; done, exit.
+?ok
+	lda numstk
+	ldx	qmark
+	bne	?domode_qmark
+	cmp	#20		; without question mark after the Esc [..
+	bne	?noLNM
 	lda	modedo
-	sta	newlmod	; Newline mode
-moddone
-	jmp	fincmnd
-sm1
-	lda	numgot
-	cmp	#0
-	beq	moddone
-	lda	numstk
-	cmp	#1	; Set arrowkeys mode
-	bne	nodecckm
+	sta	newlmod	; set Newline mode
+?noLNM
+	jmp	fincmnd_domode
+?domode_qmark
+	cmp	#1			; with question mark
+	bne	nodecckm	; set arrowkeys mode
 	lda	modedo
 	sta	ckeysmod
-	jmp	fincmnd
+	jmp	fincmnd_domode
 nodecckm
+	cmp #3	; set 80/132 columns - but we don't support 132 columns so just reset screen and scroll margins
+	bne nodeccolm
+	jsr fscrol_critical		; fine scroll critical section? wait
+	lda	#0
+	sta	tx
+	lda	#1
+	sta	ty
+	sta	scrltop
+	lda	#24
+	sta	scrlbot
+	jsr	clrscrn
+	jmp	fincmnd_domode
+nodeccolm
 	cmp	#5	; set inverse screen
 	bne	nodecscnm
 	lda	modedo
@@ -1722,14 +1902,40 @@ nodecckm
 	lda	bckgrnd
 	eor	invon
 	sta	bckgrnd
-	jmp	fincmnd
+	jmp	fincmnd_domode
 nodecscnm
+	cmp #6	; Set origin mode
+	bne nodecom
+	lda	modedo
+	sta origin_mode
+	lda	#0
+	sta	tx
+	lda	#1
+	ldx origin_mode
+	beq ?no_org
+	lda scrltop
+?no_org
+	sta	ty
+	jmp	fincmnd_domode
+nodecom
 	cmp	#7	; Set auto-wrap mode
 	bne	nodecawm
 	lda	modedo
 	sta	wrpmode
 nodecawm
-	jmp	fincmnd
+;	jmp	fincmnd_domode
+	
+fincmnd_domode	; push back queue of values and go process first value again
+	ldx #0
+?lp
+	lda numstk+1,x
+	sta numstk,x
+	inx
+	cpx numgot
+	bne ?lp
+	dec numgot
+	jmp	domode
+	
 norm
 	cmp	#109	; m - set graphic rendition
 	bne	nosgr
@@ -1807,74 +2013,73 @@ fincmnd
 	sta	trmode+2
 	rts
 
+; erase text from start of line to cursor (inclusive)
 erstocurs
-	lda	tx
-	sta	x
+	; erase in text mirror first
 	lda	ty
 	sta	y
 	jsr	calctxln
-	ldx	y
+	ldy tx
+	ldx	ty
 	dex
-	lda	lnsizdat,x
-	beq	?sm
-	lda	x
-	asl	a
-	cmp	#80
-	bcc	?sm
-	lda	#79
-	sta	x
-?sm
-	ldy	x
-	lda	#32
-?tx
+	lda	lnsizdat,x	; wide line?
+	beq ?ok
+	tya			; yes, multiply X position by 2, taking care not to go beyond edge
+	asl a
+	tay
+	cpy #80
+	bcc ?ok
+	ldy #78
+?ok
+	lda #32
+txerto
 	sta	(ersl),y
 	dey
-	bpl	?tx
+	bpl	txerto
 
+	; erase text on screen
 	lda	ty
-	sta	y
 	tay
-	asl	a
-	tax
-	lda	linadr,x
-	pha
-	lda	linadr+1,x
-	pha
 	lda	tx
 	sta	x
 	dey
-	ldx	lnsizdat,y
-	bne	bigersto
-	and	#1
+	ldx	lnsizdat,y	; check line width
+	stx temp		; remember for later
+	bne	ertobt		; wide line? skip check for even character.
+	and	#1			; narrow line: is X position even?
 	bne	ertobt
-	lda	#32
+	lda	#32			; if so, we need to print a space to erase this one character
 	sta	prchar
 	jsr	print
-	lda	x
 	dec	x
-	cmp	#0
-	bne	ertobt
-	pla
-	pla
+	lda	x			; we're done if X was 0 (start of line)
+	bpl	ertobt
 	rts
 ertobt
-	pla
-	sta	cntrh
-	pla
-	sta	cntrl
-	lda	x
-	lsr	a
-	sta	temp
-	inc	temp
-	lda	#0
+	lda ty			; mass erase by blanking whole bytes of screen data
+	asl	a
 	tax
+	lda	linadr,x	; get data address for this line
+	sta	cntrl
+	lda	linadr+1,x
+	sta	cntrh
+	lda	x
+	ldx temp		; was this a wide line?
+	bne ?ok1
+	lsr	a			; narrow line: divide X by 2 to get byte offset
+?ok1
+	cmp #40			; are we for whatever reason beyond the edge of the screen?
+	bcc ?ok2
+	lda #39			; force to right edge
+?ok2
+	sta	temp		; temp will now store byte offset of last byte to erase per bitmap line
 	tay
+	ldx	#7			; bitmap line counter (there are 8 lines to partially clear)
 	lda	#255
 ertobtlp
 	sta	(cntrl),y
-	iny
-	cpy	temp
-	bne	ertobtlp
+	dey
+	bpl	ertobtlp
 	lda	cntrl
 	clc
 	adc	#40
@@ -1882,95 +2087,76 @@ ertobtlp
 	lda	cntrh
 	adc	#0
 	sta	cntrh
-	ldy	#0
 	lda	#255
-	inx
-	cpx	#8
-	bne	ertobtlp
+	ldy	temp
+	dex
+	bpl	ertobtlp
 	rts
-bigersto
-	lda	x
-	cmp	#40
-	bcc	bigersok
-	lda	#39
-bigersok
-	sta	temp
-	inc	temp
-	lda	#0
-	tax
-	tay
-	lda	#255
-	jmp	ertobtlp
 
+; erase text from cursor (inclusive) to end of the line
 ersfmcurs
-	lda	tx
-	sta	x
+	; erase in text mirror first
 	lda	ty
 	sta	y
 	jsr	calctxln
-	ldy	y
-	dey
-	lda	lnsizdat,y
-	bne	bigtxerfm
-	ldy	x
-	lda	#32
+	ldy tx
+	ldx	ty
+	dex
+	lda	lnsizdat,x	; wide line?
+	beq ?ok
+	tya			; yes, multiply X position by 2, taking care not to go beyond edge
+	asl a
+	tay
+	cpy #80
+	bcc ?ok
+	ldy #78
+?ok
+	lda #32
 txerfm
 	sta	(ersl),y
 	iny
 	cpy	#80
 	bne	txerfm
-	jmp	nobigefm
-bigtxerfm
-	lda	x
-	cmp	#40
-	bcc	bigtxefmc
-	lda	#39
-bigtxefmc
-	asl	a
-	tay
-	lda	#32
-bigefmlp
-	sta	(ersl),y
-	iny
-	cpy	#80
-	bne	bigefmlp
-nobigefm
 
-	lda	y
+	; erase text on screen
+	lda	ty
 	tay
-	asl	a
-	tax
-	lda	linadr,x
-	pha
-	lda	linadr+1,x
-	pha
 	lda	tx
 	sta	x
 	dey
-	ldx	lnsizdat,y
-	bne	bigersfm
-	and	#1
+	ldx	lnsizdat,y	; check line width
+	stx temp		; remember for later
+	bne	erfmbt		; wide line? skip check for odd character.
+	and	#1			; narrow line: is X position odd?
 	beq	erfmbt
-	lda	#32
+	lda	#32			; if so, we need to print a space to erase this one character
 	sta	prchar
 	jsr	print
-	lda	x
 	inc	x
-	cmp	#79
+	lda	x
+	cmp	#80			; we're done if X was 79 (end of the line)
 	bne	erfmbt
-	pla
-	pla
 	rts
 erfmbt
-	pla
-	sta	cntrh
-	pla
+	lda ty			; mass erase by blanking whole bytes of screen data
+	asl	a
+	tax
+	lda	linadr,x	; get data address for this line
 	sta	cntrl
+	lda	linadr+1,x
+	sta	cntrh
 	lda	x
-	lsr	a
-	sta	temp
+	ldx temp		; was this a wide line?
+	bne ?ok1
+	lsr	a			; narrow line: divide X by 2 to get byte offset
+?ok1
+	cmp #40			; are we for whatever reason beyond the edge of the screen?
+	bcc ?ok2
+	lda #39			; force to right edge
+?ok2
+	sta	temp		; temp will now store byte offset of area to start erasing from
 	tay
-	ldx	#0
+	ldx	#7			; bitmap line counter (there are 8 lines to partially clear)
 	lda	#255
 erfmbtlp
 	sta	(cntrl),y
@@ -1986,42 +2172,27 @@ erfmbtlp
 	sta	cntrh
 	lda	#255
 	ldy	temp
-	inx
-	cpx	#8
-	bne	erfmbtlp
+	dex
+	bpl	erfmbtlp
 	rts
 
-bigersfm
-	pla
-	sta	cntrh
-	pla
-	sta	cntrl
-	ldy	x
-	cpy	#40
-	bcc	gofmbt
-	ldy	#39
-gofmbt
-	sty	temp
-	lda	#255
-	ldx	#0
-	jmp	erfmbtlp
-
+; DECID - send ID string
 decid
-	ldx	#$20
-	lda	#11
-	sta	iccom+$20
-	lda	#7
-	sta	icbll+$20
-	lda	#0
-	sta	icblh+$20
-	lda	#<deciddata
-	sta	icbal+$20
-	lda	#>deciddata
-	sta	icbah+$20
-	jmp	ciov
+	ldx	#0
+?lp
+	txa
+	pha
+	lda	deciddata,x
+	jsr	rputch
+	pla
+	tax
+	inx
+	cpx	#7
+	bne	?lp
+	rts
 
 cmovedwn		; subroutine to move cursor
-	lda	ty	; down 1 line, scroll down if
+	lda	ty		; down 1 line, scroll down if
 	cmp	scrlbot	; margin is reached.
 	bne	?ns
 	jsr	scrldown
@@ -2032,7 +2203,7 @@ cmovedwn		; subroutine to move cursor
 	inc	ty
 ?nm
 	rts
-
+	
 cmoveup			; same for up
 	lda	ty
 	cmp	scrltop
@@ -2606,29 +2777,9 @@ scrldown
 	sta	ersl+1
 	ldy	#0
 	jsr	scrllnsv
-	clc
-	lda	scrlsv
-	adc	#80
-	sta	scrlsv
-	lda	scrlsv+1
-	adc	#0
-	sta	scrlsv+1
-	cmp	#$7f
-	bcc	noscrsv
-	lda	scrlsv
-	cmp	#$c0
-	bcc	noscrsv
-	lda	#$40
-	sta	scrlsv+1
-	lda	#$00
-	sta	scrlsv
+	jsr incscrl
 noscrsv
-	lda	fscroldn	; if fine-scrolling is in state '1', wait for it to change (next VBI)
-	cmp	#1
-	bne	?ok
-	jsr	buffdo
-	jmp	noscrsv
-?ok
+	jsr fscrol_critical		; if fine-scrolling is in state '1', wait for it to change (next VBI)
 	lda	#0
 	sta	crsscrl
 	lda	outnum
@@ -2870,13 +3021,7 @@ scrlup			; SCROLL UP
 	lda	#0
 	sta	lnsizdat-1,x
 
-?wt
-	lda	fscrolup
-	cmp	#1
-	bne	?wk
-	jsr	buffdo
-	jmp	?wt
-?wk
+	jsr fscrol_critical		; if fine-scrolling is in state '1', wait for it to change (next VBI)
 	lda	#0
 	sta	crsscrl
 	lda	scrlbot ;	Scroll line-adr tbl
@@ -3379,7 +3524,7 @@ lkupwtvb ; continue fine scroll
 	jsr	crsifneed
 	rts
 lkupcrs
-	jsr	vdelay	; Coarse-scroll
+	jsr	vdelayr	; Coarse-scroll
 	ldx	#2
 	ldy	#10
 lkupsclp
@@ -3548,7 +3693,7 @@ lkdnvbwt		; continue fine-scroll
 	rts
 
 lkdndocr
-	jsr	vdelay	; Coarse scroll
+	jsr	vdelayr	; Coarse scroll
 	ldx	#2
 	ldy	#10
 lkdnsclp
@@ -3596,22 +3741,28 @@ crsifneed
 ?n
 	rts
 
-scvbwta     		; Wait for fine scroll
-	lda	fscroldn	; to finish (up/down)
-	bne	?lp1
-	lda	fscrolup
-	bne	?lp2
-	rts
-?lp1
-	jsr	buffdo
+scvbwta     		; Wait for fine scroll (in either direction) to finish
 	lda	fscroldn
-	bne	scvbwta
+	ora	fscrolup
+	bne	?busy
 	rts
-?lp2
+?busy
 	jsr	buffdo
+	jmp	scvbwta
+
+; waits for fine scroll critical section (during which we may not modify scroll region) to end
+fscrol_critical
+	lda	fscroldn
+	cmp	#1
+	beq ?in_crit
 	lda	fscrolup
-	bne	scvbwta
+	cmp	#1
+	beq ?in_crit
 	rts
+?in_crit
+	; we are in critical section. handle buffering while we wait, and loop
+	jsr	buffifnd
+	jmp fscrol_critical
 
 ; Outgoing stuff, keyboard handler
 
@@ -3654,6 +3805,10 @@ gtky
 	bne	?nh
 	jmp	hangup
 ?nh
+	cmp #27			; esc - send break (shift-ctrl-esc accepted in addition to ctrl-esc)
+	bne ?nobrk
+	jmp ksendbrk
+?nobrk
 	cmp	#'s
 	bne	?ok			; s - internal speed test
 	
@@ -3900,7 +4055,7 @@ spshkey
 txnopc
 	lda	#0
 	sta	y
-	jsr	filline
+	jsr	filline		; for smoother transition to menu, set its pixels to all on before displaying it
 	jsr	setcolors
 	pla
 	pla
@@ -3946,21 +4101,32 @@ knodel
 knosdel
 	cmp	#kretrn
 	bne	knoret
-	lda	#13
+	lda	#13		; CR
 	sta	outdat
 	lda	#1
 	sta	outnum
+	lda newlmod
+	beq ?ok
+	lda #10		; LF
+	sta outdat+1
+	inc outnum
+?ok
 	jmp	outputdat
 knoret
 	cmp	#kbrk
 	bne	knobrk
+ksendbrk
+	lda $D20F	; SKSTAT
+	and #$08	; 0 = shift key pressed
+	pha
+	
 	lda	#1
 	sta	764
 	jsr	getkey
 	lda	oldflash
-	beq	brknof1
+	beq	?noflash
 	jsr	putcrs
-brknof1
+?noflash
 
 ; Send break, with window and XOFF
 
@@ -3973,6 +4139,8 @@ brknof1
 	jsr	wait10
 	jsr	wait10
 	jsr	buffdo
+	pla
+	tay
 	jsr	dobreak
 	jsr	wait10
 	lda	#17
@@ -4091,9 +4259,9 @@ prntscrn_after_init
 	ldx	#$20
 	lda	#3
 	sta	iccom+$20
-	lda	#<scrnname
+	lda	#<p_device_name
 	sta	icbal+$20
-	lda	#>scrnname
+	lda	#>p_device_name
 	sta	icbah+$20
 	lda	#8
 	sta	icaux1+$20
@@ -4433,6 +4601,56 @@ timrdo
 	ldy	#<sts2
 	jmp	prmesgnov
 
+; update LEDs status
+ledsdo
+	; create character
+	ldx #0
+	lda virtual_led
+	and #$3
+	tay
+?lp
+	lda leds_on_char,x
+	and led_mask_tbl,y
+	ora leds_off_char,x
+	sta chartemp,x
+	inx
+	cpx #4
+	bne ?no4
+	lda virtual_led
+	lsr a
+	lsr a
+	tay
+?no4
+	cpx #8
+	bne ?lp
+	
+	; draw character
+	lda	linadr
+	sta	cntrl
+	lda	linadr+1
+	sta	cntrh
+	
+	ldy #25 ; horizontal offset of location to draw character
+	ldx #0
+?drawlp
+	lda chartemp,x
+	eor #$ff
+	sta (cntrl),y
+
+	clc
+	lda cntrl
+	adc #40
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
+
+	inx
+	cpx #8
+	bne ?drawlp
+	rts
+led_mask_tbl .byte 0, $f0, $0f, $ff
+
 ; End of status line handlers
 
 vdelayr			; Waits for next VBI to finish
@@ -4448,7 +4666,7 @@ vdelayr			; Waits for next VBI to finish
 	beq	?v
 	rts
 
-filline ; Fill	line with 255
+filline ; Fill line with 'on' pixels (value 0)
 	lda	y
 	asl	a
 	tax
@@ -4456,21 +4674,11 @@ filline ; Fill	line with 255
 	sta	cntrl
 	lda	linadr+1,x
 	sta	cntrh
-	lda	#255
-	ldy	#0
-fil1
-	sta	(cntrl),y
-	iny
-	bne	fil1
-	inc	cntrh
-fil2
-	sta	(cntrl),y
-	iny
-	cpy	#64
-	bne	fil2
-	rts
+	lda	#0
+	jmp filline_custom_value
 
-dobreak		    ; Send	Break signal
+dobreak		    ; Send Break signal. Y reg = 0 for long break, nonzero for short break
+	sty temp
 	jsr	close2
 	ldx	#$20
 	lda	#34
@@ -4483,11 +4691,27 @@ dobreak		    ; Send	Break signal
 	sta	icbal+$20
 	lda	#>rname
 	sta	icbah+$20
-	jsr	ciov    ;	Xio 34,#2,2,0,"R:"
+	jsr	ciov    ;	Xio 34,#2,2,0,"R:" - Set XMT line to SPACE (zero state) for a long time
 
-	jsr	wait10
-	jsr	wait10  ;	Wait 1/2 sec
-	jsr	wait10
+; length of signal should be 0.233 sec (short), or 3.5 sec (long)
+; ntsc: 14 frames or 210; pal: 12 or 175
+
+	lda vframes_per_sec
+	cmp #60
+	beq ?ntsc
+; pal
+	ldx #12
+	lda temp
+	bne ?delayok
+	ldx #175
+	bne ?delayok
+?ntsc
+	ldx #14
+	lda temp
+	bne ?delayok
+	ldx #210
+?delayok
+	jsr	wait_x_frames
 
 	ldx	#$20
 	lda	#34
@@ -4500,15 +4724,20 @@ dobreak		    ; Send	Break signal
 	sta	icbal+$20
 	lda	#>rname
 	sta	icbah+$20
-	jsr	ciov     ;	Xio 34,#2,3,0,"R:"
+	jsr	ciov     ;	Xio 34,#2,3,0,"R:" - Set XMT line to MARK
 	jmp	ropen
 
 wait10
 	ldx	#10
+wait_x_frames
+	txa
+	pha
 ?l
 	jsr	vdelay
 	dex
 	bne	?l
+	pla
+	tax
 	rts
 
 ; Break and hangup data

@@ -24,20 +24,46 @@ check
 	ldy	#<okmsg2
 	jsr	prnt_line
 
-	
 ; $0700 : "S" = SpartaDOS (any), "R" = RealDOS, "M" = MyDOS
 ; $0701 : $32 = SpartaDOS 3.2, $40 = SpartaDOS X 4.0, $10 = RealDOS 1.0
 ; $0702 : $02 = Revision 2 (Sparta-Dos X only)
 
-; SpartaDOS 2/3: Disable TDLINE (time/date at top of screen) (thanks Fox-1)
+; SpartaDOS: Disable TDLINE (time/date at top of screen)
 
 	lda $700 		; DOS type detection
 	cmp #'S
 	bne ?nosparta
 	lda $701
+	cmp #$44		; SDX 4.4 or above?
+	bcc ?nosparta44
+
+; Code for SDX 4.4 and up (thanks drac030)
+
+jext_on  = $07f1
+jext_off = $07f4
+jfsymbol = $07eb
+
+	lda #<?sym
+	ldx #>?sym
+	jsr jfsymbol
+	beq ?nosparta	; nothing to do if no symbol found (= no TD loaded)
+	sta ?ptr+1
+	stx ?ptr+2
+	tya
+	jsr jext_on
+	ldy #$00        ;$00 - off, $01 - on
+?ptr	jsr $0000
+	jsr jext_off
+	jmp ?nosparta
+; symbol name, space-padded to 8 characters
+?sym	.byte "I_TDON  "
+	
+?nosparta44
 	and #$f0
 	cmp #$40
-	bcs ?nosparta	; skip versions from 4.0 up (this crashes on SDX)
+	bcs ?nosparta	; skip versions 4.x below 4.4 (can't disable TDLINE)
+
+; Code for SpartaDOS 2/3 (thanks Fox-1)
 
 	lda banksw
 	pha
