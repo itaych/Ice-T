@@ -282,9 +282,9 @@ filtbl
 	.word	fildir-1
 	.word	filpth-1
 	.word	fileol-1
-        .word filuel-1
-        .word filans-1
-        .word filvew-1
+	.word	filuel-1
+	.word	filans-1
+	.word	filvew-1
 	.word	filren-1
 	.word	fildlt-1
 	.word	fillok-1

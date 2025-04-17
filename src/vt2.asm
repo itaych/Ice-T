@@ -1095,7 +1095,7 @@ flelpy
 	sta	cntrh
 	ldx	#0
 flelpx
-	lda	charset+296,x (37*8)
+	lda	charset+296,x ; (37*8)
 	eor	#255
 	ldy	#0
 flelp1
@@ -5477,7 +5477,7 @@ intrmlp
 	ldx	#bank0
 	stx	banksw
 	lda	(cntrl),y
-chbnk1  ldx #bank1
+chbnk1  ldx	#bank1
 	stx	banksw
 	sta	(cntrl),y
 	iny
@@ -5485,7 +5485,7 @@ chbnk1  ldx #bank1
 	bne	intrmlp
 	inc	cntrh
 	lda	cntrh
-chbnk2  cmp #>mini1
+chbnk2  cmp	#>mini1
 	bcc	intrmlp
 	beq	intrmlp
 	ldx	#0
@@ -5498,6 +5498,8 @@ chbnk2  cmp #>mini1
 
 	lda	#bank0
 	sta	banksw
+	
+; self-modify code so next time it does bank 2 rather than 1
 	lda	#bank2
 	sta	chbnk1+1
 	lda	#>mini2

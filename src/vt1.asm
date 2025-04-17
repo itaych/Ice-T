@@ -32,6 +32,9 @@ reset			; System reset goes here
 	lda	#3
 	sta	9
 	jsr	dorst
+
+; init (after program load) continues here
+
 norst
 	lda	#1
 	sta	clockdat+1
