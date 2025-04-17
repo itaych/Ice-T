@@ -35,7 +35,7 @@ tilmesg6
 	.byte	"Help support further Atari 8-bit development by registering. Thanks in advance!"
 .endif
 
-xelogo
+xelogo			; XE logo for title screen
 	.dbyte ~1110001110011111
 	.dbyte ~0111011100111111
 	.dbyte ~0011111000111000
@@ -45,7 +45,7 @@ xelogo
 	.dbyte ~0111011100111111
 	.dbyte ~1110001110011111
 
-icesoft		     ; IceSoft logo data
+icesoft		     ; IceSoft logo for title screen
 	.byte	30,32,0,0,4
 	.byte	18,32,14,6,78
 	.byte	122,76,208,8,68
@@ -54,6 +54,7 @@ icesoft		     ; IceSoft logo data
 	.byte	120,153,185,144,192
 	.byte	0,0,0,0,0
 	.byte	255,255,255,255,128
+
 ; End of title screen data
 	
 escdat	.byte	"<Esc>!"			; used by text file viewer to display non-printable characters
@@ -151,12 +152,13 @@ setlocd
 	.byte	46,3,46,4
 
 setansw
-	.byte	44,5,57,8
-	.byte	" VT-100   "
+	.byte	44,5,57,9
+	.byte	" VT-102   "
 	.byte	" ANSI-BBS "
+	.byte	" VT-52    "
 setansd
-	.byte	1,2,10
-	.byte	46,6,46,7
+	.byte	1,3,10
+	.byte	46,6,46,7,46,8
 
 seteolw
 	.byte	46,7,59,11
@@ -574,6 +576,9 @@ mini2
 
 	.if	mini2 > $8000
 	.error "mini2>$8000!!"
+	.endif
+	.if	mini2 > wind2
+	.error "mini2>wind2!!"
 	.endif
 
 ; End of menus

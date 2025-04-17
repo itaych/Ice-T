@@ -468,6 +468,14 @@ setans
 	cmp	#255
 	beq	?n
 	sta	ansibbs
+	cmp #2
+	bne ?n
+	lda	#0
+	sta	g0set
+	sta	chset
+	sta insertmode
+	lda	#1
+	sta	g1set
 ?n
 	jmp	bkset
 
@@ -1306,7 +1314,7 @@ filpth			; Change disk path
 
 	ldx	#39
 ?c
-	lda	pathnm,x	
+	lda	pathnm,x
 	cmp	#'a
 	bcc	?o
 	cmp	#'z+1
@@ -1318,7 +1326,31 @@ filpth			; Change disk path
 	dex
 	bpl	?c
 
-; It must start with X: or Xn:, else prepend 'D:'
+; If string starts with a colon, or if it's a number alone or a number followed by ':', prepend a 'D'
+	lda pathnm
+	cmp #':
+	beq ?numfix
+	cmp #'0
+	bcc ?no_numfix
+	cmp #'9+1
+	bcs ?no_numfix
+	lda pathnm+1
+	beq ?numfix
+	cmp #':
+	bne ?no_numfix
+?numfix
+	ldx	#38
+?dl1
+	lda	pathnm,x
+	sta	pathnm+1,x
+	dex
+	bpl	?dl1
+	lda	#'D
+	sta	pathnm
+	
+?no_numfix
+
+; It must now start with X: or Xn:, else prepend 'D:'
 
 	lda pathnm
 	cmp #'A

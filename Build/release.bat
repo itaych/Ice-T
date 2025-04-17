@@ -16,13 +16,13 @@ copy ..\bin\icet.xex atrdisk\icet.com
 copy ..\RHandlers\*.* atrdisk
 copy ..\Doc\readme.txt atrdisk
 copy ..\Doc\icet.txt atrdisk
-copy ..\Doc\vt100.txt atrdisk
+copy ..\Doc\vt102.txt atrdisk
 copy mydos\*.* atrdisk
 
 copy ..\bin\icet.xex release
 copy ..\Doc\quickstart.txt release
 copy ..\Doc\icet.txt release
-copy ..\Doc\vt100.txt release
+copy ..\Doc\vt102.txt release
 
 rem TEMP
 rem atasm -mae -I..\Col80 ..\Col80\col80.asm -oatrdisk\col80.com -lcol80.lab

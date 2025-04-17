@@ -258,8 +258,8 @@ dodl
 	sta	capslock
 	sta	seol
 	sta	tx
-	sta	savcursx
 	sta	mnmnucnt
+	sta	useset
 	jsr	resttrm
 
 	lda	#16	; Write "Ice-T" in big letters
@@ -619,27 +619,26 @@ resttrm			; Reset most VT100 settings
 	sta	newlmod
 	sta	invon
 	sta	origin_mode
-	sta	useset
 	sta	undrln
 	sta	boldface
 	sta	revvid
 	sta	invsbl
 	sta	g0set
-	sta	savg0
 	sta	chset
-	sta	savchs
 	sta	ckeysmod
 	sta	numlock
 	sta	virtual_led
+	sta vt52mode
+	sta insertmode
 	lda	#1
 	sta	g1set
-	sta	savg1
 	sta	scrltop
-	sta	savcursy
 	lda	#24
 	sta	scrlbot
 	lda	autowrap
 	sta	wrpmode
+	lda #255
+	sta	savcursx
 
 ; set a tabstop at each multiple of 8 except 0
 	ldx	#79
@@ -691,6 +690,7 @@ drawwin			; Window drawer
 ; this window, into a buffer.
 
 	lda	numofwin
+	tay
 	asl	a
 	tax
 	lda	winbufs,x
@@ -698,7 +698,7 @@ drawwin			; Window drawer
 	inx
 	lda	winbufs,x
 	sta	prfrom+1
-	lda	#bank1
+	lda	winbanks,y
 	sta	banksw
 
 	inc	boty
@@ -1199,8 +1199,6 @@ vdelay			; Waits for next VBI to finish
 	beq	?v
 	rts
 
-prmesg
-
 ; Message printer!
 ; Reads	string and outputs it, byte
 ; by byte, to the 'print' routine.
@@ -1208,6 +1206,7 @@ prmesg
 ; Reads	from whatever's in X-hi, Y-lo
 ; (registers): x,y,length,string.
 
+prmesg
 	jsr	vdelay
 prmesgnov
 	sty	prfrom
@@ -1221,21 +1220,23 @@ prmesgnov
 	iny
 	lda	(prfrom),y
 	beq ?end
-	clc
-	adc #3
-	sta	prlen
+	tax
 	iny
 ?lp
 	lda	(prfrom),y
 	sta	prchar
+	txa
+	pha
 	tya
 	pha
 	jsr	print
 	inc	x
 	pla
 	tay
+	pla
+	tax
 	iny
-	cpy	prlen
+	dex
 	bne	?lp
 ?end
 	rts
@@ -1357,16 +1358,17 @@ getscrn			; Close window
 	bne	gtwin
 	rts
 gtwin
-	lda	#bank1
-	sta	banksw
 	dec	numofwin
 	lda	numofwin
+	tay
 	asl	a
 	tax
 	lda	winbufs,x
 	sta	prfrom
 	lda	winbufs+1,x
 	sta	prfrom+1
+	lda	winbanks,y
+	sta	banksw
 	ldy	#0
 gtwninlp
 	lda	(prfrom),y
@@ -1829,6 +1831,17 @@ vbi1_rt8_ok
 	inc clock_flag_seconds	; tell VBI2 that a second has passed
 
 vbi1_donetm
+	; refresh PM color registers as deferred VBI sometimes doesn't do it
+	lda 704
+	sta $d012
+	lda 705
+	sta $d013
+	lda 706
+	sta $d014
+	lda 707
+	sta $d015
+	lda 711
+	sta $d019
 
 sysvbi
 	jmp	$ffff	; Self-modified

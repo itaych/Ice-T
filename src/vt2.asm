@@ -348,10 +348,10 @@ dovt100			; ANSI/VT100 emulation code
 	pla
 	tax
 	inx
-	cpx	#4
+	cpx	#6
 	bne	?l
 	jmp	goymdm
-?et	.byte	8,8,32,32     ; String for erasing Zmodem junk (^H ^H space space)
+?et	.byte	8,8,32,32,8,8     ; String for erasing Zmodem junk (bs bs space space bs bs)
 ?ng
 	ldx	#1
 ?nl
@@ -557,45 +557,55 @@ bigcurs			; wide (8-pixel) cursor
 	bne	?lp
 	rts
 
-regmode			; Display normal character
+regmode				; Display character on terminal output.
 	sta	prchar
-	cmp	#128
-	bcs	notgrph
 	ldx	chset
 	lda	g0set,x
-	beq	notgrph
-	lda	prchar
+	beq	notgrph		; Skip this bit if graphical character set is not presently enabled.
+	lda	prchar		; Check if we're within range of characters affected by VT100 graphics mode (95-126)
+	cmp #127
+	bcs notgrph		; characters 127 and up - nothing to do
 	sec
 	sbc	#95
-	bcc	notgrph
-	tax				; For VT100 graphics characters,
-	lda	graftabl,x	; get value from translation table
-	bpl	grnoesc		; (values over 128 are for additional special characters not in the font)
-	and	#127
+	bcc	notgrph		; less than 95? it's not graphical either
+	tax				
+	lda	graftabl,x		; After subtracting 95 get value from translation table.
+	bpl	?no_digraph		; (values over 128 are for additional digraph characters not in the font)
+	and	#$7f
 	asl	a
 	asl	a
 	asl	a
 	tax
 	ldy	#0
-gresclp				; Digraphs (glyphs containing two small letters) are not part of the font so
+?lp					; Digraphs (glyphs containing two small letters) are not part of the font so
 	lda	digraph,x	; generate and display a special character
 	sta	charset+(91*8),y
 	inx
 	iny
 	cpy	#8
-	bne	gresclp
+	bne	?lp
 	lda	#27
-grnoesc
+?no_digraph
 	sta	prchar
 	lda	#1
 	sta	useset
 	sta	dblgrph
 notgrph
-	lda	seol
+	lda	seol			; was cursor at end of line after writing last character?
 	beq	?noseol
-	jsr	retrn
-	jsr	rseol
+	jsr	retrn			; yes, wrap to next line before outputting next character
+	jsr	reset_seol
 ?noseol
+	lda insertmode
+	beq ?noins
+	lda prchar
+	pha
+	lda #0
+	ldx #1
+	jsr handle_insert_delete_char
+	pla
+	sta prchar
+?noins
 	lda	tx
 	sta	x
 	lda	ty
@@ -603,12 +613,12 @@ notgrph
 	tax
 	dex
 	lda	lnsizdat,x		; check line size
-	beq	nospch			; = 0? no special character
+	beq	nospch			; = 0 (normal)? nothing to do
 	cmp	#4
 	bcs	nospch
 	lda	dblgrph
 	bne	nospch
-	lda	#0
+	lda	#0				; perform a few translations necessary in 40-column mode
 	sta	useset
 	lda	prchar
 	cmp	#96
@@ -642,27 +652,24 @@ nospch
 	ldx	ty
 	dex
 	lda	lnsizdat,x
-	beq	not40
-	cmp	#4
-	bcs	not40
+	tax
 	lda	tx
-	cmp	#40
-	bcc	rseol
-	dec	tx
-	lda	wrpmode
-	sta	seol
-	rts
-not40
-	lda	tx
-	cmp	#80
-	bne	rseol
-	dec	tx
-	lda	wrpmode
-	sta	seol
-	rts
-rseol
+	cmp	szlen,x		; 40 or 80 depending on line width
+	bcs ?at_eol
 	lda	#0
 	sta	seol
+	rts
+?at_eol	
+	dec	tx
+	lda	wrpmode
+	sta	seol
+	beq ?done
+	lda	ansibbs
+	cmp #1
+	bne	?done
+	jsr	retrn
+	jsr	reset_seol	
+?done
 	rts
 
 ; handle the following control codes (any other control character is ignored)
@@ -690,8 +697,8 @@ ctrlcode_jumptable
 	.word ctrlcode_0f
 	.byte $18
 	.word ctrlcode_18
-	.byte $19
-	.word ctrlcode_19
+	.byte $1a
+	.word ctrlcode_1a
 	.byte $1b
 	.word ctrlcode_1b
 	.byte $ff	; default
@@ -710,20 +717,16 @@ ctrlcode_1b		; Escape
 ctrlcode_unused
 	rts
 
-ctrlcode_05		; ^E - transmit answerback ("Ice-T")
-	ldx #0
-?lp
-	txa
-	pha
-	lda tilmesg1,x
-	jsr	rputch
-	pla
-	tax
-	inx
-	cpx #5
-	bne ?lp
-	rts
-
+ctrlcode_05		; ^E - transmit answerback ("Ice-T <version>")
+	ldx #>tilmesg1
+	ldy #<tilmesg1
+	lda #6
+	jsr rputstring
+	ldx #>version_str
+	ldy #<version_str
+	lda #version_strlen
+	jmp rputstring
+	
 ctrlcode_07		; ^G - bell
 	lda	#14
 	sta	dobell
@@ -734,7 +737,7 @@ ctrlcode_0d		; ^M - CR
 	sta	tx
 	lda	eolchar	; Add an LF? (user)
 	bne	ysff	; yes
-	jmp	rseol	; no
+	jmp	reset_seol	; no
 
 ctrlcode_0a		; ^J - LF
 	lda	eolchar	; Add a CR? (user)
@@ -750,7 +753,7 @@ ctrlcode_0c		; ^L - FF, same as lf
 	sta	tx
 ?no
 	jsr	cmovedwn
-	jmp	rseol
+	jmp	reset_seol
 
 ctrlcode_08		; ^H - Backspace
 	dec	tx
@@ -760,12 +763,12 @@ ctrlcode_08		; ^H - Backspace
 	lda	#0
 	sta	tx
 ?ok
-	jmp	rseol
+	jmp	reset_seol
 
 ctrlcode_18		; ^X - CAN - cancel esc / begin Zmodem packet
 	lda	#1
 	sta	zmauto
-ctrlcode_19		; ^Y - SUB, same as CAN.
+ctrlcode_1a		; ^Z - SUB, same as CAN.
 	lda	trmode+1
 	cmp	#<regmode
 	bne	docan
@@ -791,20 +794,17 @@ ctrlcode_09		; ^I - Tab
 	sty temp		; and store it
 	
 	ldx	tx
-findtblp
+	cpx temp
+	beq ?done
+?lp
 	inx
 	cpx	temp		; at edge of screen?
-	bcs	donetab2
+	bcs	?done
 	lda	tabs,x		; no. is there a tab stop here?
-	bne	donetab1	; yes, done
-	jmp	findtblp
-donetab1
-	stx	tx
-	jmp	rseol
-donetab2
-	ldx	temp
-	stx	tx
-	jmp	rseol
+	beq	?lp
+?done
+	stx	tx			; yes, done
+	jmp	reset_seol
 
 ctrlcode_0e		; ^N - use g1 character set
 	lda	#1
@@ -822,12 +822,24 @@ retrn
 	jmp	cmovedwn
 
 esccode
+	ldx	#255
+	stx	numstk
+	ldx	#0
+	stx	numgot
+	ldx ansibbs
+	cpx #2
+	beq ?do_vt52
+	ldx vt52mode
+	bne ?do_vt52
 	ldx #>esccode_jumptable
 	ldy #<esccode_jumptable
 	jmp parse_jumptable
+?do_vt52
+	ldx #>esccode_vt52_jumptable
+	ldy #<esccode_vt52_jumptable
+	jmp parse_jumptable
 
 ; handle the following characters immediately following Esc
-
 esccode_jumptable
 	.byte 91	; '['
 	.word esccode_brak
@@ -865,32 +877,113 @@ esccode_jumptable_end
 	.error esccode_jumptable too big!
 	.endif
 
-esccode_brak	; '[' - start escape sequence with arguments
+; VT-52 escape codes are different:
+esccode_vt52_jumptable
+	.byte 'A
+	.word csicode_cuu
+	.byte 'B
+	.word csicode_cud
+	.byte 'C
+	.word csicode_cuf
+	.byte 'D
+	.word csicode_cub
+	.byte 'F
+	.word esccode_vt52_set_gfx
+	.byte 'G
+	.word esccode_vt52_unset_gfx
+	.byte 'H
+	.word csicode_cup
+	.byte 'I
+	.word esccode_ri
+	.byte 'J
+	.word csicode_ed
+	.byte 'K
+	.word csicode_el
+	.byte 'Y
+	.word esccode_vt52_setpos
+	.byte 'Z
+	.word esccode_vt52_ident
+	.byte 60	; '<'
+	.word esccode_vt52_decanm
+	.byte 61	; '='
+	.word esccode_deckpam
+	.byte 62	; '>'
+	.word esccode_deckpnm
+	.byte $ff	; default
+	.word fincmnd
+
+esccode_vt52_set_gfx	; set graphics mode (but graphics are same as VT102)
+	lda	#1
+	.byte BIT_skip2bytes
+esccode_vt52_unset_gfx	; unset graphics mode
+	lda	#0
+	sta	chset
+	jmp fincmnd
+
+; Esc Y n1 n2 - position cursor
+esccode_vt52_setpos
+	lda	#<esccode_vt52_setpos_1
+	sta	trmode+1
+	lda	#>esccode_vt52_setpos_1
+	sta	trmode+2
+	rts
+esccode_vt52_setpos_1
+	sec
+	sbc #31
+	sta numstk
+	lda	#<esccode_vt52_setpos_2
+	sta	trmode+1
+	lda	#>esccode_vt52_setpos_2
+	sta	trmode+2
+	rts
+esccode_vt52_setpos_2
+	sec
+	sbc #31
+	sta numstk+1
+	lda #2
+	sta numgot
+	jmp csicode_cup
+
+; Esc Z - identify
+esccode_vt52_ident
+	ldx #>vt52_ident_string
+	ldy #<vt52_ident_string
+	lda #3
+	jsr rputstring
+	jmp fincmnd
+vt52_ident_string
+	.byte 27, "/Z"
+
+; Esc < - switch back to vt102 mode
+esccode_vt52_decanm
+	lda #0
+	sta vt52mode
+	jmp fincmnd
+
+; End of VT-52 code
+
+esccode_brak	; '[' - start escape sequence with arguments (CSI)
 	lda	#<brakpro_first_char
 	sta	trmode+1
 	lda	#>brakpro_first_char
 	sta	trmode+2
 	lda	#255
 	sta	finnum
-	sta	numstk
 	lda	#0
 	sta	qmark	; mark that we didn't get a question mark character after '['
-	sta	numgot
-	sta	digitgot
-	sta	gogetdg
 	rts
 
 esccode_ind		; D - down 1 line
 	jsr	cmovedwn
-	jmp	fincmnd
+	jmp	fincmnd_reset_seol
 
 esccode_nel		; E - return
 	jsr	retrn
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
 esccode_ri		; M - up line
 	jsr	cmoveup
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
 esccode_deckpam	; = - Numlock off
 	lda	#0
@@ -909,8 +1002,8 @@ esccode_decsc	; 7 - save curs+attrib
 	sta	savcursx
 	lda	ty
 	sta	savcursy
-	lda	wrpmode
-	sta	savwrap
+	lda	origin_mode
+	sta	savorgn
 	lda	g0set
 	sta	savg0
 	lda	g1set
@@ -929,11 +1022,17 @@ esccode_decsc	; 7 - save curs+attrib
 
 esccode_decrc	; 8 - restore above
 	lda	savcursx
+	cmp #255	; initial value indicating no value ever stored
+	bne ?ok
+	lda #0
+	sta numgot
+	jmp csicode_cup		; just home the cursor
+?ok
 	sta	tx
 	lda	savcursy
 	sta	ty
-	lda	savwrap
-	sta	wrpmode
+	lda	savorgn
+	sta	origin_mode
 	lda	savg0
 	sta	g0set
 	lda	savg1
@@ -951,11 +1050,16 @@ esccode_decrc	; 8 - restore above
 	lda	savgrn+1	; if disabled by user
 ?o
 	sta	boldface
-	jmp	fincmnd
+	jmp	fincmnd_reset_seol
 
-esccode_decid	; Z - id device
-	jsr	decid
+esccode_decid	; Z - send ID string
+	ldx	#>?data
+	ldy	#<?data
+	lda #5
+	jsr rputstring
 	jmp	fincmnd
+?data
+	.byte	27,  "[?6c"
 
 esccode_hts		; H - set tab at this position.
 	ldx	tx
@@ -989,7 +1093,7 @@ esccode_resttrm	; c - Reset terminal
 	sta	tx
 	jsr	resttrm
 	jsr	clrscrn
-	jmp	fincmnd
+	jmp	fincmnd_reset_seol
 
 ; process chars after Esc #
 
@@ -1063,6 +1167,9 @@ hash_process
 
 ; check values 3-7, which change the line size
 no_fill_e
+
+changesize_templine = numstk+$80
+
 	pha
 	jsr	chklnsiz
 	pla
@@ -1093,14 +1200,14 @@ no_fill_e
 	lda	#32
 	ldx	#79
 ?szloop1
-	sta	numstk+$80,x
+	sta	changesize_templine,x
 	dex
 	bpl	?szloop1
 	ldx	#0
 	ldy	#0
 ?szloop2
 	lda	(ersl),y		; copy old text line to a temp buffer
-	sta	numstk+$80,x
+	sta	changesize_templine,x
 	lda #32
 	sta (ersl),y		; blank old text line
 	iny
@@ -1127,7 +1234,7 @@ no_fill_e
 	sta	x
 	tax
 szprloop				; redraw line
-	lda	numstk+$80,x
+	lda	changesize_templine,x
 	cmp	#32
 	beq	?s				; skip spaces
 	cmp	#128
@@ -1145,7 +1252,7 @@ szprloop				; redraw line
 	lda	x
 	tax
 szprchng
-	cmp	#80
+	cmp	#80				; value is modified to actual number of columns
 	bne	szprloop
 	pla					; restore attributes
 	sta	undrln
@@ -1163,7 +1270,7 @@ szprchng
 	dex
 	stx tx
 ?ok
-	jmp	fincmnd			; done
+	jmp	fincmnd_reset_seol
 
 ; Process character after Esc '(' or Esc ')'
 parpro
@@ -1175,7 +1282,7 @@ parpro
 ?dog1
 	lda	#0
 	sta	g0set,x
-	jmp	fincmnd
+	beq ?dog4
 ?dog2
 	cmp	#'0
 	beq	?dog3
@@ -1200,7 +1307,7 @@ brakpro_first_char	; process first char after Esc [ (which may be a question mar
 	sta	qmark		; indicate that we got a question mark and finish
 	rts
 
-brakpro			; Get numberical arguments and command after 'Esc ['
+brakpro			; Get numerical arguments and command after 'Esc ['
 	cmp	#'0		; is this a digit?
 	bcc	?not_digit
 	cmp	#'9+1
@@ -1208,26 +1315,20 @@ brakpro			; Get numberical arguments and command after 'Esc ['
 	sec
 	sbc	#'0
 	sta	temp
-	lda	digitgot
+	lda	finnum
+	cmp #255
 	bne	?mltpl10
 	lda	temp
 	sta	finnum
-	inc	digitgot
-	lda	#1
-	sta	gogetdg
 	rts
 ?mltpl10
-	lda	finnum
+	lda	finnum	; multiply existing value by 10
+	asl	a		; (we assume high bits are 0 so carry gets cleared)
 	asl	a
-	asl	a
-	clc
 	adc	finnum
 	asl	a
-	clc
-	adc	temp
+	adc	temp	; and add new digit
 	sta	finnum
-	lda	#1
-	sta	gogetdg
 	rts
 ?not_digit		; not a digit, so the number is complete. add it to arguments stack
 	tay
@@ -1237,136 +1338,184 @@ brakpro			; Get numberical arguments and command after 'Esc ['
 	inc	numgot
 	lda	#255
 	sta	finnum
-	lda	#0
-	sta	digitgot
-	sta	gogetdg
 	tya
-	cmp	#59		; is this character a semicolon?
+	cmp	#59		; was this character a semicolon?
 	bne	?notsemic
 	rts			; yes, we're done, wait for more arguments
 ?notsemic
 	; this is the command character. Jump according to whether sequence started with a question mark
 	ldx	qmark
 	bne	?qmark
-	ldx #>esc_brakargs_code_jumptable
-	ldy #<esc_brakargs_code_jumptable
+	ldx #>csi_code_jumptable
+	ldy #<csi_code_jumptable
 	jmp parse_jumptable
 ?qmark
-	ldx #>esc_brakargs_qmark_code_jumptable
-	ldy #<esc_brakargs_qmark_code_jumptable
+	ldx #>csi_qmark_code_jumptable
+	ldy #<csi_qmark_code_jumptable
 	jmp parse_jumptable
 
-esc_brakargs_code_jumptable
+csi_code_jumptable
+	.byte 'H
+	.word csicode_cup
+	.byte 'f
+	.word csicode_cup
+	.byte 'A
+	.word csicode_cuu
+	.byte 'B
+	.word csicode_cud
+	.byte 'C
+	.word csicode_cuf
+	.byte 'D
+	.word csicode_cub
+	.byte 'r
+	.word csicode_decstbm
+	.byte 'K
+	.word csicode_el
+	.byte 'J
+	.word csicode_ed
+	.byte 'q
+	.word csicode_leds
+	.byte 'c
+	.word esccode_decid
+	.byte 'n
+	.word csicode_dsr
+	.byte 'x
+	.word csicode_decreqtparm
+	.byte 'g
+	.word csicode_bc
+	.byte 'm
+	.word csicode_sgr
+; VT-102 sequences
+	.byte 'P
+	.word csicode_dch
+	.byte 'L
+	.word csicode_il
+	.byte 'M
+	.word csicode_dl
+; additional non-VT102 sequences (ANSI)
+	.byte 'd
+	.word csicode_vpa
+	.byte 'G
+	.word csicode_cha
+	.byte '@
+	.word csicode_ich
+	.byte 'E
+	.word csicode_cnl
+	.byte 'F
+	.word csicode_cpl
+	.byte 'S
+	.word csicode_su
+	.byte 'T
+	.word csicode_sd
+	.byte 'X
+	.word csicode_ech
+	.byte 'Z
+	.word csicode_cbt
 	.byte 's	; s - same as Esc 7
 	.word esccode_decsc
 	.byte 'u	; u - same as Esc 8
 	.word esccode_decrc
-	.byte 'H
-	.word escbrakcode_cup
-	.byte 'f
-	.word escbrakcode_cup
-	.byte 'A
-	.word escbrakcode_cuu
-	.byte 'B
-	.word escbrakcode_cud
-	.byte 'C
-	.word escbrakcode_cuf
-	.byte 'D
-	.word escbrakcode_cub
-	.byte 'r
-	.word escbrakcode_decstbm
-	.byte 'K
-	.word escbrakcode_el
-	.byte 'J
-	.word escbrakcode_ed
-	.byte 'q
-	.word escbrakcode_leds
-	.byte 'c
-	.word escbrakcode_da
-	.byte 'n
-	.word escbrakcode_dsr
-	.byte 'x
-	.word escbrakcode_decreqtparm
-	.byte 'g
-	.word escbrakcode_bc
-	.byte 'm
-	.word escbrakcode_sgr
-esc_brakargs_qmark_code_jumptable
-	.byte 'h
-	.word escbrakcode_sm
-	.byte 'l
-	.word escbrakcode_rm
-	.byte $ff	; default
-	.word fincmnd1	; but should this be fincmnd in qmark mode? why? todo..
-esc_brakargs_code_jumptable_end
+; end of ANSI sequences
 
-	.if esc_brakargs_code_jumptable_end - esc_brakargs_code_jumptable > $100
-	.error esc_brakargs_code_jumptable too big!
+; codes that are accepted with or without question mark after '['
+csi_qmark_code_jumptable
+	.byte 'h
+	.word csicode_sm
+	.byte 'l
+	.word csicode_rm
+	.byte $ff	; default
+	.word fincmnd
+csi_code_jumptable_end
+
+	.if csi_code_jumptable_end - csi_code_jumptable > $100
+	.error csi_code_jumptable too big!
 	.endif
 
-escbrakcode_cup		; H or f - Position cursor
-	ldx	numgot
-	cpx	#2
-	bcs	hvpdo
-	lda	#1
-	sta	numstk+1
-hvpdo
-	lda	numstk
-	cmp	#255
-	bne	hvp1
-	lda	#1
-	sta	numstk
-hvp1
-	lda	numstk+1
-	cmp	#255
-	bne	hvp2
-	lda	#1
-	sta	numstk+1
-hvp2
+; common routine to check arguments.
+; X - arg number (0-based) to check in numstk
+; A - default value to set if none or 0 given
+; Y - highest allowed value for arg (arg is truncated to this value)
+csicode_checkparams
+	sta ?yes0+1
+	lda numstk,x
+	cpx numgot	; did we actually get this many args?
+	bcc ?ok		; ok (skip this) if numgot > X
+	inx
+	stx numgot
+	dex
+	lda #255	; default is 255 indicating invalid value
+?ok
+	cmp #0
+	beq ?yes0
+	cmp #255
+	bne ?no255
+?yes0
+	lda #0		; self modified to caller's requested default value
+	sta numstk,x
+?no255
+	tya
+	cmp numstk,x
+	bcs ?no_truncate
+	sta numstk,x
+?no_truncate
+	rts
+
+; CHECK_PARAMS arg_num, default_value, max_value
+.macro CHECK_PARAMS
+	.if %0 <> 3
+		.error "CHECK_PARAMS - wrong number of params"
+	.else
+		ldx #%1
+		ldy #%3
+		lda #%2
+		jsr csicode_checkparams
+	.endif
+.endm
+
+csicode_cup		; H or f - Position cursor
+	CHECK_PARAMS 0,1,24
+	CHECK_PARAMS 1,1,80
+
 	lda	numstk	; new Y coordinate
-	bne ?ok1
-	lda #1
-?ok1
-	cmp #25
-	bcc ?ok2
-	lda #24
-?ok2
 	ldx origin_mode
-	beq ?ok3
+	beq ?ok
 	clc
 	adc scrltop
 	sec
 	sbc #1
 	cmp scrlbot
-	bcc ?ok3
+	bcc ?ok
 	lda scrlbot
-?ok3
+?ok
 	sta ty
 
 	lda	numstk+1	; new X coordinate
-	beq ?ok4
 	sec
 	sbc #1			; X - change 1-80 to 0-79
-	cmp	#80
-	bcc	?ok4
-	lda	#79
-?ok4
 	sta	tx
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
-escbrakcode_cuu		; A - Move cursor up
-	lda	numstk
-	beq	cuudodef
-	cmp	#255
-	beq	cuudodef
-	cmp #25
-	bcc cuuok
-	lda #24
-	.byte BIT_skip2bytes
-cuudodef
-	lda	#1
-	sta	numstk
-cuuok
+; for VPA and CHA: fake it by pretending we got 2 args then jump to csicode_cup
+csicode_vpa		; d - position cursor (Y only)
+	lda #2
+	sta numgot
+	lda tx
+	clc
+	adc #1
+	sta numstk+1
+	jmp csicode_cup
+
+csicode_cha		; G - position cursor (X only)
+	lda #2
+	sta numgot
+	lda numstk
+	sta numstk+1
+	lda ty
+	sta numstk
+	jmp csicode_cup
+
+csicode_cuu		; A - Move cursor up
+	CHECK_PARAMS 0,1,24
 	lda	ty
 	sec
 	sbc	numstk
@@ -1384,22 +1533,10 @@ cuuok
 	lda scrltop
 ?ok3
 	sta	ty
-	sta	ty
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
-escbrakcode_cud		; B - Move cursor down
-	lda	numstk
-	beq	cuddodef
-	cmp	#255
-	beq	cuddodef
-	cmp #25
-	bcc cudok
-	lda #24
-	.byte BIT_skip2bytes
-cuddodef
-	lda	#1
-	sta	numstk
-cudok
+csicode_cud		; B - Move cursor down
+	CHECK_PARAMS 0,1,24
 	lda	ty
 	clc
 	adc	numstk
@@ -1414,21 +1551,10 @@ cudok
 	lda scrlbot
 ?ok2
 	sta	ty
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
-escbrakcode_cuf		; C - Move cursor right
-	lda	numstk
-	beq cufdodef
-	cmp	#255
-	beq	cufdodef
-	cmp #81
-	bcc cufok
-	lda #80
-	.byte BIT_skip2bytes
-cufdodef
-	lda	#1
-	sta	numstk
-cufok
+csicode_cuf		; C - Move cursor right
+	CHECK_PARAMS 0,1,80
 	lda	tx
 	clc
 	adc	numstk
@@ -1437,21 +1563,10 @@ cufok
 	lda	#79
 ?ok
 	sta	tx
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
-escbrakcode_cub		; D - Move cursor left
-	lda	numstk
-	beq	cubdodef
-	cmp	#255
-	beq cubdodef
-	cmp #81
-	bcc cubok
-	lda #80
-	.byte BIT_skip2bytes
-cubdodef
-	lda	#1
-	sta	numstk
-cubok
+csicode_cub		; D - Move cursor left
+	CHECK_PARAMS 0,1,80
 	lda	tx
 	sec
 	sbc	numstk
@@ -1459,41 +1574,12 @@ cubok
 	lda #0
 ?ok
 	sta	tx
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
-escbrakcode_decstbm	; r - set scroll margins
-	ldx	numgot
-	cpx	#2
-	bcs	?m1
-	lda	#24
-	sta	numstk+1
-	cpx	#1
-	bcs	?m1
-	lda	#1
-	sta	numstk
-?m1
-	lda	numstk	; top margin (1-23)
-	cmp	#255
-	bne	?m2
-	lda	#1
-?m2
-	cmp	#1
-	bcs	?m3
-	lda	#1
-?m3
-	cmp	#24
-	bcc	?m4
-	lda	#23
-?m4
-	sta	numstk
-
-	lda	numstk+1	; bottom margin (2-24)
-	cmp	#25		; should cover 255 as well. other invalid values (0,1) are covered soon.
-	bcc	?m6
-	lda	#24
-?m6
-	sta	numstk+1
-
+csicode_decstbm	; r - set scroll margins
+	CHECK_PARAMS 0,1,23
+	CHECK_PARAMS 1,24,24
+	lda	numstk+1
 	cmp	numstk	; ensure bottom > top
 	beq ?m7
 	bcs	?m8
@@ -1516,9 +1602,9 @@ escbrakcode_decstbm	; r - set scroll margins
 	tax			; origin mode? move to first line of new scroll region
 ?ok
 	stx	ty
-	jmp	fincmnd1
+	jmp	fincmnd_reset_seol
 
-escbrakcode_el		; K - erase in line
+csicode_el		; K - erase in line
 	lda	numstk
 	beq ?v0
 	cmp	#3
@@ -1536,7 +1622,7 @@ escbrakcode_el		; K - erase in line
 	jsr	erstocurs
 	jmp	fincmnd
 
-escbrakcode_ed		; J - erase in screen
+csicode_ed		; J - erase in screen
 	lda	numstk
 	beq ?v0
 	cmp	#3
@@ -1547,7 +1633,8 @@ escbrakcode_ed		; J - erase in screen
 ?v2					; 2 - clear entire screen. cursor does not move. (ANSI-BBS: home cursor)
 	jsr	clrscrn
 	lda	ansibbs
-	beq	?nc
+	cmp #1
+	bne	?nc
 	lda	#0
 	sta	tx
 	lda	#1
@@ -1618,12 +1705,8 @@ escbrakcode_ed		; J - erase in screen
 ?done
 	jmp	fincmnd
 	
-escbrakcode_leds	; q - control LEDs
-	lda numgot
-	bne ?ok
-	sta numstk	; no args? put a single 0
-	inc numgot
-?ok
+csicode_leds	; q - control LEDs
+	CHECK_PARAMS 0,0,4
 	ldx #0
 ?lp
 	lda numstk,x
@@ -1650,33 +1733,17 @@ escbrakcode_leds	; q - control LEDs
 	jmp	fincmnd
 led_tbl .byte 1,2,4,8
 
-escbrakcode_da	; c - id device
-	jsr	decid
-	jmp	fincmnd
-
-escbrakcode_dsr	; n - device status
-	lda	numgot
-	bne	dsr1
-	lda	#5
-	sta	numstk
-dsr1
+csicode_dsr	; n - device status
+	CHECK_PARAMS 0,5,255
 	lda	numstk
 	cmp	#5
 	bne	dsrno5
 	; send status ok
-	ldx	#0
-?lp
-	txa
-	pha
-	lda	dsrdata,x
-	jsr	rputch
-	pla
-	tax
-	inx
-	cpx	#4
-	bne	?lp
+	ldx	#>dsrdata
+	ldy	#<dsrdata
+	lda #4
+	jsr rputstring
 	jmp	fincmnd
-
 dsrdata
 	.byte 27, "[0n"
 
@@ -1748,29 +1815,18 @@ cpr2
 	sta	cprd+7
 
 	; send the string
-	ldx	#0
-cprdolp
-	txa
-	pha
-	lda	cprd,x
-	beq	?skip	; skip null characters in response string
-	jsr	rputch
-?skip
-	pla
-	tax
-	inx
-	cpx	#8
-	bne	cprdolp
+	ldx #>cprd
+	ldy #<cprd
+	lda #8
+	jsr rputstring
 dsrno6
 	jmp	fincmnd
 
-escbrakcode_decreqtparm	; x - DECREQTPARM – Request Terminal Parameters
-	lda numgot
-	beq ?ok
+csicode_decreqtparm	; x - DECREQTPARM – Request Terminal Parameters
+	CHECK_PARAMS 0,0,255
 	lda numstk
 	cmp #2
 	bcs ?skip
-?ok
 	; A contains 0 or 1. Respond with 2 or 3 respectively in decreqtparm_resptype field.
 	clc
 	adc #'2
@@ -1793,20 +1849,10 @@ escbrakcode_decreqtparm	; x - DECREQTPARM – Request Terminal Parameters
 	cpy #3
 	bne ?blp
 	; send the response
-	ldx #0
-?lp
-	txa
-	pha
-	lda decreqtparm_string,x
-	cmp #'^
-	beq ?skipchar
-	jsr	rputch
-?skipchar
-	pla
-	tax
-	inx
-	cpx #decreqtparm_string_end-decreqtparm_string
-	bne ?lp
+	ldx #>decreqtparm_string
+	ldy #<decreqtparm_string
+	lda #decreqtparm_string_end-decreqtparm_string
+	jsr rputstring
 ?skip
 	jmp	fincmnd
 
@@ -1817,18 +1863,17 @@ decreqtparm_rspeed		.byte "120;1;0x"
 decreqtparm_string_end
 
 decreqtparm_encoded_baudrates
-	.byte "^48"	; 300
-	.byte "^56"	; 600
-	.byte "^64"	; 1200
-	.byte "^72"	; 1800
-	.byte "^88"	; 2400
-	.byte "104"	; 4800
-	.byte "112"	; 9600
-	.byte "120"	; 19.2k
+	.byte "48",0	; 300
+	.byte "56",0	; 600
+	.byte "64",0	; 1200
+	.byte "72",0	; 1800
+	.byte "88",0	; 2400
+	.byte "104"		; 4800
+	.byte "112"		; 9600
+	.byte "120"		; 19.2k
 
-escbrakcode_bc	; g - clear tabs
-	lda	numgot
-	beq ?v0
+csicode_bc	; g - clear tabs
+	CHECK_PARAMS 0,0,255
 	lda	numstk
 	beq ?v0
 	cmp	#3
@@ -1846,10 +1891,10 @@ escbrakcode_bc	; g - clear tabs
 	sta	tabs,x
 	jmp	fincmnd
 	
-escbrakcode_sm	; h - set mode
+csicode_sm	; h - set mode
 	lda	#1
 	.byte BIT_skip2bytes
-escbrakcode_rm	; l - reset mode
+csicode_rm	; l - reset mode
 	lda	#0
 	sta	modedo
 
@@ -1874,6 +1919,11 @@ fincmnd_domode	; loop over arguments for h/l
 	lda	modedo
 	sta	newlmod		; set Newline mode
 ?noLNM
+	cmp #4
+	bne ?noIRM
+	lda	modedo
+	sta	insertmode	; set Insert mode	
+?noIRM
 	jmp	fincmnd_domode
 ?domode_qmark		; with question mark
 	cmp	#1
@@ -1882,6 +1932,21 @@ fincmnd_domode	; loop over arguments for h/l
 	sta	ckeysmod
 	jmp	fincmnd_domode
 nodecckm
+	cmp #2
+	bne nodecanm
+	lda modedo		; set VT52 mode
+	eor #1
+	sta vt52mode
+	beq ?ok
+	lda	#0
+	sta	g0set
+	sta	chset
+	sta insertmode
+	lda	#1
+	sta	g1set
+?ok
+	jmp	fincmnd_domode	
+nodecanm
 	cmp #3	; set 80/132 columns - but we don't support 132 columns so just reset screen and scroll margins
 	bne nodeccolm
 	jsr fscrol_critical		; fine scroll critical section? wait
@@ -1893,6 +1958,7 @@ nodecckm
 	lda	#24
 	sta	scrlbot
 	jsr	clrscrn
+	jsr reset_seol
 	jmp	fincmnd_domode
 nodeccolm
 	cmp	#5	; set inverse screen
@@ -1919,6 +1985,7 @@ nodecscnm
 	lda scrltop
 ?no_org
 	sta	ty
+	jsr reset_seol
 	jmp	fincmnd_domode
 nodecom
 	cmp	#7	; Set auto-wrap mode
@@ -1928,7 +1995,7 @@ nodecom
 nodecawm
 	jmp	fincmnd_domode
 	
-escbrakcode_sgr	; m - set graphic rendition
+csicode_sgr	; m - set graphic rendition
 	ldy	#255
 	lda	numgot
 	bne	sgrlp
@@ -2004,6 +2071,10 @@ sgrsetinvsbl
 	sta	invsbl
 	jmp	sgrlp
 sgrmdno8
+	cmp #39			; change 39 (default) to 37
+	bne ?no39
+	lda #37
+?no39
 	cmp #30
 	bcc ?nocolor
 	cmp #38
@@ -2025,6 +2096,10 @@ sgrmdno8
 	sta boldface
 	jmp	sgrlp
 ?nocolor
+	cmp #49			; change 49 (default) to 47
+	bne ?no49
+	lda #47
+?no49
 	cmp #40
 	bcc ?nobackcolor
 	cmp #48
@@ -2040,8 +2115,144 @@ sgrmdno8
 ?nobackcolor	
 	jmp	sgrlp
 
-fincmnd1
-	jsr	rseol
+csicode_il				; L - insert lines at cursor
+	lda #0
+	.byte BIT_skip2bytes
+csicode_dl				; M - delete lines at cursor
+	lda #1
+	sta numstk+1
+	; code for IL and DL is mostly the same
+	CHECK_PARAMS 0,1,24
+	lda ty
+	sta y
+	cmp scrltop
+	bcc ?done
+	cmp scrlbot
+	bne ?notbot
+	bcs ?done
+	; we're at bottom margin, so just clear this line
+	jsr ersline
+	jmp fincmnd
+?notbot
+	jsr fscrol_critical
+	lda scrltop
+	pha
+	lda	ty
+	sta	scrltop
+	; code splits here
+	lda numstk+1
+	beq ?lp_il
+
+?lp_dl
+	jsr scrldown
+	dec numstk
+	bne ?lp_dl
+	beq ?dl_done
+
+?lp_il
+	jsr scrlup
+	dec numstk
+	bne ?lp_il
+
+?dl_done
+	jsr fscrol_critical
+	pla
+	sta scrltop
+?done
+	jmp fincmnd
+
+csicode_ich				; @ - insert characters at cursor
+	lda #0
+	.byte BIT_skip2bytes
+csicode_dch				; P - delete characters at cursor
+	lda #1
+	sta temp
+
+	; code for ICH and DCH is mostly the same
+	CHECK_PARAMS 0,1,80
+	ldx numstk
+	lda temp
+	jsr handle_insert_delete_char
+	jmp fincmnd
+
+csicode_cnl				; E - move cursor to left margin and down
+	lda	#0
+	sta	tx
+	jmp csicode_cud
+
+csicode_cpl				; F - move cursor to left margin and up
+	lda	#0
+	sta	tx
+	jmp csicode_cuu
+
+csicode_su				; S - scroll down by n lines
+	CHECK_PARAMS 0,1,24
+	ldx numstk
+?lp
+	txa
+	pha
+	jsr	scrldown
+	pla
+	tax
+	dex
+	bne ?lp
+	jmp fincmnd
+	
+csicode_sd				; T - scroll up by n lines
+	CHECK_PARAMS 0,1,24
+	ldx numstk
+?lp
+	txa
+	pha
+	jsr	scrlup
+	pla
+	tax
+	dex
+	bne ?lp
+	jmp fincmnd
+
+csicode_ech				; X - erases characters from cursor position
+	CHECK_PARAMS 0,1,80
+	lda ty
+	sta y
+	tay
+	dey
+	ldx	lnsizdat,y	; check line size
+	lda szlen,x
+	sta ?ech_maxcols+1
+	lda tx
+	sta x
+?lp
+	lda #32
+	sta prchar
+	jsr printerm
+	inc x
+	lda x
+?ech_maxcols
+	cmp #$ff		; self modified
+	beq ?done
+	dec numstk
+	bne ?lp
+?done
+	jmp fincmnd
+
+csicode_cbt				; Z - move backwards n tab stops
+	CHECK_PARAMS 0,1,80
+	ldx	tx
+	beq ?done
+?lp
+	dex
+	beq ?done
+	lda	tabs,x
+	beq ?lp
+	dec numstk
+	bne ?lp
+?done
+	stx	tx
+	jmp fincmnd_reset_seol
+
+fincmnd_reset_seol
+	jsr	reset_seol
 fincmnd
 	lda	#<regmode
 	sta	trmode+1
@@ -2049,99 +2260,141 @@ fincmnd
 	sta	trmode+2
 	rts
 
-; erase text from start of line to cursor (inclusive)
-erstocurs
-	; erase in text mirror first
+reset_seol
+	lda #0
+	sta seol
+	rts
+
+; End of VT100 parsing code.
+
+; A=0 to insert char(s), 1 to delete. X=num of chars (1-80). At tx/ty.
+handle_insert_delete_char
+
+?idc_action = crcl	; reuse some zero page variables
+?idc_num = crch
+?idc_is_line_dbl = dbltmp1
+?idc_blank_line_check = dbltmp2
+?idc_maxcols = invlo
+?idc_templine_maxvalid = invhi
+?idc_templine = numstk+$80
+
+	sta ?idc_action
+	stx ?idc_num
+
 	lda	ty
 	sta	y
 	jsr	calctxln
-	ldy tx
-	sty x
 	ldx	ty
 	dex
 	lda	lnsizdat,x	; wide line?
-	beq ?ok
-	tya			; yes, multiply X position by 2, taking care not to go beyond edge
-	asl a
-	tay
-	sty x		; for bold clear (later)
-	cpy #80
-	bcc ?ok
-	ldy #78
-	sty x
-?ok
-	lda #32
-txerto
-	sta	(ersl),y
-	dey
-	bpl	txerto
-
-	; erase bold info
-	lda boldallw
-	beq ?nobold
-?boldlp
-	jsr unbold
-	dec x
-	dec x
-	bpl ?boldlp
-?nobold
-
-	; erase text on screen
-	lda	ty
-	tay
-	lda	tx
-	sta	x
-	dey
-	ldx	lnsizdat,y	; check line width
-	stx temp		; remember for later
-	bne	ertobt		; wide line? skip check for even character.
-	and	#1			; narrow line: is X position even?
-	bne	ertobt
-	lda	#32			; if so, we need to print a space to erase this one character
-	sta	prchar
-	jsr	print
-	dec	x
-	lda	x			; we're done if X was 0 (start of line)
-	bpl	ertobt
-	rts
-ertobt
-	lda ty			; mass erase by blanking whole bytes of screen data
-	asl	a
+	beq ?z
+	lda #1			; we need a boolean value here
+?z
+	sta ?idc_is_line_dbl
 	tax
-	lda	linadr,x	; get data address for this line
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	lda	x
-	ldx temp		; was this a wide line?
-	bne ?ok1
-	lsr	a			; narrow line: divide X by 2 to get byte offset
-?ok1
-	cmp #40			; are we for whatever reason beyond the edge of the screen?
-	bcc ?ok2
-	lda #39			; force to right edge
-?ok2
-	sta	temp		; temp will now store byte offset of last byte to erase per bitmap line
+	lda szlen,x
+	sta ?idc_maxcols
+	lda tx
+	ldx ?idc_is_line_dbl
+	beq ?nodbl1
+	asl a
+?nodbl1
+	; step 1: copy data from cursor forward to idc_templine. if there's no text there, quit.
 	tay
-	ldx	#7			; bitmap line counter (there are 8 lines to partially clear)
-	lda	#255
-ertobtlp
-	sta	(cntrl),y
-	dey
-	bpl	ertobtlp
-	lda	cntrl
+	ldx ?idc_is_line_dbl
+	lda ?modcmd,x
+	sta ?copy_lp_modme
+	ldx #0
+	stx ?idc_blank_line_check
+?copy_lp
+	lda (ersl),y
+	sta ?idc_templine,x
+	ora ?idc_blank_line_check	; this check will fail if there are only spaces and ASCII 0 (checkerboard)
+	sta ?idc_blank_line_check	; characters and nothing else on the line. Oh well.
+	inx
+	iny
+?copy_lp_modme
+	nop
+	cpy #80
+	bne ?copy_lp
+	lda ?idc_blank_line_check
+	cmp #32
+	beq ?done
+	stx ?idc_templine_maxvalid
+	
+	; step 2: clear the line from cursor position forward.
+	jsr	ersfmcurs
+
+	; step 3: are we done?
+	lda ?idc_maxcols
+	sec
+	sbc tx
+	cmp ?idc_num
+	bcc ?done
+	beq ?done
+	
+	; step 4: redraw text at new position.
+	lda	invsbl			; before redrawing anything, turn off all attributes
+	pha
+	lda	boldface
+	pha
+	lda	revvid
+	pha
+	lda	undrln
+	pha
+	lda	#0
+	sta	invsbl
+	sta	revvid
+	sta	undrln
+	sta	boldface
+
+	ldy ?idc_num
+	lda tx
+	ldx ?idc_action
+	bne ?noins
 	clc
-	adc	#40
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
-	lda	#255
-	ldy	temp
-	dex
-	bpl	ertobtlp
+	adc ?idc_num
+	ldy #0
+?noins
+	sta x
+	
+?lp						; redraw moved characters
+	lda	?idc_templine,y
+	cmp	#32
+	beq	?s				; skip spaces
+	sta	prchar
+	tya
+	pha
+	jsr	printerm
+	pla
+	tay
+?s
+	iny
+	cpy ?idc_templine_maxvalid
+	beq ?lp_done
+	inc	x
+	lda	x
+	tax
+	cmp	?idc_maxcols
+	bne	?lp
+?lp_done
+
+	pla					; restore attributes
+	sta	undrln
+	pla
+	sta	revvid
+	pla
+	sta	boldface
+	pla
+	sta	invsbl
+
+?done
 	rts
 
+?modcmd
+	nop
+	iny
+	
 ; erase text from cursor (inclusive) to end of the line
 ersfmcurs
 	; erase in text mirror first
@@ -2173,9 +2426,13 @@ txerfm
 	; erase bold info
 	lda boldallw
 	beq ?nobold
+	lda x			; do not start from odd character as this may unbold character to its left; skip it.
+	and #1
+	bne ?skip1
 ?boldlp
 	jsr unbold
 	inc x
+?skip1
 	inc x
 	lda x
 	cmp #80
@@ -2240,43 +2497,124 @@ erfmbtlp
 	bpl	erfmbtlp
 	rts
 
-; DECID - send ID string
-decid
-	ldx	#0
-?lp
-	txa
-	pha
-	lda	deciddata,x
-	jsr	rputch
-	pla
+; erase text from start of line to cursor (inclusive)
+erstocurs
+	; erase in text mirror first
+	lda	ty
+	sta	y
+	jsr	calctxln
+	ldy tx
+	sty x
+	ldx	ty
+	dex
+	lda	lnsizdat,x	; wide line?
+	beq ?ok
+	tya			; yes, multiply X position by 2, taking care not to go beyond edge
+	asl a
+	tay
+	sty x		; for bold clear (later)
+	cpy #80
+	bcc ?ok
+	ldy #78
+	sty x
+?ok
+	lda #32
+txerto
+	sta	(ersl),y
+	dey
+	bpl	txerto
+
+	; erase bold info
+	lda boldallw
+	beq ?nobold
+	lda	lnsizdat,x	; wide line?
+	bne ?boldlp		; if so skip this check
+	lda x			; do not start from even character as this may unbold character to its right; skip it.
+	and #1
+	beq ?skip1
+?boldlp
+	jsr unbold
+	dec x
+?skip1
+	dec x
+	bpl ?boldlp
+?nobold
+
+	; erase text on screen
+	lda	ty
+	tay
+	lda	tx
+	sta	x
+	dey
+	ldx	lnsizdat,y	; check line width
+	stx temp		; remember for later
+	bne	ertobt		; wide line? skip check for even character.
+	and	#1			; narrow line: is X position even?
+	bne	ertobt
+	lda	#32			; if so, we need to print a space to erase this one character
+	sta	prchar
+	jsr	print
+	dec	x
+	lda	x			; we're done if X was 0 (start of line)
+	bpl	ertobt
+	rts
+ertobt
+	lda ty			; mass erase by blanking whole bytes of screen data
+	asl	a
 	tax
-	inx
-	cpx	#7
-	bne	?lp
+	lda	linadr,x	; get data address for this line
+	sta	cntrl
+	lda	linadr+1,x
+	sta	cntrh
+	lda	x
+	ldx temp		; was this a wide line?
+	bne ?ok1
+	lsr	a			; narrow line: divide X by 2 to get byte offset
+?ok1
+	cmp #40			; are we for whatever reason beyond the edge of the screen?
+	bcc ?ok2
+	lda #39			; force to right edge
+?ok2
+	sta	temp		; temp will now store byte offset of last byte to erase per bitmap line
+	tay
+	ldx	#7			; bitmap line counter (there are 8 lines to partially clear)
+	lda	#255
+ertobtlp
+	sta	(cntrl),y
+	dey
+	bpl	ertobtlp
+	lda	cntrl
+	clc
+	adc	#40
+	sta	cntrl
+	lda	cntrh
+	adc	#0
+	sta	cntrh
+	lda	#255
+	ldy	temp
+	dex
+	bpl	ertobtlp
 	rts
 
-deciddata
-	.byte	27,  "[?1;0c"
-
-cmovedwn		; subroutine to move cursor
-	lda	ty		; down 1 line, scroll down if
-	cmp	scrlbot	; margin is reached.
+; move cursor down 1 line, scroll down if margin is reached.
+cmovedwn
+	lda	ty
+	cmp	scrlbot
 	bne	?ns
-	jsr	scrldown
-	rts
+	jmp	scrldown
 ?ns
 	cmp	#24
 	beq	?nm
 	inc	ty
 ?nm
 	rts
-	
-cmoveup			; same for up
+
+; same for up
+cmoveup
 	lda	ty
 	cmp	scrltop
 	bne	?ns
-	jsr	scrlup
-	rts
+	jmp	scrlup
 ?ns
 	cmp	#1
 	beq	?nm
@@ -2662,6 +3000,7 @@ chklnslp
 	bpl	chklnslp
 	rts
 
+; doubles the size of a 4-pixel character to 8 pixels
 dblchar
 	sta	dbltmp1
 	sta	dbltmp2
@@ -3536,6 +3875,7 @@ prep_boldface_scroll
 
 ; ************************************************************************************************************
 
+; erase line Y (1-24)
 ersline
 	lda	y
 	beq	ersline_done
@@ -3924,20 +4264,20 @@ fscrol_critical
 readk
 	lda	53279  ; Option - pause+backscroll
 	cmp	#3
-	bne	?ok
+	bne	?c1ok
 	lda	ctrl1mod
-	bne	?ok
+	bne	?c1ok
 	lda	looklim
 	cmp	#24
-	beq	?ok
+	beq	?c1ok
 	lda	#2
 	sta	ctrl1mod
-?ok
+?c1ok
 	lda	764
 	cmp	#255
-	bne	gtky
+	bne	?gtky
 	rts
-gtky
+?gtky
 	sta	s764
 	and	#$c0
 	cmp	#$c0
@@ -3997,112 +4337,99 @@ gtky
 	beq	keyapp
 	jmp	keynum
 
-; Keypad application mode
+; Keypad application mode (numlock off)
 
 keyapp
 	lda	#27
 	sta	outdat
-	lda	#79
+	lda	#'O		; the letter O
 	sta	outdat+1
 	lda	#3
 	sta	outnum
 
 	lda	keytab,x
-	cmp	#48
-	bcc	numk1
-	cmp	#58
-	bcs	numk1
-	clc
-	adc	#64
-	jmp	numkok
-numk1
-	cmp	#45 ; -
-	bne	numk2
-	lda	#109
-	jmp	numkok
-numk2
 	cmp	#44 ; ,
-	bne	numk3
-	lda	#108
-	jmp	numkok
-numk3
+	beq ?add64
+	cmp	#45 ; -
+	beq ?add64
 	cmp	#46 ; .
-	bne	numk4
-	lda	#110
-	jmp	numkok
-numk4
+	beq ?add64
+	cmp	#'0
+	bcc	?numk1
+	cmp	#'9+1
+	bcs	?numk1
+?add64
+	clc
+	adc	#('p-'0)	; =64. converts 0 to p, 1 to q, etc.
+	jmp	?numkok
+?numk1
 	cmp	#kretrn
-	bne	numk5
+	bne	?numk5
 	lda	#77
-	jmp	numkok
-numk5
-	cmp	#113 ; q
-	bne	numk6
-	lda	#80
-	jmp	numkok
-numk6
-	cmp	#119 ; w
-	bne	numk7
-	lda	#81
-	jmp	numkok
-numk7
-	cmp	#101 ; e
-	bne	numk8
-	lda	#82
-	jmp	numkok
-numk8
-	cmp	#114 ; r
-	bne	numk9
-	lda	#83
-	jmp	numkok
-numk9
+	jmp	?numkok
+?numk5
+	cmp	#'q
+	bne	?numk6
+	lda	#'P
+	jmp	?numkok
+?numk6
+	cmp	#'w
+	bne	?numk7
+	lda	#'Q
+	jmp	?numkok
+?numk7
+	cmp	#'e
+	bne	?numk8
+	lda	#'R
+	jmp	?numkok
+?numk8
+	cmp	#'r
+	bne	?numk9
+	lda	#'S
+	jmp	?numkok
+?numk9
 	lda	#0
 	sta	outnum
 	rts
-numkok
+?numkok
 	sta	outdat+2
-	jmp	outputdat
-	rts
+	jmp	outputdat_check_vt52
 
-; Numeric-keypad mode
+; Numeric-keypad mode (numlock on)
 
 keynum
 	lda	#1
 	sta	outnum
 	lda	keytab,x
-	cmp	#48
-	bcc	numk10
-	cmp	#58
-	bcs	numk10
-	jmp	numnok
-numk10
-	cmp	#kretrn
-	bne	numk11
-	lda	#13
-	jmp	numnok
-numk11
-	cmp	#113 ; q
-	beq	numk12
-	cmp	#119 ; w
-	beq	numk12
-	cmp	#101 ; e
-	beq	numk12
-	cmp	#114 ; r
-	beq	numk12
-	jmp	numk13
-numk12
-	jmp	keyapp
-numk13
 	cmp	#44 ; ,
-	beq	numnok
+	beq	?numnok
 	cmp	#45 ; -
-	beq	numnok
+	beq	?numnok
 	cmp	#46 ;  .
-	beq	numnok
+	beq	?numnok
+	cmp	#'0
+	bcc	?numk10
+	cmp	#'9+1
+	bcc	?numnok
+?numk10
+	cmp	#kretrn
+	bne	?numk11
+	jmp kyesret	; act like regular return key
+?numk11
+	cmp	#'q
+	beq	?numk12
+	cmp	#'w
+	beq	?numk12
+	cmp	#'e
+	beq	?numk12
+	cmp	#'r
+	beq	?numk12
 	lda	#0
 	sta	outnum
 	rts
-numnok
+?numk12
+	jmp	keyapp
+?numnok
 	sta	outdat
 	jmp	outputdat
 
@@ -4161,17 +4488,17 @@ oknostrt
 outputdat
 	lda	53279  ;	 Select - set 8th bit
 	cmp	#5
-	bne	outnoopt
+	bne	?no_select
 	lda	outnum
 	cmp	#1
-	bne	outnoopt
+	bne	?no_select
 	lda	outdat
 	ora	#128
 	sta	outdat
-outnoopt
+?no_select
 	lda	#1
 	sta	764
-	jsr	getkey
+	jsr	getkey	; sound a keyclick
 	ldx	#0
 ?lp
 	txa
@@ -4258,6 +4585,7 @@ deltab	.byte	127,8
 knosdel
 	cmp	#kretrn
 	bne	knoret
+kyesret
 	lda	#13		; CR
 	sta	outdat
 	lda	#1
@@ -4334,26 +4662,56 @@ knoctrl1
 	bcc	knoarrow
 	cmp	#kexit
 	bcs	knoarrow
-	sec
-	sbc	#129
-	clc
-	adc	#65
+	sec				; arrow keys
+	sbc	#(kup-'A)
 	sta	outdat+2
-	lda	#27
-	sta	outdat
 	lda	#3
 	sta	outnum
-	lda	#91
+	lda	#27			; Esc
+	sta	outdat
+	lda	#91			; [
 	sta	outdat+1
 	lda	ckeysmod
-	beq	karrdo
-	lda	#79
+	beq	?ok
+	lda	#'O			; letter O
 	sta	outdat+1
-karrdo
-	jmp	outputdat
+?ok
+	jmp	outputdat_check_vt52
 knoarrow
 	rts
+
+outputdat_check_vt52
+	lda outnum
+	cmp #3
+	bne ?done
+	lda ansibbs
+	cmp #2
+	beq ?do_vt52
+	lda vt52mode
+	beq ?done
+?do_vt52
+
+; This is a 3-character code in VT52 mode.
+; if last character is A,B,C,D,P,Q,R,S - delete second character.
+; else, change second character to '?'
+	lda #'?
+	sta outdat+1
 	
+	lda outdat+2
+	cmp #'A
+	bcc ?done
+	cmp #'S+1
+	bcs ?done
+	cmp #'P
+	bcs ?ok
+	cmp #'D+1
+	bcs ?done
+?ok
+	sta outdat+1
+	dec outnum
+?done
+	jmp outputdat
+
 diskdumpscrn
 	lda	#1
 	sta	764
@@ -4581,6 +4939,7 @@ hangup	        ; Hang up
 ?qh
 	jsr	getscrn
 	jsr	crsifneed
+	jsr	resttrm
 	jmp	boldon
 
 ; Status line doers
@@ -5079,6 +5438,7 @@ dialloop		; Main loop
 	lda	#0
 	sta	diltmp2
 dodial
+	jsr	resttrm		; reset terminal attributes so anything from old session not affect new
 	lda online		; are we online? hang up.
 	beq ?nohangup
 	ldx	#>hangupmsg	; "hanging up..."
@@ -5152,14 +5512,10 @@ dodial
 	cpx	#1
 	bne	?empty_buff
 
-	lda	#65			; A
-	jsr	rputch
-	lda	#84			; T
-	jsr	rputch
-	lda	#68			; D
-	jsr	rputch
-;	lda	#84			; T
-;	jsr	rputch
+	ldx #>atd_string
+	ldy #<atd_string
+	lda #3
+	jsr rputstring	; send 'ATD'
 	jsr	finddld
 	ldx	#0
 	lda	#32
@@ -5792,6 +6148,8 @@ dialokm
 dledtms
 	.byte	0,23,42
 	.byte	"Please change this entry, or Esc to abort."
+atd_string
+	.byte	"ATD"
 
 doprompt2		; Accept Input Routine
 
@@ -6036,6 +6394,30 @@ prtrans
 ?v
 	rts
 
+; sends string to serial port. X/Y = hi/lo, A=length
+rputstring
+	stx cntrh
+	sty cntrl
+	tax
+	ldy #0
+?lp
+	txa
+	pha
+	tya
+	pha
+	lda (cntrl),y
+	beq	?skip	; skip null characters
+	jsr rputch
+?skip
+	pla
+	tay
+	pla
+	tax
+	iny
+	dex
+	bne ?lp
+	rts
+
 ; receives criterion in Accumulator, jump table hi/lo in X/Y.
 parse_jumptable
 	sta temp
@@ -6095,7 +6477,7 @@ dialmem	.ds	88
 mini1
 
 	.if	mini1 > $8000
-	.error "mini1>=$8000!!"
+	.error "mini1>$8000!!"
 	.endif
 	.if	mini1 > wind1
 	.error "mini1>wind1!!"

@@ -13,12 +13,21 @@ fine scroll will ruin DLI markers. must restore when leaving fscrol mode. (done)
 improve code efficiency. jump tables (done)
 colors not blanked when redrawing line during resize (done)
 colors not blanked when erasing lines or partial screen clears (done)
-find "todo" in vt2.asm, investigate and doit
+use "H:" if no "D:" (done)
+seol stuff in vt2.asm (done)
+reset term when hanging up and dialing (done)
+VT52 emulation plus keypad and arrows, not including graphics characters (done)
+handle_insert_delete_char (done)
+
 spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
 	however space should always bold/unbold if overwriting an existing char!
+	that should fix emacs tetris.
 colors are ugly if screen is inverse.
 maybe do black text by enabling inverse video. Then background color takes priority.
-set boldface to 0 when hanging up and dialing
+investigate file xfers
+
+- sources: http://www.vt100.net/docs/vt102-ug/chapter5.html
+           http://bjh21.me.uk/all-escapes/all-escapes.txt
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
 e address byte

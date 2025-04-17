@@ -1,56 +1,66 @@
 -----------------------------------------------------------
-                   VT100 Commands
-     as implemented in Ice-T Terminal Emulator v2.76+
+                   VT102 Commands
+     as implemented in Ice-T Terminal Emulator v2.8.0+
                    by Itay Chamiel
-
-Based on list from Omnicom's documentation, by David Young.
 -----------------------------------------------------------
 
 Conventions used:
 
 Esc    - the ASCII character 27
 ^      - Control.
-spaces - shown only for clarity. They are not part of the commands.
-__     - Decimal number from 0 to 254 (can be any number of digits: 001, 01, 1
-are the same).
+__     - Decimal number from 0 to 254 in ASCII digits 0-9. Leading zeroes are
+         ignored. 255 is a reserved value and higher values will be
+         truncated to an arbitrary 8-bit value.
+Spaces are shown only for clarity and are never part of any command sequence.
 
 "Can scroll" means that if the cursor cannot move up or down without passing
-the scrolling limits (not necessarily the top or bottom of the screen), it
+the scrolling margins (not necessarily the top or bottom of the screen), it
 will not move, and cause a scroll to occur.
-If the scrolling margin is not the same as the screen limit, and the cursor
-is at the top or bottom of the screen, "can scroll" commands will NOT cause a
-scroll. A scroll occurs ONLY at scroll margins.
+If the scrolling margin is not the same as the screen edge, and the cursor
+is at the top or bottom of the screen, "can scroll" commands will not cause a
+scroll. A scroll occurs only at scroll margins.
 
-The VT100 commands are case-sensitive. C is not the same as c.
+All commands are case sensitive.
 
 Commands with parameters look like this:
 Esc [ __ ; __ ; __ ; ....... ; __ x (where x is a different letter for each
 command). Ice-T allows up to 255 values to be received in one command, but
-most commands will only be affected by the first one or two values.
-All such commands have defaults which are used if no parameters are
-received, or if less are received than expected.
+most commands will only be affected by the first one or two values. (In
+case 256 or more values are received, only the last n modulo 256 values will
+take effect.) All such commands have defaults which are used if no parameters
+are received, or if less are received than expected.
 
 Unknown control characters, unknown "Esc x" commands and unknown
 "Esc [ __ ; ... ; __ x" commands are silently ignored by the emulator.
 
-Line and column numbers start at 1.
+Line and column numbers start at 1. The screen has 80 columns and 24 lines.
+
+Any incoming character that is not a control code or part of a command sequence
+is displayed at the cursor position. The cursor is then advanced one position
+to the right. When reaching the right margin with autowrap mode on, there is a
+subtle distinction between ANSI and VT102 mode: If the cursor is at column 80
+and a character is displayed, in VT102 mode the cursor will remain in place
+until another character is received, at which point the cursor will move to the
+next line (scrolling if required), display the new character and move to column
+2. In ANSI mode the cursor will immediately move to the next line. This
+distinction is relied upon by certain pedantic applications such as GNU Emacs.
 
 Control characters
 ------------------
-^E  Send "Answerback" response, in this case the text "Ice-T".
+^E  Send "Answerback" response, in this case the text "Ice-T" and the version.
 ^G  Bell, flash border color.
 ^H  Cursor left one character. No effect if cursor on col 1
-^I  Tab. Cursor moves to next tabstop, or to column 80 if no further tabs.
+^I  Tab. Cursor moves to next tabstop, or rightmost column if no further tabs.
     Default tabstops are at columns 9, 17, 25, and so on, spaced 8 apart.
 ^J  Linefeed, move cursor down one line. Move cursor to col 1 ONLY if newline
     mode is SET (see Esc [ __ h). Can scroll.
-^K  Same as ^J
-^L  Formfeed, treated as Linefeed (^J)
+^K  Vertical tab, treated as Linefeed (^J)
+^L  Form feed, treated as Linefeed (^J)
 ^M  Carriage-Return, move cursor to col 1
 ^N  Invoke G1 character set (see "Esc )" commands)
 ^O  Invoke G0 character set (see "Esc (" commands)
-^X or ^Y  Abort any Esc sequence currently in progress. If a sequence was in
-    progress and ^X or ^Y were sent, the checkerboard character is displayed
+^X or ^Z  Abort any Esc sequence currently in progress. If a sequence was in
+    progress and ^X or ^Z were sent, the checkerboard character is displayed
     to inform of an error. If not - the code is ignored.
 ^X B00 - Begin a Zmodem session. This is the beginning of the ZRQINIT frame.
 ^[  Escape. Begins a new Escape-sequence, cancelling any other which may have
@@ -63,11 +73,11 @@ Esc D  Cursor down 1 line, can scroll.
 Esc E  Cursor down one line and moves to col 1, can scroll.
 Esc H  Set tab at current cursor horizontal position.
 Esc M  Cursor up 1 line, can scroll
-Esc Z  Identify Terminal. Software replies by sending response Esc [?1;0c
-Esc 7  Save cursor position, graphic rendition, character set, wrap mode.
-Esc 8  Restore parameters saved with Esc 7
-Esc >  Keypad NumLock On
-Esc =  Keypad NumLock Off
+Esc Z  Identify Terminal. Software replies by sending VT102 response: Esc [?6c
+Esc 7  Save cursor position, graphic rendition, character set, origin mode.
+Esc 8  Restore parameters saved with Esc 7 (or just home cursor if none)
+Esc >  Numeric Keypad Mode (NumLock On)
+Esc =  Application Keypad Mode (NumLock Off)
 
 Esc [ __ x commands
 -------------------
@@ -93,24 +103,32 @@ Esc [ __ K  (none --> 0) Erase part of line:
           1 - cursor position to start of line (inclusive)
           2 - entire line
           Other - ignore command
-Esc [ __ c  (Parameter ignored) Device attributes. Returns Esc [?1;0c
+Esc [ __ c  (Parameter ignored) Device attributes. Same as Esc Z
 Esc [ __ ; __ f  (none --> 1,1) same as Esc[_;_H (above)
 Esc [ __ g  (none --> 0)
           0 - Clear tab at cursor column
           3 - Clear all tabs.
           Other - ignore command
-Esc [ __ h  (20 only accepted) 20 - Set newline mode
-          Receiving an lf will be treated as cr + lf
-          Pressing Return on keyboard sends cr + lf
-          Not 20 - ignore command.
-Esc [ __ l (20 only accepted) opposite of above, Reset newline mode
-          Receiving an lf will be treated as lf alone
-          Pressing Return on keyboard sends cr alone
-          Not 20 - ignore command.
+Esc [ __ h
+          4  - Set Insert mode:
+               Any displayed character pushes the rest of the characters on the
+               same line one position forward. Note that due to design
+               limitations, graphics attributes of moved characters are lost.
+          20 - Set Newline mode:
+               Receiving an lf will be treated as cr + lf
+               Pressing Return on keyboard sends cr + lf
+Esc [ __ l
+          4  - Reset Insert mode (default):
+               Any displayed character overwrites the character that was
+               previously displayed at that position.
+          20 - Reset Newline mode (default):
+               Receiving an lf will be treated as lf alone
+               Pressing Return on keyboard sends cr alone
 Esc [ ? __ ; ... ; __ h  Set mode(s), see below
 Esc [ ? __ ; ... ; __ l  Reset mode(s), see below
 Parameter          Set           Reset
  1 - cursor keys   Application   Numeric
+ 2 - terminal type VT102         VT52
  3 - columns       132 column mode not supported, but in either case clear
                    screen, home cursor, reset scrolling margins.
  5 - screen color  Reverse-vid   Normal
@@ -136,16 +154,23 @@ Esc [ __ n  (none --> 5)
 Esc [ __ ; __ r (defaults: 1,24) Set top and bottom scrolling margins.
             1 and 24, for example, mean the entire screen scrolls.
             14 and 24 cause the last 10 lines to scroll. 14,24 mean lines
-            14 to 24 INCLUSIVE. Cursor is moved to home - top of scrolling
+            14 to 24 inclusive. Cursor is moved to home - top of scrolling
             region in Origin mode, top of screen otherwise.
-Esc [ __ s (Parameter ignored) Same as Esc 7
-Esc [ __ u (Parameter ignored) Same as Esc 8
 Esc [ __ x (default: 0) Request Terminal Parameters. In response to values 0
             or 1, returns the string: Esc [ N1;1;1;N2;N2;1;0x
             where N1 is 2 if arg was 0, 3 if arg was 1,
             and N2 depends on current baud rate setting:
             48, 56, 64, 72, 88, 104, 112, 120 for 300, 600, 1200, 1800, 2400,
             4800, 9600 and 19200 baud respectively.
+ESC [ __ L  (none/0 --> 1) Insert __ lines at line with cursor. Lines are moved
+                           down. Ignored when cursor is outside scrolling region.
+ESC [ __ M  (none/0 --> 1) Deletes __ lines, starting at line with cursor.
+                           Lines move up. Ignored when cursor is outside
+                           scrolling region.
+ESC [ __ P  (none/0 --> 1) Deletes __ characters, starting at cursor position.
+                           Characters to the right of the cursor move left.
+                           (Due to design limitations graphics attributes of
+                           moved characters are lost.)
 
 Other Escape sequences
 ----------------------
@@ -171,18 +196,40 @@ which doubles the 80-column characters is used.
 Double-height characters are the same as double-width, but each line of pixels
 is duplicated to achieve double height.
 
+Additional ANSI sequences
+-------------------------
+Ice-T doesn't fully emulate anything beyond VT102, but some commonly used
+codes from the wider ANSI standard have been implemented.
+
+Esc [ __ d  (none/0 --> 1) Set cursor row. Column is unchanged.
+Esc [ __ G  (none/0 --> 1) Set cursor column. Row is unchanged.
+ESC [ __ @  (none/0 --> 1) Inserts __ characters, starting at cursor position.
+                           Characters to the right of the cursor move right.
+                           (Due to design limitations graphics attributes of
+                           moved characters are lost.)
+Esc [ __ E  (none/0 --> 1) Same as Esc [ __ B and moves cursor to left margin.
+Esc [ __ F  (none/0 --> 1) Same as Esc [ __ A and moves cursor to left margin.
+Esc [ __ S  (none/0 --> 1) Scroll down by __ lines. Cursor doesn't move.
+Esc [ __ T  (none/0 --> 1) Scroll up by __ lines. Cursor doesn't move.
+Esc [ __ X  (none/0 --> 1) Clears __ characters, starting at cursor position.
+                           Cursor doesn't move.
+Esc [ __ Z  (none/0 --> 1) Moves backwards __ tab stops, stopping at left
+                           margin.
+Esc [ __ s  (Parameter ignored) Same as Esc 7
+Esc [ __ u  (Parameter ignored) Same as Esc 8
+
 Special codes sent from the Ice-T keyboard:
 
-Numeric keypad:
-(Shift-Ctrl-key)            Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
-
- Key  | On <NumLock> Off    Arrow |         Cursor key mode
-------+-----+------------    Key  | Reset (Numeric) | Set (Application)
-  0   | 0   | Esc O p       ------+-----------------+------------------
-  1   | 1   | Esc O q        Up   | Esc [ A         | Esc O A
-  2   | 2   | Esc O r       Down  | Esc [ B         | Esc O B
-  3   | 3   | Esc O s       Right | Esc [ C         | Esc O C
-  4   | 4   | Esc O t       Left  | Esc [ D         | Esc O D
+Numeric keypad:             Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
+(Shift-Ctrl-key)
+                            Arrow |         Cursor key mode
+ Key  | On <NumLock> Off     Key  | Reset (Numeric) | Set (Application)
+------+-----+------------   ------+-----------------+------------------
+  0   | 0   | Esc O p        Up   | Esc [ A         | Esc O A
+  1   | 1   | Esc O q       Down  | Esc [ B         | Esc O B
+  2   | 2   | Esc O r       Right | Esc [ C         | Esc O C
+  3   | 3   | Esc O s       Left  | Esc [ D         | Esc O D
+  4   | 4   | Esc O t
   5   | 5   | Esc O u
   6   | 6   | Esc O v
   7   | 7   | Esc O w
@@ -234,4 +281,44 @@ Opening curly braces (123): Pi symbol
 Closing curly braces (125): UK pound symbol
 Tilde (126):                Centered dot
 
-Any corrections to the above will be appreciated!
+VT-52 Mode
+----------
+Display and control characters are treated as in VT-102. Esc x sequences are
+shown below; other escape sequences are not valid.
+
+Esc A/B/C/D/H/J/K - equivalent to VT102 Esc [ A/B/C/D/H/J/K with no arguments.
+Esc F/G - set/unset graphics mode - however the VT52 graphics characters are
+  not implemented (instead the VT102 graphics are shown).
+Esc I - equivalent to VT102 Esc M (move up one line, can scroll).
+Esc = and Esc > - set/reset numlock mode as in VT102 mode
+Esc Y - expects two additional characters as arguments n1 and n2. Arguments
+  are encoded as ASCII 31 plus the argument's value. Result is equivalent to
+  VT102 Esc [ n1 ; n2 H (position cursor)
+Esc Z - responds with identifier code: Esc / Z
+Esc < - switch back to VT102 mode (has no effect if VT52 mode forced by user).
+
+Special codes sent from the keyboard in VT-52 mode:
+
+Numeric keypad:             Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
+(Shift-Ctrl-key)
+                            Arrow |
+ Key  | On <NumLock> Off     Key  | Code
+------+-----+------------   ------+------
+  0   | 0   | Esc ? p       Up    | Esc A
+  1   | 1   | Esc ? q       Down  | Esc B
+  2   | 2   | Esc ? r       Right | Esc C
+  3   | 3   | Esc ? s       Left  | Esc D
+  4   | 4   | Esc ? t
+  5   | 5   | Esc ? u
+  6   | 6   | Esc ? v
+  7   | 7   | Esc ? w
+  8   | 8   | Esc ? x
+  9   | 9   | Esc ? y
+  -   | -   | Esc ? m
+  ,   | ,   | Esc ? l
+  .   | .   | Esc ? n
+Enter | ^M  | Esc ? M
+ PF1  | --> | Esc P    (Shift-Ctrl-Q)
+ PF2  | --> | Esc Q    (Shift-Ctrl-W)
+ PF3  | --> | Esc R    (Shift-Ctrl-E)
+ PF4  | --> | Esc S    (Shift-Ctrl-R)

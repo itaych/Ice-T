@@ -343,7 +343,9 @@ enable a telnet connection to www.atarinews.org:
      I www.atarinews.org 23
 
 Note that 'I' is case sensitive; also, as is the case with a real modem, the
-Hangup feature may be used to end the session.
+Hangup feature may be used to end the session. Note that as of this writing,
+Atari800 indicates a successful connection with 'OK' instead of 'CONNECT' and
+is therefore incompatible with the dialer.
 
 After getting connected, the status bar will indicate "Online", and a
 timer indicating online time. Your hosts's name is also shown.
