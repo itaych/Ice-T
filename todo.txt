@@ -1,0 +1,30 @@
+ice-t
+-----
+use arrow keys (done)
+fix j's (vt1.asm getkey) (done)
+fix R: (done)
+r-time8 (done)
+clock accuracy, pal/ntsc (done)
+catch break key (done)
+what's the cursor blink rate? (half a second; fixed for pal)
+speed up char output (done, very slight)
+remove garbage strings? (nah)
+update doc. (done)
+hang up first if trying to dial when already online (done)
+
+col80:
+------
+update credits (done)
+crash on exit to dos (done)
+default should be white text on black background (done)
+arrows w/ or w/o ctrl (done)
+fix fixme's (general cleanup) (done)
+hang when moving up in 'gandhi' txt file
+garbage when moving up in icet doc
+try to name unnamed labels/variables
+
+release: recreate disk (for file order), create DCM, pack source code too.
+
+.loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\Build\col80.lab
+0d 0a
+cr lf

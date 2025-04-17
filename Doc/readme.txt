@@ -1,0 +1,1 @@
+Welcome to Ice-T!!››In order to read the doc file, load›the program COL80.COM. At the prompt›type in ICET.TXT.››While viewing the file you may hit›space to page down, I to invert the›screen colors, or Shift-? for help.››

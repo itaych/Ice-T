@@ -6,6 +6,7 @@
 
 ; This part	is resident in bank #2
 
+; 
 	.bank
  	*=	$4010
 
@@ -61,16 +62,20 @@ mnquit
 	beq	mnodoquit
 	cmp	#0
 	beq	mnodoquit
-	cmp	#2
+	pha
+	jsr	buffdo ; ?
+	jsr	close2
+	pla
+	cmp	#2 ; remove R: handler?
 	bne	?g
 	lda	remrhan+1
 	sta	lomem
 	lda	remrhan+2
 	sta	lomem+1
-	jsr	close2
+;	jsr	close2
 	ldx	remrhan
 	lda	#0
-	sta	$31a,x
+	sta	$31a,x		; HATABS
 	sta	$31a+1,x
 	sta	$31a+2,x
 ?g
@@ -434,16 +439,15 @@ setcrs			;  Set Cursor shape (underscore/block)
 	jsr	drawwin
 	ldx	#>setcrsd
 	ldy	#<setcrsd
-	lda	curssiz
+	lda	curssiz	; contains 0 (block) or 6 (line)
 	lsr	a
 	and	#1
 	sta	mnucnt
 	jsr	menudo1
 	lda	menret
+	beq ?c
 	cmp	#255
 	beq	?n
-	cmp	#1
-	bne	?c
 	lda	#6
 ?c
 	sta	curssiz
@@ -526,13 +530,13 @@ setclo			; Set clock
 	ora	#128
 	sta	setclkpr+3,x
 	jsr	getkeybuff
-	cmp	#27
+	cmp	#27	; esc
 	bne	?ne
 	jmp	bkopt
 ?ne
-	cmp	#48
+	cmp	#48	; '0'
 	bcc	?nn
-	cmp	#58
+	cmp	#58 ; '9'+1
 	bcs	?nn
 	jsr	?cc
 	ldx	ersl
@@ -541,14 +545,19 @@ setclo			; Set clock
 	jsr	?rt
 	jmp	?mn
 ?nn
-	cmp	#42
+	cmp #31		; right arrow
+	beq ?right
+	cmp	#42		; '*' (right arrow w/o ctrl)
 	bne	?nr
+?right
 	jsr	?rt
 	jmp	?mn
 ?nr
-	cmp	#43
+	cmp #30		; left arrow
+	beq ?left
+	cmp	#43		; '+' (left arrow w/o ctrl)
 	bne	?nl
-?lt
+?left
 	dec	ersl
 	lda	ersl
 	cmp	#255
@@ -557,10 +566,10 @@ setclo			; Set clock
 	sta	ersl
 ?t2
 	cmp	#2
-	beq	?lt
+	beq	?left
 	jmp	?mn
 ?nl
-	cmp	#155
+	cmp	#155	; return
 	bne	?mn
 	ldx	#3
 ?lp
@@ -569,13 +578,18 @@ setclo			; Set clock
 	inx
 	cpx	#8
 	bne	?lp
-	lda	#48+128
+
+; zero the seconds, but not if RT8 is used
+	ldx	#0
+	lda rt8_detected
+	bne ?no_zero_secs
+	lda	#'0+$80
 	sta	menuclk+9
 	sta	menuclk+10
-	ldx	#0
-	stx	clockdat
+	stx	clock_cnt
+?no_zero_secs
 	inx
-	stx	clockdat+1
+	stx	clock_update
 	jmp	bkopt
 ?rt
 	inc	ersl
@@ -803,8 +817,11 @@ nodoinvl
 	sta	nodoinv
 mxmloop
 	jsr	getkeybuff
-	cmp	#43
+	cmp #30		; left arrow
+	beq ?left
+	cmp	#43		; '+' (left arrow w/o ctrl)
 	bne	mxnolt
+?left
 	lda	mnplace
 	cmp	#2
 	bne	?nl
@@ -832,8 +849,11 @@ mxlt1
 	jsr	doinv
 	jmp	mxstrt
 mxnolt
-	cmp	#42
+	cmp #31		; right arrow
+	beq ?right
+	cmp	#42		; '*' (right arrow w/o ctrl)
 	bne	mxnort
+?right
 	lda	mnplace
 	cmp	#2
 	bne	?nr
@@ -859,8 +879,11 @@ mxrt
 	jsr	doinv
 	jmp	mxstrt
 mxnort
-	cmp	#61
+	cmp #29		; down arrow
+	beq ?down
+	cmp	#61		; '=' (down arrow w/o ctrl)
 	bne	mxnodown
+?down
 	lda	mnplace	; Down = return in main menu bar
 	cmp	#1
 	bne	?nm
@@ -885,8 +908,11 @@ mxdown
 	jsr	doinv
 	jmp	mxstrt
 mxnodown
-	cmp	#45
+	cmp #28		; up arrow
+	beq ?up
+	cmp	#45		; '-' (up arrow w/o ctrl)
 	bne	mxnoup
+?up
 	lda	mnucnt
 	sec
 	sbc	noplcx
@@ -915,7 +941,7 @@ mxup
 	jsr	doinv
 	jmp	mxstrt
 mxnoup
-	cmp	#27
+	cmp	#27		; Escape
 	bne	mxnoesc
 	lda	53775	; Shift-Esc?
 	and	#8
@@ -1814,7 +1840,7 @@ filvew			; File viewer
 	sta	cntrh
 	jsr	erslineraw
 	lda	#0
-	sta	clockdat+2
+	sta	clock_enable
 	lda	#24
 	sta	outdat
 	lda	#255
@@ -2016,10 +2042,10 @@ viewloop
 	lda	prfrom+1
 	adc	#0
 	sta	prfrom+1
-cmph	cmp #0
+cmph	cmp #0	; self modified
 	bne	vwok
 	lda	prfrom
-cmpl	cmp #0
+cmpl	cmp #0	; self modified
 	bne	vwok
 	lda	cmpl+1
 	beq	?ok2
@@ -2095,7 +2121,7 @@ quitvw
 	sta	mnmnucnt
 	sta	outnum
 	lda	#1
-	sta	clockdat+2
+	sta	clock_enable
 	jmp	mnmnloop
 
 prepflnm		; Prepare full filename
@@ -2234,7 +2260,7 @@ ascupl			; Ascii upload
 	sta	cntrh
 	jsr	erslineraw
 	lda	#0
-	sta	clockdat+2
+	sta	clock_enable
 
 	ldx	#>ascpr
 	ldy	#<ascpr
@@ -2309,10 +2335,10 @@ ascupl			; Ascii upload
 	lda	#13
 	cpx	#1
 	beq	?elo
-	jsr	rputjmp
+	jsr	rputch
 	lda	#10
 ?elo
-	jsr	rputjmp
+	jsr	rputch
 	lda	ascdelay	; Short delay between lines if
 	beq	?nel	; user wants one..
 	cmp	#8
@@ -2339,7 +2365,7 @@ ascupl			; Ascii upload
 	beq	?ntb
 	lda	#9
 ?ntb
-	jsr	rputjmp
+	jsr	rputch
 ?ddn
 	inc	prfrom
 	bne	?emp
@@ -2369,7 +2395,7 @@ ascupl			; Ascii upload
 	stx	20
 ?ep2
 	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?em2
 	lda	#0
 	sta	topx
@@ -2584,7 +2610,7 @@ chkcapt			; Check if capture is off and empty
 ;	sta	crcchek
 ;?go
 ;;	lda	#1	; Tell host we're here, so it won't
-;;	jsr	rputjmp	; switch to checksum while
+;;	jsr	rputch	; switch to checksum while
 ;;			; disk data loads in..
 ;	ldx	#>msg8
 ;	ldy	#<msg8	; loading
@@ -2649,7 +2675,7 @@ chkcapt			; Check if capture is off and empty
 ;	txa
 ;	pha
 ;	lda	#24	; can 8 times to abort at other end
-;	jsr	rputjmp
+;	jsr	rputch
 ;	pla
 ;	tax
 ;	dex
@@ -2668,13 +2694,13 @@ chkcapt			; Check if capture is off and empty
 ;	sta	botx+1
 ;?ml
 ;	lda	#1
-;	jsr	rputjmp
+;	jsr	rputch
 ;	lda	block
-;	jsr	rputjmp
+;	jsr	rputch
 ;	sec
 ;	lda	#255
 ;	sbc	block
-;	jsr	rputjmp
+;	jsr	rputch
 ;	ldy	#0
 ;	sty	chksum
 ;	sty	crcl
@@ -2690,7 +2716,7 @@ chkcapt			; Check if capture is off and empty
 ;	pha
 ;	lda	#26
 ;	jsr	calccrc
-;	jsr	rputjmp
+;	jsr	rputch
 ;	pla
 ;	tay
 ;	jmp	?c
@@ -2701,7 +2727,7 @@ chkcapt			; Check if capture is off and empty
 ;	ldx	#bank0
 ;	jsr	ldabotx
 ;	jsr	calccrc
-;	jsr	rputjmp
+;	jsr	rputch
 ;	pla
 ;	tay
 ;?c
@@ -2715,13 +2741,13 @@ chkcapt			; Check if capture is off and empty
 ;	lda	crcchek
 ;	beq	?cd
 ;	lda	crch
-;	jsr	rputjmp
+;	jsr	rputch
 ;	lda	crcl
-;	jsr	rputjmp
+;	jsr	rputch
 ;	jmp	?co
 ;?cd
 ;	lda	chksum
-;	jsr	rputjmp
+;	jsr	rputch
 ;?co
 ;	inc	block
 ;	jsr	getupl
@@ -2750,7 +2776,7 @@ chkcapt			; Check if capture is off and empty
 ;?gml	jmp	?ml
 ;?el
 ;	lda	#4	; End of transmission..
-;	jsr	rputjmp
+;	jsr	rputch
 ;	jsr	getupl
 ;	cmp	#6
 ;	bne	?el
@@ -2770,14 +2796,14 @@ chkcapt			; Check if capture is off and empty
 ;	sta	20
 ;	sta	topx
 ;?lp
-;	jsr	rstatjmp	; check stat for in data
+;	jsr	rgetstat	; check stat for in data
 ;	lda	bcount
 ;	bne	?ok2
 ;	lda	bcount+1
 ;	bne	?ok
 ;	jsr	xmdkey
 ;	lda	20
-;	cmp	#60
+;	cmp	vframes_per_sec
 ;	bcc	?lp
 ;	inc	topx
 ;	lda	#0
@@ -2813,7 +2839,7 @@ xmdini			; Initialization for X/Y/Zmodem
 	sta	cntrh
 	jsr	erslineraw
 	lda	#0
-	sta	clockdat+2
+	sta	clock_enable
 	ldx	#>xmdtop1
 	ldy	#<xmdtop1
 	jsr	prmesgnov
@@ -2927,8 +2953,8 @@ ymdcont			; Xmodem [-1K] / Ymodem [-G] batch
 	beq	?yg
 	lda	#'G        ; G for Ymodem-G
 ?yg
-	jsr	rputjmp
-	jsr	rstatjmp	; Response to 'C'?
+	jsr	rputch
+	jsr	rgetstat	; Response to 'C'?
 	lda	bcount
 	bne	?ok1
 	ldx	#180
@@ -2939,7 +2965,7 @@ ymdcont			; Xmodem [-1K] / Ymodem [-G] batch
 	and	#$1f
 	beq	?nc
 	stx	temp
-	jsr	rstatjmp
+	jsr	rgetstat
 	lda	bcount
 	bne	?ok1
         ldx temp
@@ -2966,7 +2992,7 @@ ymdcont			; Xmodem [-1K] / Ymodem [-G] batch
 	ldy	#<xmdcsm
 	jsr	prmesgnov
 	lda	#21
-	jsr	rputjmp
+	jsr	rputch
 	ldx	#>msg9	; waiting
 	ldy	#<msg9
 	jsr	fildomsg
@@ -2985,7 +3011,7 @@ xdnmnlp
 	ldx	ymodemg
 	bne	?nk
 ?ok
-	jsr	rputjmp
+	jsr	rputch
 ?nk
 	jsr	getn2
 begxdl
@@ -3207,7 +3233,7 @@ xdnchkbad
 
 ; Bad block	received -	wait for 1 second of silence
 
-	lda	#60
+	lda	vframes_per_sec
 	jsr	purge
 
 	lda	#21	; Send a nak
@@ -3241,9 +3267,9 @@ xdnrtry
 	ldy	#<msg2
 	jsr	fildomsg
 	lda	#24	; can twice to abort at other end
-	jsr	rputjmp
+	jsr	rputch
 	lda	#24
-	jsr	rputjmp
+	jsr	rputch
 	lda	#0
 	sta	ymodem
 	jmp	endxdn
@@ -3259,7 +3285,7 @@ xdnend
 	ldy	#<msg1
 	jsr	fildomsg
 	lda	#6	; ack
-	jsr	rputjmp
+	jsr	rputch
 endxdn
 	jsr	close2dl
 	lda	ymdbk1	; block 1 - batch block containing
@@ -3277,17 +3303,17 @@ endxdn
 	bcc	?l
 	ldx	ymodem
 	bne	?yk
-	pha		; Xmodem - wait 1 second (don't lose
+	pha			; Xmodem - wait 1 second (don't lose
 	jsr	buffdo	; data) and quit
 	pla
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?l
 	jmp	endxmdn2
 ?yk
 	jsr	getscrn
 	jmp	ymdgcont
 endxmdn
-	lda	#60
+	lda	vframes_per_sec
 	jsr	purge
 endxmdn2
 	jsr	getscrn
@@ -3304,7 +3330,7 @@ getn2
 	lda	#0
 	sta	20
 ?lp
-	jsr	rstatjmp	; check stat for in data
+	jsr	rgetstat	; check stat for in data
 	lda	bcount
 	bne	?ok2
 	lda	bcount+1
@@ -3388,9 +3414,9 @@ dnlerr
 ?nz
 	jsr	ropendl
 	lda	#24	; can twice to abort at other end
-	jsr	rputjmp
+	jsr	rputch
 	lda	#24
-	jsr	rputjmp
+	jsr	rputch
 	jsr	close2dl
 	jsr	close3
 	jsr	ropendl
@@ -3511,9 +3537,9 @@ xmdkey
 	lda	ymodemg
 	beq	?g
 	lda	#21	; nak twice to abort Ymodem-G
-	jsr	rputjmp
+	jsr	rputch
 	lda	#21
-	jsr	rputjmp
+	jsr	rputch
 ?g
 	jsr	sendcans	; Abort at other end..
 	jsr	close2dl
@@ -3529,7 +3555,7 @@ xmdkey
 	ldx	#>xwtqut
 	ldy	#<xwtqut
 	jsr	fildomsg
-	lda	#60
+	lda	vframes_per_sec
 	jsr	purge
 	jmp	endxmdn2
 ?key
@@ -3537,7 +3563,7 @@ xmdkey
 
 ydob1			; Handle Ymodem batch block
 	lda	#6
-	jsr	rputjmp	; Acknowledge block
+	jsr	rputch	; Acknowledge block
 	inc	block
 	lda	#2
 	sta	ymdbk1
@@ -3561,7 +3587,7 @@ ydob1			; Handle Ymodem batch block
 ?dl
 	jsr	buffdo	; Wait a second (no purging), then quit
 	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?dl
 	jmp	endxmdn2
 ?g
@@ -3821,7 +3847,7 @@ purge
 	lda	#0
 	sta	20
 ?em2			; clear buffer
-	jsr	rstatjmp
+	jsr	rgetstat
 	lda	bcount
 	ora	bcount+1
 	beq	?ep2
@@ -3843,7 +3869,7 @@ purge
 	sta	20
 ?ep2
 	lda	20
-?p	cmp	#60
+?p	cmp	#99	; self-modified value!
 	bcc	?em2
 	rts
 
@@ -4542,11 +4568,11 @@ ovrnout			; Over-and-out routine
 	sta	20
 	beq	?l2
 ?l4	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?l3
 ?l2
 	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?l
 ?l5
 	lda	#0
@@ -4554,7 +4580,7 @@ ovrnout			; Over-and-out routine
 ?l6
 	jsr	buffdo
 	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?l6
 	jsr	getscrn
 	jmp	goterm
@@ -4730,9 +4756,9 @@ zbufovr	; Buffer overflow? - no problem.. This is Zmodem!!
 	lda	xmdsave+1
 	sta	outdat+1
 	lda	#19
-	jsr	rputjmp
+	jsr	rputch
 	lda	#19	; Send a couple of XOFFs
-	jsr	rputjmp
+	jsr	rputch
 	jsr	close2
 	jsr	xdsavdat	; Save up till there
 	jsr	ropen
@@ -4769,7 +4795,7 @@ sendattn		; Send remote's Attention signal
 	sta	20
 ?w
 	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?w
 	jmp	?lp
 ?np
@@ -4777,7 +4803,7 @@ sendattn		; Send remote's Attention signal
 	tya
 	pha
 	txa
-	jsr	rputjmp
+	jsr	rputch
 	pla
 	tay
 	jmp	?lp
@@ -4933,7 +4959,7 @@ sendpck
 	txa
 	pha
 	lda	outpck,x
-	jsr	rputjmp
+	jsr	rputch
 	pla
 	tax
 	inx
@@ -4953,14 +4979,14 @@ getzm
 	sta	20
 	sta	ztime
 ?lp
-	jsr	rstatjmp	; check stat for in data
+	jsr	rgetstat	; check stat for in data
 	lda	bcount
 	bne	?ok2
 	lda	bcount+1
 	bne	?ok
 	jsr	zmdkey
 	lda	20
-	cmp	#60
+	cmp	vframes_per_sec
 	bcc	?lp
 	lda	#0
 	sta	20
@@ -4971,7 +4997,7 @@ getzm
 	jsr	sendpck	; Resend last pack
 ?d
 	lda	ztime
-	cmp	#60
+	cmp	vframes_per_sec
 	bne	?lp
 	pla
 	pla
@@ -5008,7 +5034,7 @@ sendcans
 	txa
 	pha
 	lda	#24	; 8 CAN, 10 ^H
-	jsr	rputjmp
+	jsr	rputch
 	pla
 	tax
 	inx
@@ -5019,17 +5045,10 @@ sendcans
 	txa
 	pha
 	lda	#8
-	jsr	rputjmp
+	jsr	rputch
 	pla
 	tax
 	inx
 	cpx	#10
 	bne	?l2
 	rts
-
-;
-
-
-
-
-

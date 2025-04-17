@@ -36,8 +36,40 @@ reset			; System reset goes here
 ; init (after program load) continues here
 
 norst
-	lda	#1
-	sta	clockdat+1
+	; detect R-Time8 cartridge
+	jsr rt8_detect
+	sta rt8_detected
+	beq ?no_rt8
+
+	; get time from hardware
+	ldx #rt8_sec
+	jsr rt8_read
+	sta clock_cnt	; remember initial seconds' value
+	ldx #9			; stat bar time format is 12:00:00, offsets to chars are 3,4,6,7,9,10
+	jsr rt8_to_menu_convert
+	ldx #rt8_min
+	jsr rt8_read
+	ldx #6
+	jsr rt8_to_menu_convert
+	ldx #rt8_hour
+	jsr rt8_read
+	cmp #$00	; convert 24hr format to 12hr
+	bne ?no0
+	lda #$12
+?no0
+	cmp #$13
+	bcc ?no_over12
+	sed
+	sec
+	sbc #$12
+	cld
+?no_over12
+	ldx #3
+	jsr rt8_to_menu_convert
+?no_rt8
+	
+;	lda	#1
+;	sta	clock_update
 	ldx	#0
 ?l
 	lda	savddat,x	; Restore saved config
@@ -146,7 +178,7 @@ dodl
 	lda	dlist,x
 	sta	dlst2,x
 	inx
-	cpx	#0
+;	cpx	#0
 	bne	?l
 
 	lda	#<xtraln
@@ -318,9 +350,9 @@ dodl
 	ldx	#>tilmesg5
 	ldy	#<tilmesg5
 	jsr	prmesgnov
-	ldx	#>tilmesg6
-	ldy	#<tilmesg6
-	jsr	prmesgnov
+;	ldx	#>tilmesg6
+;	ldy	#<tilmesg6
+;	jsr	prmesgnov
 	ldx	#>menudta	; menu bar
 	ldy	#<menudta
 	jsr	prmesgnov
@@ -399,10 +431,15 @@ dodl
 	ldx	#>vbi2
 	lda	#7
 	jsr	setvbv
-	lda	#<dli
-	sta	512
-	lda	#>dli
-	sta	513
+
+	lda	$236	; hook into 'break' key handler
+	sta	brk_exit+1
+	lda	$237
+	sta	brk_exit+2
+	lda	#<break_handler
+	sta	$236
+	lda	#>break_handler
+	sta	$237
 
 	ldx	#0	; Clear text mirror
 ?ml
@@ -421,8 +458,29 @@ dodl
 	cpx	#48
 	bne	?ml
 
+	lda rt8_detected
+	bne ?nodli
+	lda #0
+	sta	clock_cnt
+	sta time_correct_cnt
+	sta time_correct_cnt+1
+	ldy #<dli_time_correct_ntsc
+	ldx #>dli_time_correct_ntsc
+	lda vframes_per_sec
+	cmp #60
+	beq ?ntsc
+	ldy #<dli_time_correct_pal
+	ldx #>dli_time_correct_pal
+?ntsc
+	sty dli_time_correct_lo+1
+	stx dli_time_correct_hi+1
+	lda #<dli
+	sta	512
+	lda #>dli
+	sta	513
 	lda	#192
 	sta	54286
+?nodli
 	jsr	setcolors	; Set screen colors
 	lda	#46
 	sta	559	; Show screen
@@ -430,7 +488,8 @@ dodl
 	lda	#255
 	sta	764
 	lda	#1
-	sta	clockdat+2
+	sta	clock_enable
+	sta	clock_update
 	jsr	getkeybuff
 	jsr	clrscrnraw
 	jsr	boldclr
@@ -439,37 +498,6 @@ dodl
 	lda	#0
 	sta	boldface
 	jsr	setcolors
-
-;lda	$216	; set IRQ for break
-;sta	irqexit+1
-;lda	$217
-;sta	irqexit+2
-;lda	#<irq
-;sta	$216
-;lda	#>irq
-;sta	$217
-
-; I need help here!
-; This IRQ should put a #59 in
-; 764 if it	senses a  press of
-; Break.. But it just puts a #1 in
-; there	all	the time, nonstop! (??)
-
-;irq
-; pha
-; lda $d20e
-; and #128
-; bne ibrk
-; lda 17
-; cmp #0
-; bne inobrk
-;ibrk
-; lda #59
-; sta 764
-;inobrk
-; pla
-;irqexit
-; jmp $ffff
 
 gomenu
 	jsr	boldoff
@@ -507,9 +535,28 @@ gomenu2
 	sta	banksw
 	sta	banksv
 	lda	#1
-	sta	clockdat+1
-	sta	clockdat+2
+	sta	clock_update
+	sta	clock_enable
+	lda #0
+	sta brkkey_enable
 	jmp	mnmnloop	; Jump to menu
+
+rt8_to_menu_convert
+	tay
+	lsr a
+	lsr a
+	lsr a
+	lsr a
+	clc
+	adc #'0+$80
+	sta menuclk,x
+	inx
+	tya
+	and #$0f
+	clc
+	adc #'0+$80
+	sta menuclk,x
+	rts
 
 goymdm
 	jsr	boldoff
@@ -527,7 +574,9 @@ goterm
 	sta	banksw
 	sta	banksv
 	lda	#0
-	sta	clockdat+2
+	sta	clock_enable
+	lda #1
+	sta brkkey_enable
 	jmp	connect
 
 dialing
@@ -580,8 +629,8 @@ drawwin			; Window drawer
 	cpy	#4
 	bne	?l
 
-; The following copies	the memory
-; that will	be erased because of
+; The following copies the memory
+; that will be erased because of
 ; this window, into a buffer.
 
 	lda	numofwin
@@ -813,20 +862,16 @@ shline
 	bcc	shline
 	rts
 
-; Click = 0 - None, 1 - small click,
-;	  2	- Regular Atari click
-
 getkeybuff		; Display clock, check buffer, get key
-
-	lda	clockdat+1
-	and	clockdat+2
+	lda	clock_update
+	and	clock_enable
 	beq	?ok
 	lda	prfrom
 	pha
 	lda	prfrom+1
 	pha
 	lda	#0
-	sta	clockdat+1
+	sta	clock_update
 	ldx	#>menuclk
 	ldy	#<menuclk
 	jsr	prmesgnov
@@ -840,34 +885,37 @@ getkeybuff		; Display clock, check buffer, get key
 	cmp	#255
 	beq	getkeybuff
 
+; Click = 0 - None, 1 - small click,
+;	  2	- Regular Atari click
+
 getkey			; Get key pressed
 	lda	764
 	cmp	#255
-	beq	getkey
-	lda	click
-	cmp	#2
-	beq	getkey2
-	cmp	#0
-	beq	?n
-	lda	#1
-	sta	doclick
-?n
-	ldy	764
-	lda	#255
-	sta	764
-	lda	($79),y
+	beq	getkey	; wait for key press if there wasn't one already
+	tay
+	lda #1
+	sta brkkey	; clear BREAK key flag
+	lda	($79),y ; get translated value and keep it in A until return
+	ldx	click	; check keyclick type
+	beq ?done_click
+	cpx #1
+	bne ?standardclick
+	stx	doclick	; VBI will sound the simple click
+?done_click
+	ldx #255	; clear keyboard buffer
+	stx 764
 	rts
-getkey2
-	ldy	764
-	lda	($79),y
+?standardclick
 	pha
-	lda	#1
-	sta	764
-	jsr	?gk
+	lda	#1		; some keys don't generate a click when calling OS routines
+	sta	764		; so stuff a value that will always sound a click
+	jsr	?do_std_click
 	pla
 	rts
 
-?gk			; Call get K: for keyclick
+?do_std_click			; Call get K: for keyclick
+	lda #4	; indicate open for read
+	sta $2a	; ICAX1Z (thanks to Avery Lee, author of the Altirra emulator, for this fix)
 	lda	$e425
 	pha
 	lda	$e424
@@ -931,24 +979,26 @@ print
 	lda	y
 	asl	a
 	tax
+	clc
 	lda	linadr,x
+	adc #<(39*7)
 	sta	cntrl
 	lda	linadr+1,x
+	adc #>(39*7)
 	sta	cntrh
 	ldy	#255
 	sty	pplc4+1
-	iny
-	sty	pos
+	iny				; sets y reg = 0, to be used soon
 	lda	x
 	lsr	a
-	rol	pos
+	clc
 	adc	cntrl
 	sta	cntrl
 	bcc	?ok1
 	inc	cntrh
 ?ok1
 	lda	prchar
-	bpl	prchrdo2
+	bpl	prchrdo2	; jump if not inverse-vid
 	ldx	eitbit
 	cpx	#2
 	bne	?ok2
@@ -963,9 +1013,8 @@ print
 	adc	#>pcset
 	jmp	prcharok
 ?ok2
-	and	#127
-	ldx	#0
-	stx	pplc4+1
+	and	#$7f
+	sty	pplc4+1
 prchrdo2
 	tax
 	lda	chrtbll,x
@@ -973,34 +1022,35 @@ prchrdo2
 	lda	chrtblh,x
 prcharok
 	sta	pplc3+2
-	ldx	pos
-	lda	postbl1,x
-	sta	pplc1+1
-	lda	postbl2,x
+	lda x
+	and #1
+	tax
+	lda	postbl,x
 	sta	pplc2+1
+	eor #$ff
+	sta	pplc1+1
+	ldy #7
 prtlp
 	lda	(cntrl),y
-pplc1	and	#0	; postbl1,x
+pplc1	and	#0	; ~postbl,x
 	sta	pplc5+1
 pplc3	lda	$ffff,y	; (prchar),y
 pplc4	eor	#0	; temp
-pplc2	and	#0	; postbl2,x
+pplc2	and	#0	; postbl,x
 pplc5	ora	#0
 	sta	(cntrl),y
-	clc
+	sec
 	lda	cntrl
-	adc	#39
+	sbc	#39
 	sta	cntrl
-	bcs	?ok
-	iny
-	cpy	#8
-	bcc	prtlp
+	bcc	?ok
+	dey
+	bpl	prtlp
 	rts
 ?ok
-	inc	cntrh
-	iny
-	cpy	#8
-	bcc	prtlp
+	dec	cntrh
+	dey
+	bpl	prtlp
 	rts
 
 clrscrn			; Clear screen
@@ -1119,18 +1169,12 @@ prmesgnov
 	sta	y
 	iny
 	lda	(prfrom),y
-	sta	prlen
-	ldy	#0
-	cpy	prlen
-	beq	prmesgen
-	lda	prfrom
+	beq ?end
 	clc
-	adc	#3
-	sta	prfrom
-	lda	prfrom+1
-	adc	#0
-	sta	prfrom+1
-prmesglp
+	adc #3
+	sta	prlen
+	iny
+?lp
 	lda	(prfrom),y
 	sta	prchar
 	tya
@@ -1141,8 +1185,8 @@ prmesglp
 	tay
 	iny
 	cpy	prlen
-	bne	prmesglp
-prmesgen
+	bne	?lp
+?end
 	rts
 
 ropen			; Sub to open R: (uses config)
@@ -1247,14 +1291,11 @@ gropen
 
 close2			; Close #2
 	ldx	#$20
-	lda	#12
-	sta	iccom+$20
-	jmp	ciov
-
+	.byte BIT_skip2bytes   ; skips next instruction, see http://www.6502.org/tutorials/6502opcodes.html#BIT
 close3			; Close #3
 	ldx	#$30
 	lda	#12
-	sta	iccom+$30
+	sta	iccom,x
 	jmp	ciov
 
 dorst	jmp	(12)	; Initialize DOS
@@ -1415,7 +1456,7 @@ calcbufln		; Calculate mybcount
 buffdo			; Buffer manager
 	lda	#bank0
 	sta	banksw
-	jsr	rstatjmp	; R: status command
+	jsr	rgetstat	; R: status command
 	lda	bcount	; Check R: buffer
 	bne	?bf
 	lda	bcount+1
@@ -1440,9 +1481,9 @@ buffdo			; Buffer manager
 	ldx	#0
 	jmp	?o2
 ?bf
-	lda	xoff	; If flow is off and stuff
-	cmp	#60	; comes in anyway, turn it
-	bne	?o3	; off again (once a second)
+	lda	xoff			; If flow is off and data
+	cmp	vframes_per_sec	; comes in anyway, turn it
+	bne	?o3				; off again (once a second)
 	lda	#0
 	sta	xoff
 ?o3
@@ -1515,8 +1556,8 @@ chkrsh			; Check for impending
 	bcs	?ok
 	lda	#0
 	sta	xoff
-	lda	#'        ; XON
-	jsr	rputjmp
+	lda	#17        ; XON (ctrl-Q)
+	jsr	rputch
 	lda	#0
 	sta	x
 	sta	y
@@ -1534,8 +1575,8 @@ chkrsh			; Check for impending
 	bcc	?ok
 	lda	#1
 	sta	xoff
-	lda	#'        ; XOFF
-	jsr	rputjmp
+	lda	#19        ; XOFF (ctrl-S)
+	jsr	rputch
 	lda	#0
 	sta	x
 	sta	y
@@ -1609,24 +1650,53 @@ buffifnd		; Status call in time-costly routines
 	tax
 	rts
 
+.if 0
 rgetch
-;lda #2	 ; LDA RUNIT
-;sta $21 ; STA ICDNOZ ; page zero IOCB
-;lda #0
-;sta $28 ; STA ICBLLZ ; indicate (hey, who wrote this crap?)
-;sta $29 ; STA ICBLHZ
-rgetjmp	 jmp $ffff
-
-rputjmp
-	ldx	#11
+	ldx	#7		; get
 	stx	iccom+$20
 	ldx	#0
 	stx	icbll+$20
 	stx	icblh+$20
 	ldx	#$20
 	jmp	ciov
+rgetjmp	 jmp $ffff ; unused.
 
-rstatjmp jmp $ffff
+rputch
+	ldx	#11		; put
+	stx	iccom+$20
+	ldx	#0
+	stx	icbll+$20
+	stx	icblh+$20
+	ldx	#$20
+	jmp	ciov
+rputjmp	jmp $ffff ; unused.
+
+rgetstat
+	ldx #13	; status
+	stx	iccom+$20
+	ldx	#0
+	stx	icbll+$20
+	stx	icblh+$20
+	ldx	#$20
+	jmp	ciov
+rstatjmp jmp $ffff ; unused
+
+.else
+
+; For these calls we load $20 in X because some handlers look for information in IOCB even when called directly
+rgetch
+	ldx #$20
+rgetvector	jmp $ffff
+
+rputch
+	ldx #$20
+rputvector	jmp $ffff
+
+rgetstat
+	ldx #$20
+rstatvector	jmp $ffff
+
+.endif
 
 ;        -- Ice-T --
 ;  A VT-100 terminal emulator
@@ -1637,10 +1707,54 @@ rstatjmp jmp $ffff
 ; This part is resident during entire
 ; program execution.
 
+; jump here when break key is pressed
+break_handler
+	pha
+	lda brkkey_enable
+	beq ?no
+	lda #59
+	sta 764
+?no
+	pla
+brk_exit
+	jmp $ffff
+
+; Idea taken from ANTIC 2/89 clock.m65 by John Little, see:
+; http://www.atarimagazines.com/v7n10/realworldinterface.html
+
+; According to Altirra docs, frame frequency for NTSC = 59.9227 Hz, PAL = 49.8607 HZ.
+; (Although older documentation states 59.92334 Hz)
+
+; Given trufreq = true frequency (59.9227 or 49.8607)
+; and cntfreq = counter frequency (60 or 50)
+; then the correction = trufreq / (cntfreq-trufreq)
+
+dli_time_correct_ntsc = 775
+dli_time_correct_pal = 358
+
 dli
-	inc	clockdat
-	inc	timerdat
+	pha
+	inc	clock_cnt
+	inc time_correct_cnt
+	bne ?noinc
+	inc time_correct_cnt+1
+?noinc
+	lda time_correct_cnt+1
+dli_time_correct_hi
+	cmp #1			; cmp value modified at init
+	bne dli_done
+	lda time_correct_cnt
+dli_time_correct_lo
+	cmp #1			; cmp value modified at init
+	bne dli_done
+	inc	clock_cnt	; extra increment to time counter
+	lda #0
+	sta	time_correct_cnt
+	sta	time_correct_cnt+1
+dli_done
+	pla
 	rti
+
 vbi1
 	lda	#8
 	sta	53279
@@ -1648,10 +1762,13 @@ vbi1
 	sta	$d402
 	lda	561
 	sta	$d403
-	inc	flashcnt
-	lda	flashcnt
-	cmp	#30
-	bcc	?n
+	inc	flashcnt	; Flash cursor and blink characters once per half a second
+	lda vframes_per_sec
+	lsr a
+	cmp flashcnt ; If vframes/2 >= flashcnt the Carry will be set
+	beq ?flash   ; flash if flashcnt = vframes/2
+	bcs ?noflash ; don't flash if flashcnt <= vframes/2 (but can't be equal by this point)
+?flash
 	lda	#0
 	sta	flashcnt
 	lda	newflash
@@ -1660,9 +1777,9 @@ vbi1
 
 	ldx	boldallw	; Blink characters..
 	cpx	#2
-	bne	?n
+	bne	?noflash
 	ldx	isbold
-	beq	?n
+	beq	?noflash
 	cmp	#0
 	beq	?bn
 	ldx	#3
@@ -1676,7 +1793,7 @@ vbi1
 	and	#~11110011	; Disable PM DMA
 	sta	559
 	sta	$d400
-	jmp	?n
+	jmp	?noflash
 ?bn
 	lda	#46
 	sta	559
@@ -1689,114 +1806,104 @@ vbi1
 	sta	53252,x
 	dex
 	bpl	?bl
-?n
+?noflash
 	lda	xoff	; Flow-control timer
 	beq	?ok	; (Don't sent XOFF more than
-	cmp	#60	; once per second)
+	cmp	vframes_per_sec	; once per second)
 	beq	?ok
 	inc	xoff
 ?ok
 
 ; Real-time	clock
+	lda rt8_detected
+	beq ?no_rt8
 
-	lda	clockdat
-	cmp	#60
-	bcc	?cl
-	lda	clockdat
+; check if a second has passed - using R-Time8
+	ldx #rt8_sec
+	jsr rt8_read
+	cmp clock_cnt
+	beq ?tm
+	sta clock_cnt
+	jmp ?rt8_ok
+?no_rt8	
+
+; check if a second has passed using internal timer
+	lda	clock_cnt
+	cmp	vframes_per_sec
+	bcc	?tm
 	sec
-	sbc	#60
-	sta	clockdat
-	lda	#1
-	sta	clockdat+1
+	sbc	vframes_per_sec	; subtract vframes_per_sec rather than set to 0 - as
+	sta	clock_cnt		; clock_cnt may occasionally increment by 2
 
-	ldx	#0+176
-	inc	menuclk+10
-	lda	menuclk+10
-	cmp	#10+176
-	bne	?cl
-	stx	menuclk+10
-	inc	menuclk+9
-	lda	menuclk+9
-	cmp	#6+176
-	bne	?cl
+?rt8_ok
+	lda	#1
+	sta	clock_update
+
+; increment clock. note that clock is inverse-video hh:mm:ss.
+	ldy #5
+?clk_lp
+	cpy #3	; are we incrementing the minutes ones-digit?
+	bne ?no_kill_attract
 	lda	#0
 	sta	77	; Disable Attract-mode (once a minute)
-	stx	menuclk+9
-	inc	menuclk+7
-	lda	menuclk+7
-	cmp	#10+176
-	bne	?cl
-	stx	menuclk+7
-	inc	menuclk+6
-	lda	menuclk+6
-	cmp	#6+176
-	bne	?cl
-	stx	menuclk+6
-	inc	menuclk+4
-	lda	menuclk+4
-	cmp	#3+176
-	bne	?o12
-	lda	menuclk+3
-	cmp	#1+176
-	bne	?o12
-	sta	menuclk+4
-	stx	menuclk+3
-?o12
-	lda	menuclk+4
-	cmp	#10+176
-	bne	?cl
-	stx	menuclk+4
-	inc	menuclk+3
-?cl
+?no_kill_attract
+	lda clock_offsets,y
+	tax
+	inc	menuclk,x
+	lda	menuclk,x
+	and #$7f ; ignore inverse-video bit for this comparison
+	cmp	clock_limits,y
+	bne ?clk_done
+	lda #'0+$80
+	sta menuclk,x
+	dey
+	bpl ?clk_lp
+?clk_done
+	
+; check that hours isn't 13, change to 01 if it is
+	cpy #2
+	bcs ?no_fix12
+	lda menuclk+3
+	cmp #'1+$80
+	bne ?no_fix12
+	lda menuclk+4
+	cmp #'3+$80
+	bne ?no_fix12
+	lda #'0+$80
+	sta menuclk+3
+	lda #'1+$80
+	sta menuclk+4
+?no_fix12
 
-; Online timer
+; Online timer, same as above but no inverse and no 13 limit
+	lda	#1
+	sta	timer_1sec ; set to 1 every second
+	ldy #5
+?tmr_lp
+	cpy #4	; are we incrementing the seconds tens-digit?
+	bne ?no_10secs
+	lda	#1
+	sta	timer_10sec ; set to 1 every 10 seconds
+?no_10secs
+	lda clock_offsets,y
+	tax
+	inc	ststmr,x
+	lda	ststmr,x
+	cmp	clock_limits,y
+	bne ?tmr_done
+	lda #'0
+	sta ststmr,x
+	dey
+	bpl ?tmr_lp
+?tmr_done
 
-	ldx	#0+48
-	lda	timerdat
-	cmp	#60
-	bcc	?tm
-	lda	timerdat
-	sec
-	sbc	#60
-	sta	timerdat
-	lda	#1
-	sta	timerdat+1
-	inc	ststmr+10
-	lda	ststmr+10
-	cmp	#10+48
-	bne	?tm
-	stx	ststmr+10
-	lda	#1
-	sta	timerdat+2
-	inc	ststmr+9
-	lda	ststmr+9
-	cmp	#6+48
-	bne	?tm
-	stx	ststmr+9
-	inc	ststmr+7
-	lda	ststmr+7
-	cmp	#10+48
-	bne	?tm
-	stx	ststmr+7
-	inc	ststmr+6
-	lda	ststmr+6
-	cmp	#6+48
-	bne	?tm
-	stx	ststmr+6
-	inc	ststmr+4
-	lda	ststmr+4
-	cmp	#10+48
-	bne	?tm
-	stx	ststmr+4
-	inc	ststmr+3
-	lda	ststmr+3
-	cmp	#10+48
-	bne	?tm
-	stx	ststmr+3
 ?tm
 
 sysvbi
 	jmp	$ffff	; Self-modified
+
+clock_offsets .byte 3,4,6,7,9,10
+clock_limits  .byte +1, "995959"
 
 vbi2
 	lda	nowvbi
@@ -2523,8 +2630,8 @@ doquit			; Quit program
 	sta	$7fff
 	lda	#2
 	sta	82
-	jsr	buffdo
-	jsr	close2
+;	jsr	buffdo
+;	jsr	close2
 	jsr	close3
 	jsr	vdelay
 	lda	rsttbl
@@ -2697,8 +2804,8 @@ boldoff			; Disable PMs
 	sta	559
 	rts
 
-; Various routines for	accessing banked memory from
-; code also	within a bank
+; Various routines for accessing banked memory from
+; code also within a bank
 
 staoutdt
 	stx	banksw
@@ -2813,12 +2920,83 @@ lkprlp
 zrotmr			; Zero online timer
 	lda	#48
 	ldx	#1
-settmrlp
+?lp
 	sta	ststmr+3,x
 	sta	ststmr+6,x
 	sta	ststmr+9,x
 	dex
-	bpl	settmrlp
+	bpl	?lp
+	rts
+
+; R-Time 8 clock support
+; see: http://atariwiki.strotmann.de/wiki/Wiki.jsp?page=Cartridges#section-Cartridges-TheRTime8
+
+rt8_sec = 0
+rt8_min = 1
+rt8_hour = 2
+rt8_weeknum = 7
+
+rt8_reg = $d5b8 
+
+rt8_temp .byte 0
+
+; Detect whether hardware clock is available. Returns with A=0 for false, 1 for true.
+rt8_detect
+	ldx #rt8_weeknum
+	jsr rt8_read
+	eor #1 ; write a value different from what we read. change 1 bit to stay <= 9
+	sta rt8_temp
+	jsr rt8_write
+	jsr rt8_read
+	cmp rt8_temp
+	bne ?no_rt8
+	eor #1 ; write original value back
+	jsr rt8_write
+	lda #1
+	rts
+?no_rt8
+	lda #0
+	rts
+
+; ensures rt8 cart is not busy
+rt8_wait_busy	
+	ldy #6    ; timeout value (was $ff in original code)
+?lp
+	lda rt8_reg
+	and #$0f    ; if low nybble=0
+	beq ?ok     ; clock not busy
+	dey
+	bne ?lp     ; else time out
+?ok
+	rts
+
+; reads rt8 register given in X, returns value as BCD in A
+rt8_read
+	jsr rt8_wait_busy
+	stx rt8_reg
+	lda rt8_reg
+	asl a
+	asl a
+	asl a
+	asl a
+	ora rt8_reg
+	rts
+	
+; writes to rt8 register X the BCD encoded value in A
+rt8_write
+	pha
+	jsr rt8_wait_busy
+	pla
+	stx rt8_reg
+	tay
+	lsr a
+	lsr a
+	lsr a
+	lsr a
+	sta rt8_reg
+	tya
+	and #$0f
+	sta rt8_reg
 	rts
 
 endinit
@@ -2827,7 +3005,7 @@ endinit
 	.error "endinit>$4000!!"
 	.endif
 
-; Initialization routines (run once, then get erased)
+; Initialization routines (run once, then get overwritten)
 	.bank
 	*=	$8003
 
@@ -2882,6 +3060,9 @@ dpcloop2
 	lda	#bank0
 	sta	banksw
 	rts
+
+ststmr_clear	.byte	"00:00:00"
+menuclk_clear	.byte	+$80, "12:00:00"
 
 init
 	cld
@@ -2972,47 +3153,43 @@ tabchdo
 
 	lda	#0
 	sta	online
-	sta	clockdat
-	sta	clockdat+1
-	sta	timerdat
-	sta	timerdat+1
-	ldx	#3
+;	sta	clock_cnt
+;	sta	clock_update
+;	sta	timer_1sec
 
-clkinit
-	lda	#176
-	sta	menuclk,x	; Zero clock
-	lda	#48
-	sta	ststmr,x
-	inx
-	cpx	#11
-	bne	clkinit
-	lda	#1+176
-	sta	menuclk+3
-	lda	#2+176
-	sta	menuclk+4
-	lda	#':
-	sta	ststmr+5
-	sta	ststmr+8
-	lda	#': +128
-	sta	menuclk+5
-	sta	menuclk+8
+	ldx #60
+	lda $D014		; PAL/NTSC indicator
+	and #$e			; check bits 1-3
+	bne ?ntsc
+	ldx #50
+?ntsc
+	stx vframes_per_sec
 
-	lda	#0
-	ldx	#79
-settabs
-	sta	tabs,x	; Set tabstops
+; Clear clock and timer
+	ldx #7
+?clklp
+	lda	menuclk_clear,x
+	sta	menuclk+3,x	
+	lda	ststmr_clear,x
+	sta	ststmr+3,x
 	dex
-	bpl	settabs
-	ldx	#8
-settabs2
-	lda	#1
-	sta	tabs,x
+	bpl	?clklp
+
+; set a tabstop at each multiple of 8 except 0
+
+	ldx	#79
+?tabloop
+	ldy #0
 	txa
-	clc
-	adc	#8
-	tax
-	cpx	#80
-	bcc	settabs2
+	and #$07
+	bne ?notab
+	iny			; this is a multiple of 8 so set Y=1
+?notab
+	tya
+	sta	tabs,x	; Set tabstops array
+	dex
+	bne	?tabloop
+	sta	tabs,x  ; set 0 at position 0
 
 	lda	#<txscrn	; Set textmirror
 	sta	cntrl	; pointers
@@ -3033,7 +3210,7 @@ mktxlnadrs
 	lda	cntrh
 	adc	#0
 	sta	cntrh
-	cpx	#48
+	cpx	#24*2
 	bne	mktxlnadrs
 
 	lda	#24	; Backscroll top
@@ -3046,14 +3223,13 @@ mktxlnadrs
 
 	lda	#bank3	; Recall old backscroll
 	sta	banksw	; if there is one!
-	ldx	#0
+	ldx	#41
 ?lp
 	lda	$8000-45,x
 	cmp	svscrlms,x
 	bne	?ok
-	inx
-	cpx	#42
-	bne	?lp
+	dex
+	bpl	?lp
 	lda	#0
 	sta	$8000-45
 	sta	$8000-44
@@ -3128,7 +3304,7 @@ interr
 ?l0
 	sta	boldwr,x
 	tay
-	eor	#255
+	eor	#$ff
 	sta	boldwri,x
 	tya
 	asl	a
@@ -3187,51 +3363,43 @@ interr
 ; lda ichid,x
 ; tax
 
-	lda	$31a+1,X	; vec. table
+	lda	$31a+1,x	; vec. table
 	sta	cntrl
-	lda	$31a+2,X
+	lda	$31a+2,x
 	sta	cntrh
 
-; increment	each addr,	'cause the vectors
-; actually point to a JMP $nnnn sequence.
+; increment each vector, since they are designed to be pushed onto the
+; stack then jumped to via an RTS instruction
 
-	ldy	#4	; GET vector
+	ldy	#4	; find GET vector
 	lda	(cntrl),Y
 	clc
 	adc	#1
-	sta	rgetjmp+1
+	sta	rgetvector+1
 	iny
 	lda	(cntrl),y
 	adc	#0
-	sta	rgetjmp+2
+	sta	rgetvector+2
 
-	ldy	#8	; get STATUS vector
+	ldy	#8	; find STATUS vector
 	lda	(cntrl),y
 	clc
 	adc	#1
-	sta	rstatjmp+1
+	sta	rstatvector+1
 	iny
 	lda	(cntrl),y
 	adc	#0
-	sta	rstatjmp+2
+	sta	rstatvector+2
 
-; ldy #6	; get PUT vector
-; lda (cntrl),y
-; clc
-; adc #1
-; sta rputjmp+1
-; iny
-; lda (cntrl),y
-; adc #0
-; sta rputjmp+2
-
-; Dunno	if this bit is	necessary:
-
-	lda	#2	;  LDA RUNIT
-	sta	$21	;  STA ICDNOZ  ; page zero IOCB
-	lda	#0
-	sta	$28	;  STA ICBLLZ
-	sta	$29	;  STA ICBLHZ
+	ldy #6	; find PUT vector
+	lda (cntrl),y
+	clc
+	adc #1
+	sta rputvector+1
+	iny
+	lda (cntrl),y
+	adc #0
+	sta rputvector+2
 
 ; Generate CRC-16 table for X/Y/Zmodem.
 
@@ -3280,5 +3448,5 @@ interr
 
 ?vl	.ds	2
 ?acl	.ds	2
-;
 
+;

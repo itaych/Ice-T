@@ -17,7 +17,7 @@ tmppcset
 	.word	chsetinit	; place when loading
 
 	.include vt2.asm	; Terminal code  (bank 1)
-	.include vt3.asm	; Menus code     (bank 2)
-	.include vtdt.asm	; Menu data tables
+	.include vt3.asm	; Menu code      (bank 2)
+	.include vtdt.asm	; Menu data tables (bank 2)
 
 ; End

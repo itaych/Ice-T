@@ -16,7 +16,7 @@
 sv712		.ds 1
 cntrl		.ds 1
 cntrh		.ds 1
-pos			.ds 1
+; pos			.ds 1
 x			.ds 1
 y			.ds 1
 prchar		.ds 2
@@ -127,15 +127,26 @@ savflow		.ds 1
 
 crcl		.ds 1
 crch		.ds 1
-crcchek		.ds 1
 
 nowvbi		.ds 1
 
-isbold		.ds 1
+rt8_detected	.ds 1
+vframes_per_sec	.ds 1	; 50/60 depending on video system
+clock_cnt	.ds 1	; count increases each video frame
+time_correct_cnt .ds 2 ; counter to correct slight time drift
 
-; **		.ds 4
+; spares
+	.ds 1
+	
+end_page_zero
+	.if	end_page_zero > $100
+	.error "end_page_zero> $100!!"
+	.endif
 
 ; Other	program equates
+
+BIT_skip1byte	= $24
+BIT_skip2bytes	= $2c
 
 cfgnum	=	20
 
@@ -206,8 +217,11 @@ pcset	=	$9900
 	.bank
 	*=	$9d00
 savddat		.ds cfgnum
-clockdat	.ds 3
-timerdat	.ds 3
+clock_update	.ds 1	; flagged every second
+clock_enable	.ds 1	; enables clock display in menu
+timer_1sec	.ds 1
+timer_10sec	.ds 1
+brkkey_enable	.ds 1	; enables generating a keyboard code when BREAK key detected.
 savgrn		.ds 4
 savcursx	.ds 1
 savcursy	.ds 1
@@ -218,7 +232,17 @@ savchs		.ds 1
 online		.ds 1
 mnplace		.ds 1
 remrhan		.ds 3
-; xxxx		.ds 29-cfgnum
+crcchek		.ds 1
+isbold		.ds 1
+
+; some free bytes here
+			.ds 6
+
+; we use area starting from screen-640 = $9D30
+screen_conflict_check
+	.if	screen_conflict_check > $9D30
+	.error "screen_conflict_check> $9D30!!"
+	.endif
 
 screen	=	$9fb0
 
@@ -255,6 +279,7 @@ dlist	=	$bef0
 
 ; System equates
 
+brkkey	=	$11
 lomem	=	743
 bcount	=	747
 iccom	=	$342
@@ -309,8 +334,7 @@ winbufs
 	.word	wind2
 	.word	wind3
 
-postbl1	.byte	$0f
-postbl2	.byte	$f0,$0f
+postbl	.byte	$f0,$0f
 
 xchars
 	.byte	0,85,170,0,0,0,0,0
@@ -348,7 +372,7 @@ finescrol	.byte 0
 boldallw	.byte 0	; Enable boldface
 autowrap	.byte 1
 delchr		.byte 0
-bckgrnd		.byte 1
+bckgrnd		.byte 0 ; Regular (0) or inverse (1) screen
 bckcolr		.byte 0
 eoltrns		.byte 1
 ansiflt		.byte 0
@@ -391,7 +415,7 @@ deciddata
 	.byte	"[?1;0c"
 
 kretrn	=	128
-kup	=	129
+kup		=	129
 kdown	=	130
 kright	=	131
 kleft	=	132
@@ -433,6 +457,7 @@ keytab
 	.byte	101,121,9,116,119,113,57,0,48
 	.byte	55,kdel,56,60,62,102,104,100
 	.byte	kbrk,kcaps,103,115,97
+; (note: 59 is an unused keycode; it is inserted by the BREAK key hook)
 
 ; Shift-char (64-127)
 
@@ -450,9 +475,8 @@ keytab
 	.byte	kright,15,0,16,21,kretrn,9,kup
 	.byte	kdown,22,0,3,kleft,kright,2,24
 	.byte	26,0,0,0,30,kbrk,0,0,kctrl1,27
-;	   Note on this ^^^^:
-; kbrk will be removed when the    
-; break	key	works (now	it's C-esc)
+;			Note on this ^^^^: Enables C-esc = break.
+; Keep this, even though break key also works
 
 	.byte	kzero,29,14,0,13,28,0,18,0,5
 	.byte	25,0,20,23,17,123,0,125,96,0
@@ -485,8 +509,8 @@ sts2
 
 sts21	.byte	"Press Shift-Esc for menu."
 	.byte	"Use dialer to get online."
-	.byte	"    Please register!     "
-	.byte	" Support 8-bit software! "
+;	.byte	"    Please register!     "
+;	.byte	" Support 8-bit software! "
 
 numlonp
 	.byte	50,0,1
@@ -511,15 +535,20 @@ captfull
 tilmesg1
 	.byte	"Ice-T __"
 tilmesg2
-	.byte	14,8,51
-	.byte	"A VT100 terminal emulator"
-	.byte	" by Itay Chamiel.. (c)1997"
+	.byte	(80-75)/2,8,75
+	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2012 Itay Chamiel."
 tilmesg3
-	.byte	7,10,66
+	.byte	(80-55)/2,10,55
 svscrlms
-	.byte	"Version 2.72, February 12,"
-	.byte	" 1997.      Bug me at: itayc"
-	.byte	"@hotmail.com"
+	.byte	"Version 2.73, April 14, 2012. Contact: itaych@gmail.com"
+.if 1
+tilmesg4
+	.byte	(80-75)/2,13,71
+	.byte	"This software is free, but donations are always appreciated (via Paypal"
+tilmesg5
+	.byte	(80-25)/2,14,25
+	.byte	"using the address above)."
+.else
 tilmesg4
 	.byte	2,12,76
 	.byte	"This software is Sha"
@@ -538,6 +567,7 @@ tilmesg6
 	.byte	" Atari 8-bit develop"
 	.byte	"ment by registering."
 	.byte	" Thanks in advance!"
+.endif
 
 xelogo
 	.byte	227,159,119,63,62,56,28,63

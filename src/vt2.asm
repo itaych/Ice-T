@@ -71,8 +71,8 @@ connect
 	sta	flashcnt
 	sta	newflash
 	sta	oldflash
-	sta	timerdat+1
-	sta	timerdat+2
+	sta	timer_1sec
+	sta	timer_10sec
 	jsr	timrdo
 	lda	didrush
 	bne	entnorsh
@@ -481,24 +481,23 @@ putcrs			; Cursor flasher
 	sta	cntrl
 	lda	linadr+1,x
 	sta	cntrh
-	lda	lnsizdat,y
+	lda	lnsizdat,y	; 0 or 4 and up - small, 1-3 - big
+	beq smcurs
 	cmp	#4
-	bcs	smcurs
-	cmp	#0
-	bne	bigcurs
-smcurs
-	lda	#0
-	sta	pos
+	bcc	bigcurs
+smcurs			; narrow (4 pixel) cursor
 	lda	tx
+	and #1
+	tax
+	lda tx
 	lsr	a
-	rol	pos
+	clc
 	adc	cntrl
 	sta	cntrl
 	lda	cntrh
 	adc	#0
 	sta	cntrh
-	ldx	pos
-	ldy	curssiz
+	ldy	curssiz		; contains 0 (block) or 6 (line)
 	beq	cursloop
 	lda	cntrl
 	clc
@@ -509,7 +508,7 @@ smcurs
 	sta	cntrh
 cursloop
 	lda	(cntrl),y
-	eor	postbl2,x
+	eor	postbl,x
 	sta	(cntrl),y
 	lda	cntrl
 	clc
@@ -522,7 +521,7 @@ cursloop
 	cpy	#8
 	bne	cursloop
 	rts
-bigcurs
+bigcurs			; wide (8-pixel) cursor
 	lda	tx
 	cmp	#40
 	bcc	bgc1
@@ -534,7 +533,7 @@ bgc1
 	lda	cntrh
 	adc	#0
 	sta	cntrh
-	ldy	curssiz
+	ldy	curssiz		; contains 0 (block) or 6 (line)
 	beq	bgcursloop
 	lda	cntrl
 	clc
@@ -559,7 +558,7 @@ bgcursloop
 	bne	bgcursloop
 	rts
 
-regmode			; Display normal byte
+regmode			; Display normal character
 	sta	prchar
 	cmp	#128
 	bcs	notgrph
@@ -691,13 +690,13 @@ noesc
 	cmp	#5	; ^E - transmit answerback
 	bne	noctle
 	lda	#16
-	jsr	rputjmp
+	jsr	rputch
 	lda	#43
-	jsr	rputjmp
+	jsr	rputch
 	lda	#16
-	jsr	rputjmp
+	jsr	rputch
 	lda	#48
-	jmp	rputjmp
+	jmp	rputch
 noctle
 	cmp	#7	; ^G - bell
 	bne	nobell
@@ -907,7 +906,7 @@ nodecrc
 	jsr	decid
 	jmp	fincmnd
 nodecid
-	cmp	#72	; H - set tab at this pos.
+	cmp	#72	; H - set tab at this position.
 	bne	nohts
 	ldx	tx
 	lda	#1
@@ -1220,7 +1219,7 @@ doall
 	bne	?k
 	jmp	goescu
 ?k
-	cmp	#72	; H - Pos cursor
+	cmp	#72	; H - Position cursor
 	bne	nocup
 hvp
 	ldx	numgot
@@ -2049,7 +2048,7 @@ cmoveup			; same for up
 
 printerm
 
-; Will print character	at x,y for terminal.
+; Will print character at x,y for terminal.
 ; (x,y are memory locations.) Prchar holds character to print.
 ; Checks all special character modes:
 ; graphic renditions, sizes etc.
@@ -2079,13 +2078,9 @@ printerm
 	lda	lnsizdat-1,y
 	beq	ptxreg
 	lda	x
-; lda #40	for hebrew
-; sec		"
-; sbc x "
 	cmp	#40
 	bcc	ptxxok
 	lda	#39
-; lda #0	for hebrew
 
 ; Text mirror - double-size text
 
@@ -2116,10 +2111,6 @@ ptxxok
 
 ptxreg
 	ldy	x
-; lda #80	for hebrew
-; sec		"
-; sbc x		"
-; tay		"
 	lda	(ersl),y
 	sta	outdat
 	cpx	#32
@@ -2222,45 +2213,45 @@ psiz0
 	cmp	#32
 	bne	ps0ok
 
-; Special fast routine	if no special mode on:
+; Special fast routine if no special mode on
+; (note: regs x and y are 0)
 
-	clc
-	lda	x
-; lda #80	for hebrew
-; sec       "
-; sbc x		"
+	lda	x		; divide X by 2, remainder in reg.x
 	and	#1
 	tax
 	lda	x
 	lsr	a
 	clc
+	
+	; we want loop to count down, so add 39*7 to pointer
+	adc #<(39*7) ; this will never cause a carry
 	adc	cntrl
-	bcc	?ok1
-	inc	cntrh
-?ok1
-	sta	cntrl
-	lda	postbl2,x
+	sta cntrl
+	lda cntrh
+	adc #>(39*7)
+	sta cntrh
+
+	lda	postbl,x
 	sta	plc1+1
+	ldy #7
 lp
 	lda	$ffff,y	; (prchar),y
-plc1	and	#0
+plc1	and	#0 ; postbl,x
 	eor	(cntrl),y
 	sta	(cntrl),y
 	lda	cntrl
-	clc
-	adc	#39
+	sec
+	sbc	#39
 	sta	cntrl
-	bcs	?nok
-	iny
-	cpy	#8
-	bne	lp
+	bcc	?nok
+	dey
+	bpl	lp
 	rts
 
 ?nok
-	inc	cntrh
-	iny
-	cpy	#8
-	bne	lp
+	dec	cntrh
+	dey
+	bpl	lp
 	rts
 
 ps0ok
@@ -2293,25 +2284,25 @@ psizok
 	jmp	prbgch
 ?s
 	lda	x
-; lda #80   for hebrew
-; sec		"
-; sbc x		"
-	tay
 	and	#1
 	tax
-	tya
+	lda x	; loading again is quicker than anything else
 	lsr	a
 	clc
+
+	; we want loop to count down, so add 39*7 to pointer
+	adc #<(39*7) ; this will never cause a carry
 	adc	cntrl
-	sta	cntrl
-	bcc	?c
-	inc	cntrh
-?c
-	ldy	#0
-	lda	postbl1,x
-	sta	?p1+1
-	lda	postbl2,x
+	sta cntrl
+	lda cntrh
+	adc #>(39*7)
+	sta cntrh
+
+	ldy	#7
+	lda	postbl,x
 	sta	?p2+1
+	eor #$ff
+	sta	?p1+1
 ?lp			; Main character-draw loop
 	lda	chartemp,y
 ?p2	and	#0
@@ -2320,20 +2311,18 @@ psizok
 ?p1	and	#0
 ?p3	ora	#0
 	sta	(cntrl),y
-	clc
+	sec
 	lda	cntrl
-	adc	#39
+	sbc	#39
 	sta	cntrl
-	bcs	?ok
-	iny
-	cpy	#8
-	bne	?lp
+	bcc	?ok
+	dey
+	bpl	?lp
 	rts
 ?ok
-	inc	cntrh
-	iny
-	cpy	#8
-	bne	?lp
+	dec	cntrh
+	dey
+	bpl	?lp
 	rts
 
 psiz1
@@ -2404,9 +2393,6 @@ usatst
 
 prbgch
 	lda	x
-; lda #40  for hebrew
-; sec	   "
-; sbc x	   "
 	cmp	#40
 	bcc	pxok
 	lda	#39
@@ -3801,7 +3787,7 @@ outqit
 	tax
 ?ne
 	lda	outdat,x
-	jsr	rputjmp
+	jsr	rputch
 	pla
 	tax
 	inx
@@ -3894,14 +3880,14 @@ brknof1
 	ldy	#<brkwin
 	jsr	drawwin
 	lda	#19
-	jsr	rputjmp
+	jsr	rputch
 	jsr	wait10
 	jsr	wait10
 	jsr	buffdo
 	jsr	dobreak
 	jsr	wait10
 	lda	#17
-	jsr	rputjmp
+	jsr	rputch
 	jsr	getscrn
 	jsr	boldon
 	jmp	crsifneed
@@ -4085,28 +4071,30 @@ hangup	        ; Hang up
 	jsr	buffdo
 	pla
 	tax
-	lda	20
-	cmp	#30
-	bcc	?dl
+	lda vframes_per_sec
+	lsr a
+	cmp 20 ; If vframes/2 >= (20) (time is not up) the Carry will be set
+	beq ?dk
+	bcs	?dl
 	jmp	?dk
 ?ok
 	txa
 	pha
 	tya
-	jsr	rputjmp
-	jsr	wait10
+	jsr	rputch
+;	jsr	wait10
 	pla
 	tax
 ?dk
 	inx
-	cpx	#13
+	cpx	#13	; (size of hngdat)
 	bne	?lp
 	jsr	zrotmr
 	lda	#0
 	sta	online
 	lda	#1
-	sta	timerdat+1
-	sta	timerdat+2
+	sta	timer_1sec
+	sta	timer_10sec
 	jsr	shctrl1
 ?qh
 	jsr	getscrn
@@ -4244,33 +4232,39 @@ bufdtok
 	jmp	prmesg
 
 timrdo
-	lda	timerdat+1
+	lda	timer_1sec	; this is set once a second, indicates it's time to update some stats
 	bne	?ok
 ?rt
 	rts
 ?ok
 	lda	#0
-	sta	timerdat+1
+	sta	timer_1sec
 	ldx	#>ststmr
 	ldy	#<ststmr
-	jsr	prmesgnov
-	lda	timerdat+2
+	jsr	prmesgnov	; print the timer in the status bar
+	lda	timer_10sec	; this is set every 10 seconds, if we're offline change the banner on status bar
 	beq	?rt
 	lda	online
 	bne	?rt
 	ldy	#0
-	sty	timerdat+2
+	sty	timer_10sec
 	lda	ststmr+9
-	and	#3
+	and	#1			; toggle between two messages
 	tax
 	beq	?lp
-	lda	#0
+.if 0
+; old code: multiply index by 25 (size of message)
+	tya
 ?l1
 	clc
 	adc	#25
 	dex
 	bne	?l1
 	tax
+.else
+; since there are only two possible messages, set index to 25
+	ldx #25
+.endif
 ?lp
 	lda	sts21,x
 	sta	sts2+5,y
@@ -4384,7 +4378,7 @@ hngdat  .byte "%%%+++%%%ATH", 13
 
 dialing2		; Dialing Menu
 	lda	#0
-	sta	clockdat+2
+	sta	clock_enable
 ;	jsr	getscrn
 	lda	linadr
 	sta	cntrl
@@ -4504,8 +4498,11 @@ dialloop		; Main loop
 	bne	?noesc
 	jmp	enddial
 ?noesc
-	cmp	#61
+	cmp #29		; down arrow
+	beq ?down
+	cmp	#61		; '=' (down arrow w/o ctrl)
 	bne	?nodn
+?down
 	lda	diltmp1
 	cmp	#2
 	bcc	dialloop
@@ -4522,8 +4519,11 @@ dialloop		; Main loop
 	jsr	invbarmk
 	jmp	dialloop
 ?nodn
-	cmp	#45
+	cmp #28		; up arrow
+	beq ?up
+	cmp	#45		; '-' (up arrow w/o ctrl)
 	bne	?noup
+?up
 	lda	diltmp1
 	cmp	#2
 	bcc	dialloop
@@ -4548,14 +4548,87 @@ dialloop		; Main loop
 	lda	#0
 	sta	diltmp2
 dodial
-	lda	#65	; A
-	jsr	rputjmp
-	lda	#84	; T
-	jsr	rputjmp
-	lda	#68	; D
-	jsr	rputjmp
-	lda	#84	; T
-	jsr	rputjmp
+	lda online		; are we online? hang up.
+	beq ?nohangup
+	ldx	#>hangupmsg	; "hanging up..."
+	ldy	#<hangupmsg
+	jsr	prmesgy
+	ldx	#0
+?hangup_lp
+	lda	hngdat,x
+	cmp	#'%
+	bne	?hangup_regular_char
+; pause 0.5 seconds
+	lda	#0
+	sta	20
+?hangup_pause_lp
+	lda	764
+	cmp	#255
+	beq	?nk
+	txa
+	pha
+	jsr	getkey
+	tay
+	pla
+	tax
+	tya
+	cmp	#27
+	bne	?nk
+	jmp ?abort_dial
+?nk
+	lda vframes_per_sec
+	lsr a
+	cmp 20 ; If vframes/2 >= (20) (time is not up) the Carry will be set
+	beq ?dk
+	bcs	?hangup_pause_lp
+	jmp	?dk
+?hangup_regular_char
+	tay
+	txa
+	pha
+	tya
+	jsr	rputch
+	pla
+	tax
+?dk
+	inx
+	cpx	#13	; (size of hngdat)
+	bne	?hangup_lp
+
+	lda	#0
+	sta	online
+	jsr	zrotmr
+
+?nohangup
+
+; end hang up code
+
+	lda	#13			; CR
+	jsr	rputch
+
+	ldx	#>dilmsg	; "dialing..."
+	ldy	#<dilmsg
+	jsr	prmesgy
+
+	ldx	#0
+?d1					; wait a little bit to allow modem to echo everything we've sent
+	jsr	vdelay		; (especially if we hung up)
+	inx
+	cpx	#30
+	bne	?d1
+?empty_buff			; flush input buffer
+	jsr	buffpl
+	cpx	#1
+	bne	?empty_buff
+
+	lda	#65			; A
+	jsr	rputch
+	lda	#84			; T
+	jsr	rputch
+	lda	#68			; D
+	jsr	rputch
+;	lda	#84			; T
+;	jsr	rputch
 	jsr	finddld
 	ldx	#0
 	lda	#32
@@ -4577,63 +4650,65 @@ dodial
 	iny
 	cpy	#40
 	bne	?l1
-?lp
+?lp					; send dial string
 	tya
 	pha
 	lda	(prfrom),y
 	beq	?z
-	jsr	rputjmp
+	jsr	rputch
 ?z
 	pla
 	tay
 	iny
 	cpy	#80
 	bne	?lp
-	lda	#13
-	jsr	rputjmp
+	lda	#13			; CR
+	jsr	rputch
 	ldx	#0
-?d
+?d					; wait a little bit to allow modem to echo our dial string
 	jsr	vdelay
 	inx
 	cpx	#30
 	bne	?d
 ?lp2
-	jsr	buffpl
-	cpx	#0
-	beq	?lp2
+	jsr	buffpl		; empty buffer to ignore echoed dial string
+	cpx	#1			; buffer empty? exit this loop
+	beq ?end_lp2
+	cmp #13			; did we get our echoed CR? we're done
+	bne ?lp2
+?end_lp2
+
 	lda	linadr+48
 	sta	cntrl
 	lda	linadr+49
 	sta	cntrh
 	jsr	erslineraw
-	ldx	#>dilmsg
-	ldy	#<dilmsg
-	jsr	prmesgy
-wtbuflp
+
+?wtbuflp				; wait for response from modem
 	lda	764
 	cmp	#255
-	beq	?ky
-	jsr	getkey
-	cmp	#27
-	bne	wtbuflp
-	lda	#13
-	jsr	rputjmp
+	beq	?nokey
+	jsr	getkey		; handle keyboard in case user hit a key
+	cmp	#27			; user hit Esc?
+	bne	?wtbuflp
+	lda	#13			; send an extra CR to abort
+	jsr	rputch
 	lda	#0
 	sta	diltmp2
-	jmp	?pr
-?ky
+	jmp	?pr			; get out of this loop, wait for modem's message (prob. NO CARRIER since we aborted).
+?nokey
 	jsr	buffdo
-	cpx	#1
-	beq	wtbuflp
+	cpx	#1		; buffer empty?
+	beq	?wtbuflp
 ?pr
 	ldx	#0
 	stx	temp
 	lda	#32
-?lp
+?lp3
 	sta	modstr+3,x
 	inx
 	cpx	#25
-	bne	?lp
+	bne	?lp3
 	ldx	#0
 	txa
 	pha
@@ -4652,7 +4727,7 @@ wtbuflp
 	cpx	#0
 	beq	?wt
 	iny
-	cpy	#60
+	cpy	vframes_per_sec ; 1 sec
 	bne	?wtlp
 	pla
 	jmp	?en
@@ -4661,9 +4736,9 @@ wtbuflp
 	pla
 	tax
 	tya
-	cmp	#13	; reversed these 2 numbers..
-	beq	?lf
 	cmp	#10
+	beq	?lf
+	cmp	#13
 	bne	?ncr
 	lda	temp
 	bne	?en
@@ -4683,9 +4758,9 @@ wtbuflp
 	ldy	#<modstr
 	jsr	prmesgy
 	lda	modstr+3
-	cmp	#67
-	bne	?noc
-	lda	#1
+	cmp	#'C			; Did reply start with 'C'?
+	bne	?noc		; no - we failed to connect
+	lda	#1			; yes - we're online!
 	sta	online
 	jsr	zrotmr
 	ldx	#0
@@ -4714,6 +4789,7 @@ wtbuflp
 	jsr	getkey
 	cmp	#27
 	bne	?nky
+?abort_dial
 	lda	#0
 	sta	diltmp2
 	lda	linadr+48
@@ -5076,7 +5152,7 @@ enddial
 	jsr	clrscrnraw
 	jsr	screenget
 	lda	#1
-	sta	clockdat+2
+	sta	clock_enable
 	jmp	gomenu2
 
 prmesgy
@@ -5145,11 +5221,9 @@ nodlmsg
 
 dilmnu
 	.byte	0,23,72
-	.byte	"Up/Down  Return-dial  Space-di"
-	.byte	"al w/Retry  [E]dit [R]emove [A"
-	.byte	"]dd         "
+	.byte	"Up/Down  Return-dial  Space-dial w/Retry  [E]dit [R]emove [A]dd         "
 
-;	.byte	"]dd [C]onfig"
+;	.byte	"[A]dd [C]onfig"
 
 diltop
 	.byte	1,0,14
@@ -5159,6 +5233,9 @@ modstr
 	.byte	155
 	.byte	"-- Bill Kendrick! :) --"
 	.byte	155
+hangupmsg
+	.byte	0,24,12
+	.byte	"Hanging up.."
 dilmsg
 	.byte	0,24,24
 	.byte	"Dialing.. (Esc to abort)"
@@ -5488,6 +5565,10 @@ chbnk1  ldx	#bank1
 chbnk2  cmp	#>mini1
 	bcc	intrmlp
 	beq	intrmlp
+	
+	; store special string at $4000 to mark this bank as properly loaded.
+	; in subsequent loads (e.g. after reboot), if this magic marker is found then loading this bank
+	; is skipped.
 	ldx	#0
 ?lp
 	lda	svscrlms,x

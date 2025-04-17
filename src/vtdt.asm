@@ -222,11 +222,11 @@ savcfgw
 	.byte	"  parameters  "
 savcfgwe1
 	.byte	48,10,14
-	.byte	+$80,"Disk I/O error%
+	.byte	+$80,"Disk I/O error"
 savcfgwe2
 	.byte	48,11,14
-	.byte	+$80,"  number %
-savcfgn .byte	+$80,"     %
+	.byte	+$80,"  number "
+savcfgn .byte	+$80,"     "
 
 
 setclow
@@ -234,8 +234,8 @@ setclow
 	.byte	"xx:xx "
 setclkpr
 	.byte	38,8,5
-	.byte	+$80,"xx:xx%
-	.byte	+$80,"000%
+	.byte	+$80,"xx:xx"
+	.byte	+$80,"000"
 
 settmrw
 	.byte	36,9,41,11
@@ -243,7 +243,7 @@ settmrw
 
 xfrwin
 	.byte	50,1,69,9
-	.byte	+$80," Toggle capture %
+	.byte	+$80," Toggle capture "
 	.byte	" Save capture.. "
 	.byte	" ASCII upload.. "
 	.byte	" Xmodem receive "
@@ -264,7 +264,7 @@ xfrtbl
 
 filwin
 	.byte	40,1,59,12
-	.byte +$80," Disk directory %
+	.byte +$80," Disk directory "
         .byte " Change path    "
         .byte " D/L EOL trans. "
         .byte " U/L EOL trans. "
@@ -292,7 +292,7 @@ filtbl
 
 endoffl
 	.byte	1,24,25
-	.byte	+$80," End of file - press Esc %
+	.byte	+$80," End of file - press Esc "
 
 
 namnmwin
@@ -312,7 +312,7 @@ pthwin
 	.byte	"                    "
 pthpr
 	.byte	38,4,12
-	.byte	+$80," Enter path %
+	.byte	+$80," Enter path "
 
 eolwin
 	.byte	56,3,67,8
@@ -372,12 +372,12 @@ fgnfil
 	.byte	"Esc to abort"
 fgnblk
 	.byte	58,10,12
-	.byte	+$80,"  - Wait -  %
+	.byte	+$80,"  - Wait -  "
 fgnerr
 	.byte	58,10,12
-	.byte	+$80," Error %
+	.byte	+$80," Error "
 fgnern
-	.byte	+$80,"     %
+	.byte	+$80,"     "
 
 drmsg
 	.byte	0,2,23
@@ -480,10 +480,10 @@ xmdlwn
 	.byte	" File length:               "
 ynolng
 	.byte	40,14,14
-	.byte	+$80,"No information%
+	.byte	+$80,"No information"
 xmdcsm
 	.byte	43,10,8
-	.byte	+$80,"Checksum%
+	.byte	+$80,"Checksum"
 xmdoper
 	.byte	"download "
 	.byte	"upload   "
