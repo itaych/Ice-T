@@ -7,7 +7,7 @@
 ; This part	is resident in bank #1
 
 	.bank
-	*=	$4010
+	*=	$4000
 
 ; VT-100 TERMINAL EMULATOR
 
@@ -23,7 +23,8 @@ connect
 	lda #0
 	sta x
 	sta y
-	jsr mkblkchr
+	lda #BLOCK_CHARACTER
+	sta prchar
 	jsr print		; draw block if XOFF is on
 ?ok1
 	jsr do_term_main_display
@@ -85,15 +86,14 @@ do_term_main_display
 	pla
 	sta bckgrnd
 	jsr boldon
-	lda boldallw
-	cmp #3
+	cpy #3		; y contains value of boldallw, 3 means blink
 	bne ?nbl	; If blink - turn blinking characters on by disabling PMs
 	lda #0
-	ldx #3
+	; y happens to contain 3 which is exactly what's needed for this loop
 ?bf
-	sta hposp0,x
-	sta hposm0,x
-	dex
+	sta hposp0,y
+	sta hposm0,y
+	dey
 	bpl ?bf
 	lda sdmctl
 	and #~11110011	; Disable PM DMA
@@ -492,16 +492,13 @@ vt100_check_hi_chars
 	jmp vt100_done_check_hi_chars
 
 putcrs			; Cursor flasher
-	lda ty
-	tay
-	dey
-	asl a
-	tax
-	lda linadr,x
+	ldx ty
+	lda linadr_l,x
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
-	lda lnsizdat,y	; 0 or 4 and up - small, 1-3 - big
+	dex
+	lda lnsizdat,x	; 0 or 4 and up - small, 1-3 - big
 	beq smcurs
 	cmp #4
 	bcc bigcurs
@@ -1114,12 +1111,10 @@ hash_process
 	sta y
 ?lpy
 	inc y
-	lda y
-	asl a
-	tax
-	lda linadr,x
+	ldx y
+	lda linadr_l,x
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
 	ldx #0
 ?lpx
@@ -2434,8 +2429,7 @@ ersfmcurs
 	ldy tx
 	sty x
 	ldx ty
-	dex
-	lda lnsizdat,x	; wide line?
+	lda lnsizdat-1,x	; wide line?
 	beq ?ok
 	tya 		; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
@@ -2489,12 +2483,10 @@ txerfm
 	bne erfmbt
 	rts
 erfmbt
-	lda ty			; mass erase by blanking whole bytes of screen data
-	asl a
-	tax
-	lda linadr,x	; get data address for this line
+	ldx ty			; mass erase by blanking whole bytes of screen data
+	lda linadr_l,x	; get data address for this line
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
 	lda x
 	ldx temp		; was this a wide line?
@@ -2589,12 +2581,10 @@ txerto
 	bpl ertobt
 	rts
 ertobt
-	lda ty			; mass erase by blanking whole bytes of screen data
-	asl a
-	tax
-	lda linadr,x	; get data address for this line
+	ldx ty			; mass erase by blanking whole bytes of screen data
+	lda linadr_l,x	; get data address for this line
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
 	lda x
 	ldx temp		; was this a wide line?
@@ -2666,17 +2656,14 @@ printerm
 ; 2 - x2 width, double height, upper half
 ; 3 - x2 width, double height, lower half
 
-	lda y
-	tay
-	asl a
-	tax
-	lda txlinadr-2,x
+	ldy y
+	lda txlinadr_l-1,y
 	sta ersl
-	lda txlinadr-1,x
+	lda txlinadr_h-1,y
 	sta ersl+1
-	lda linadr,x
+	lda linadr_l,y
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,y
 	sta cntrh
 	ldx prchar
 	lda invsbl
@@ -2810,10 +2797,10 @@ ignrsh
 	jmp prt1
 nopcchar
 	; for characters < 128 we have a lookup table
-	lda chrtbll,x
+	lda chrtbl_l,x
 	sta prchar
 	sta plc2+1
-	lda chrtblh,x
+	lda chrtbl_h,x
 	sta prchar+1
 	sta plc2+2
 prt1
@@ -3185,7 +3172,6 @@ boldbok
 	bcs ?s4
 	sta boldsct,x
 ?s4
-	lda y
 	cmp boldscb,x
 	bcc ?sk
 	sta boldscb,x
@@ -3251,7 +3237,7 @@ bolduok
 ; terminal screen. So, backscroll buffer is not updated, line size table is not changed, text mirror is not scrolled.
 
 scrldown
-	lda scrltop	; Move scrolled-out line into screen-saver
+	lda scrltop	; Move scrolled-out line into backscroll memory
 	cmp #1
 	bne noscrsv	; (but only if top of scroll region is top line)
 	lda outnum
@@ -3262,9 +3248,9 @@ scrldown
 	beq ?ok
 	dec looklim
 ?ok
-	lda txlinadr
+	lda txlinadr_l
 	sta ersl
-	lda txlinadr+1
+	lda txlinadr_h
 	sta ersl+1
 	ldy #0
 	jsr scrllnsv
@@ -3290,43 +3276,37 @@ noscrsv
 	sta lnsizdat-1,x
 nodolnsz
 	lda scrlbot
-	tax
-	asl scrlbot
-	cpx scrltop
+	cmp scrltop
 	beq scdnadbd
-	lda scrltop	; Scroll address-table
-	asl a
-	tax
-	lda linadr,x
+	ldx scrltop	; Scroll address-table
+	lda linadr_l,x
 	sta nextlnt
-	lda linadr+1,x
+	lda linadr_h,x
 	sta nextlnt+1
 scdnadlp
-	lda linadr+2,x
-	sta linadr,x
-	lda linadr+3,x
-	sta linadr+1,x
-	inx
+	lda linadr_l+1,x
+	sta linadr_l,x
+	lda linadr_h+1,x
+	sta linadr_h,x
 	inx
 	cpx scrlbot
 	bne scdnadlp
 	jmp scdnadok
 scdnadbd
 	ldx scrlbot ;	If top=bot, no scroll occurs
-	lda linadr,x
+	lda linadr_l,x
 	sta nextlnt
-	lda linadr+1,x
+	lda linadr_h,x
 	sta nextlnt+1
 scdnadok
 	lda nextln
-	sta linadr,x
+	sta linadr_l,x
 	lda nextln+1
-	sta linadr+1,x
+	sta linadr_h,x
 	lda nextlnt
 	sta nextln
 	lda nextlnt+1
 	sta nextln+1
-	lsr scrlbot
 
 	lda outnum
 	cmp #255
@@ -3336,37 +3316,29 @@ scdnadok
 	sbc scrltop
 	beq dncltxln
 	tax
-	lda scrltop
-	asl a
-	tay
+	ldy scrltop
 	dey
-	dey
-	lda txlinadr,y
+	lda txlinadr_l,y
 	pha
-	lda txlinadr+1,y
+	lda txlinadr_h,y
 	pha
 dntbtxlp
-	lda txlinadr+2,y
-	sta txlinadr,y
-	lda txlinadr+3,y
-	sta txlinadr+1,y
-	iny
+	lda txlinadr_l+1,y
+	sta txlinadr_l,y
+	lda txlinadr_h+1,y
+	sta txlinadr_h,y
 	iny
 	dex
 	bne dntbtxlp
 	pla
-	sta txlinadr+1,y
+	sta txlinadr_h,y
 	pla
-	sta txlinadr,y
+	sta txlinadr_l,y
 dncltxln
-	lda scrlbot
-	asl a
-	tax
-	dex
-	dex
-	lda txlinadr,x
+	ldx scrlbot
+	lda txlinadr_l-1,x
 	sta ersl
-	lda txlinadr+1,x
+	lda txlinadr_h-1,x
 	sta ersl+1
 	ldy #79
 	lda #32
@@ -3540,85 +3512,67 @@ scrlup			; SCROLL UP
 	lda scrlbot ;	Scroll line-adr tbl
 	cmp scrltop
 	beq ?ab
-	asl scrltop
-	lda scrlbot
-	asl a
-	tax
-	lda linadr,x
+	ldx scrlbot
+	lda linadr_l,x
 	sta nextlnt
-	lda linadr+1,x
+	lda linadr_h,x
 	sta nextlnt+1
 ?al
-	lda linadr-1,x
-	sta linadr+1,x
-	lda linadr-2,x
-	sta linadr,x
-	dex
+	lda linadr_l-1,x
+	sta linadr_l,x
+	lda linadr_h-1,x
+	sta linadr_h,x
 	dex
 	cpx scrltop
 	bne ?al
 	beq ?ak
 ?ab
-	lda scrltop
-	asl a
-	sta scrltop
-	tax
-	lda linadr,x
+	ldx scrltop
+	lda linadr_l,x
 	sta nextlnt
-	lda linadr+1,x
+	lda linadr_h,x
 	sta nextlnt+1
 ?ak
 	lda nextln
-	sta linadr,x
+	sta linadr_l,x
 	lda nextln+1
-	sta linadr+1,x
+	sta linadr_h,x
 	lda nextlnt
 	sta nextln
 	lda nextlnt+1
 	sta nextln+1
 
-	lda scrltop
-	lsr a
-	sta scrltop ;	Scroll text mirror
+	lda scrltop ;	Scroll text mirror
 	cmp scrlbot
 	beq ?et
 	sec
 	lda scrlbot
-	pha
+	tax
 	sbc scrltop
 	tay
-	pla
-	asl a
-	tax
 	dex
-	dex
-	lda txlinadr,x
+	lda txlinadr_l,x
 	sta ersl
-	lda txlinadr+1,x
+	lda txlinadr_h,x
 	sta ersl+1
 ?tl
-	lda txlinadr-2,x
-	sta txlinadr,x
-	lda txlinadr-1,x
-	sta txlinadr+1,x
-	dex
+	lda txlinadr_l-1,x
+	sta txlinadr_l,x
+	lda txlinadr_h-1,x
+	sta txlinadr_h,x
 	dex
 	dey
 	bne ?tl
 	lda ersl
-	sta txlinadr,x
+	sta txlinadr_l,x
 	lda ersl+1
-	sta txlinadr+1,x
+	sta txlinadr_h,x
 	jmp ?gu
 ?et
-	lda scrltop
-	asl a
-	tax
-	dex
-	dex
-	lda txlinadr,x
+	ldx scrltop
+	lda txlinadr_l-1,x
 	sta ersl
-	lda txlinadr+1,x
+	lda txlinadr_h-1,x
 	sta ersl+1
 ?gu
 	ldy #0
@@ -3935,16 +3889,13 @@ prep_boldface_scroll
 
 ; erase line Y (1-24)
 ersline
-	lda y
-	beq ersline_done
+	lda y				; Don't erase text mirror if y=0.
+	beq ersline_done	; Note that Y coordinate is expected in A
 	; erase text mirror
-	asl a
 	tax
-	dex
-	dex
-	lda txlinadr,x
+	lda txlinadr_l-1,x
 	sta cntrl
-	lda txlinadr+1,x
+	lda txlinadr_h-1,x
 	sta cntrh
 	ldy #79
 	lda #32
@@ -4017,24 +3968,22 @@ lookup			; Buffer-scroll UP
 novrup
 	jsr crsifneed
 
-	lda linadr+48	; Scroll linadr table
+	lda linadr_l+24	; Scroll line address table
 	pha
-	lda linadr+49
+	lda linadr_h+24
 	pha
-	ldx #46
+	ldx #23
 lkupscadlp
-	lda linadr,x
-	sta linadr+2,x
-	lda linadr+1,x
-	sta linadr+3,x
+	lda linadr_l,x
+	sta linadr_l+1,x
+	lda linadr_h,x
+	sta linadr_h+1,x
 	dex
-	dex
-	cpx #0
 	bne lkupscadlp
 	lda nextln
-	sta linadr+2
+	sta linadr_l+1
 	lda nextln+1
-	sta linadr+3
+	sta linadr_h+1
 	pla
 	sta nextln+1
 	pla
@@ -4079,14 +4028,13 @@ lkupwtvb ; continue fine scroll
 	rts
 lkupcrs
 	jsr vdelayr	; Coarse-scroll
-	ldx #2
+	ldx #1
 	ldy #10
 lkupsclp
-	lda linadr,x
+	lda linadr_l,x
 	sta dlist+4,y
-	lda linadr+1,x
+	lda linadr_h,x
 	sta dlist+5,y
-	inx
 	inx
 	tya
 	clc
@@ -4128,24 +4076,23 @@ lookdn			; Buffer-scroll DOWN
 novrdn
 	jsr crsifneed
 
-	lda linadr+2	; Scroll linadr table
+	lda linadr_l+1	; Scroll line address table
 	pha
-	lda linadr+3
+	lda linadr_h+1
 	pha
-	ldx #2
+	ldx #1
 lkdnscadlp
-	lda linadr+2,x
-	sta linadr,x
-	lda linadr+3,x
-	sta linadr+1,x
+	lda linadr_l+1,x
+	sta linadr_l,x
+	lda linadr_h+1,x
+	sta linadr_h,x
 	inx
-	inx
-	cpx #48
+	cpx #24
 	bne lkdnscadlp
 	lda nextln
-	sta linadr,x
+	sta linadr_l,x
 	lda nextln+1
-	sta linadr+1,x
+	sta linadr_h,x
 	pla
 	sta nextln+1
 	pla
@@ -4204,13 +4151,10 @@ lkzro
 	jmp lkdnprdn
 
 lkoky
-	asl a
 	tax
-	dex
-	dex
-	lda txlinadr,x
+	lda txlinadr_l-1,x
 	sta lookln2
-	lda txlinadr+1,x
+	lda txlinadr_h-1,x
 	sta lookln2+1
 	asl eitbit
 lkdnprlp
@@ -4248,14 +4192,13 @@ lkdnvbwt		; continue fine-scroll
 
 lkdndocr
 	jsr vdelayr	; Coarse scroll
-	ldx #2
+	ldx #1
 	ldy #10
 lkdnsclp
-	lda linadr,x
+	lda linadr_l,x
 	sta dlist+4,y
-	lda linadr+1,x
+	lda linadr_h,x
 	sta dlist+5,y
-	inx
 	inx
 	tya
 	clc
@@ -5112,13 +5055,12 @@ captbfdo
 	lda captold
 	beq ?skip
 	tax
-	lda #27
+	lda #BLOCK_CHARACTER
 ?lp2
 	sta captdt-1,x
 	dex
 	bne ?lp2
 ?skip
-	jsr mkblkchr
 	ldx #>captpr
 	ldy #<captpr
 	jmp prmesg
@@ -5139,22 +5081,21 @@ bufcntdo
 	bpl ?lp1
 	tya
 	sta oldbufc
+	lsr a
+	lsr a
+	lsr a
 	beq ?dtok
-	lsr a
-	lsr a
-	lsr a
 	tax
 	cpx #9
 	bcc ?notbig
 	ldx #8
 ?notbig
-	lda #27
+	lda #BLOCK_CHARACTER
 ?dtmk
 	sta bufcntdt-1,x
 	dex
 	bne ?dtmk
 ?dtok
-	jsr mkblkchr
 	ldx #>bufcntpr
 	ldy #<bufcntpr
 	jmp prmesg
@@ -5228,9 +5169,9 @@ ledsdo
 	bne ?lp
 
 	; draw character
-	lda linadr
+	lda linadr_l
 	sta cntrl
-	lda linadr+1
+	lda linadr_h
 	sta cntrh
 
 	ldy #25 ; horizontal offset of location to draw character
@@ -5256,7 +5197,7 @@ led_mask_tbl .byte 0, $f0, $0f, $ff
 
 ; End of status line handlers
 
-vdelayr			; Waits for next VBI to finish
+vdelayr			; Waits for next VBI to finish, while polling serial port
 	lda rtclock_2
 ?v
 	ldx fastr	; Checks on buffer, too.
@@ -5270,12 +5211,10 @@ vdelayr			; Waits for next VBI to finish
 	rts
 
 filline ; Fill line with 'on' pixels (value 0)
-	lda y
-	asl a
-	tax
-	lda linadr,x
+	ldx y
+	lda linadr_l,x
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
 	lda #0
 	jmp filline_custom_value
@@ -6189,12 +6128,10 @@ prmesgy
 	rts
 
 invbarmk		; Put an inverse bar
-	lda y
-	asl a
-	tax
-	lda linadr,x
+	ldx y
+	lda linadr_l,x
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
 	ldy #0
 ?lp
@@ -6613,7 +6550,7 @@ boldcolrtables_hi	.byte >colortbl_0, >colortbl_1, >colortbl_2, >colortbl_3, >col
 ; white, red, green, yellow, blue, magenta, cyan
 bold2color_xlate	.byte $0a, $0e, 70, 74, 200, 206, 234, 238, 132, 136, 88, 92, 152, 156
 
-; Bold - tables filled at program start
+; Bold - static tables filled at program start
 boldpmus	.ds 40	; convert column number to PM number (0-4)
 boldtbpl	.ds 5	; low-byte pointer to each player data
 boldtbph	.ds 5	; high
@@ -6622,8 +6559,8 @@ boldwri		.ds 8	; same as boldwr but inverted (running 0's)
 boldytb		.ds 25	; converts line number to vertical offset within PM
 
 ; Bold - Dynamic data:
-boldsct		.ds 5	; Per PM, current uppermost (lower value) bold line
-boldscb		.ds 5	; Per PM, current lowest (higher value) bold line
+boldsct		.ds 5	; Per PM, current uppermost (lowest value) bold line
+boldscb		.ds 5	; Per PM, current lowest (highest value) bold line
 boldypm		.ds 5	; Flag whether there are any enabled pixels in this PM
 
 ; Dialer's stuff:
@@ -6641,8 +6578,7 @@ mini1
 	.error "mini1>wind1!!"
 	.endif
 
-; Move all of the above crap into
-; banked memory
+; Move all of the above crap into banked memory
 	.bank
 	*=	$600
 inittrm
@@ -6658,25 +6594,12 @@ chbnk1  ldx bank1	; this value is modified to bank2 for second iteration
 	stx banksw
 	sta (cntrl),y
 	iny
-	cpy #0
 	bne intrmlp
 	inc cntrh
 	lda cntrh
 chbnk2  cmp #>mini1
 	bcc intrmlp
 	beq intrmlp
-
-	; store special string at $4000 to mark this bank as properly loaded.
-	; in subsequent loads (e.g. after reboot), if this magic marker is found then loading this bank
-	; is skipped.
-	ldx #0
-?lp
-	lda svscrlms,x
-	sta banked_memory_bottom,x
-	inx
-	cpx #$10
-	bne ?lp
-
 	lda bank0
 	sta banksw
 
@@ -6688,5 +6611,11 @@ chbnk2  cmp #>mini1
 	rts
 
 	.bank
-	*=	$2e2
+	*=	dos_initad
 	.word	inittrm
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include icet.asm
+	.endif
+;; End of WUDSN workaround

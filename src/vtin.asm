@@ -78,12 +78,13 @@ memok
 	sta banksw
 	lda bnkmem
 	cmp #12
-	beq bankok
+	beq check_r_handler	; test passed, on to next test
 	jsr prntbad
 	ldx #>bnkbd
 	ldy #<bnkbd
 	jsr prnt_line
-bankok
+
+check_r_handler
 
 ; This code checks for the presence of an R: device in HATABS. If it doesn't exist it attempts to load
 ; a handler from the file RS232.COM (MyDOS only).
@@ -130,7 +131,7 @@ bankok
 	sta icaux1+$30
 	jsr ciov
 	sty ?rr2		; save error code
-	jmp bankok
+	jmp check_r_handler
 
 ?rr1	.byte	0	; iteration counter
 ?rr2	.byte	0	; error code
@@ -162,7 +163,7 @@ bankok
 	ldy #<retdsmsg
 	jsr prnt_line
 ?lp
-	lda kbd_ch			; wait for keypress
+	lda kbd_ch		; wait for keypress
 	cmp #255
 	beq ?lp
 	lda #255
@@ -171,7 +172,7 @@ bankok
 	sta lmargn
 	pla 			; remove return address from stack (so rest of program won't load)
 	pla
-	jmp (dosvec)		; bail out to DOSVEC
+	jmp (dosvec)	; bail out to DOSVEC
 ?ok
 
 ; All tests passed; in case of SpartaDOS, disable TDLINE (time/date bar at top of screen)
@@ -237,7 +238,7 @@ jfsymbol = $07eb
 	jsr prnt_line	; output "loading ice-t..." and exit
 	pla
 	sta lmargn		; restore margin setting
-	rts
+	rts				; done. Loading of next segment will continue at this point.
 
 ; display initial error message, taking care not to show it more than once
 
@@ -321,5 +322,11 @@ bankselect_vals
 ; cause this code to run immediately after loading
 
 	.bank
-	*=	$2e2
+	*=	$2e2 ; dos_initad
 	.word system_checkup
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include icet.asm
+	.endif
+;; End of WUDSN workaround

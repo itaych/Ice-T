@@ -6,19 +6,15 @@
 
 ; note: unused memory locations are indicated by the word "spare" in a comment
 
-	.bank
-	*=	$2e0
-	.word init
-
-; Zero-page equates
+; Zero-page variables
 
 	.bank
 	*=	$80
 
-cntrl		.ds 1
-cntrh		.ds 1
-x			.ds 1
-y			.ds 1
+cntrl		.ds 1	; general 16-bit counter, lo byte
+cntrh		.ds 1	; general 16-bit counter, hi byte
+x			.ds 1	; x coordinate when displaying a character
+y			.ds 1	; y coordinate when displaying a character
 prchar		.ds 2
 temp		.ds 1
 prcntr		.ds 2
@@ -47,7 +43,7 @@ insertmode	.ds 1
 undrln		.ds 1
 revvid		.ds 1
 invsbl		.ds 1
-boldface	.ds 1	; terminal currently drawing in bold/blink (PM underlay) mode
+boldface	.ds 1	; terminal currently set to write new characters in bold/blink (PM underlay) mode
 gntodo		.ds 1
 qmark		.ds 1
 modedo		.ds 1
@@ -90,7 +86,7 @@ boty		.ds 1
 
 ersl		.ds 2
 
-scrlsv		.ds 2
+scrlsv		.ds 2	; scrollback save pointer
 look		.ds 1
 lookln		.ds 2
 lookln2		.ds 2
@@ -112,8 +108,8 @@ dbltmp1		.ds 1
 dbltmp2		.ds 1
 dblgrph		.ds 1
 
-bufput		.ds 2
-bufget		.ds 2
+bufput		.ds 2	; serial port data cyclic data buffer put address
+bufget		.ds 2	; serial port data cyclic data buffer get address
 chrcnt		.ds 2
 
 banksv		.ds 1
@@ -128,7 +124,7 @@ nowvbi		.ds 1
 virtual_led	.ds 1
 dli_counter	.ds 1
 
-rt8_detected	.ds 1
+rt8_detected	.ds 1	; whether R-Time8 cartridge is present
 vframes_per_sec	.ds 1	; 50/60 depending on video system
 clock_cnt		.ds 1	; count increases each video frame
 time_correct_cnt .ds 2	; counter to correct slight time drift
@@ -238,6 +234,10 @@ wind2	=	$7b00	; 1.25k
 wind2_oob = wind2 + $500
 
 ; Bank 3 - Backscroll buffer
+
+backscroll_bottom	= $4000
+backscroll_top		= $7fc0		; enough for 204 lines of 80 bytes each (remainder is 64 bytes. The upper 46 bytes are used to save scrollback info in case user exits and reruns the program.)
+ 
 ; Bank 4 - Capture/ASCII Upload/File viewer buffer
 
 	.bank
@@ -300,17 +300,18 @@ minibuf	=	$8800	; used as R: input buffer (probably only by Atari 850)
 minibuf_end = $8900
 
 macro_data =	$8900	; Macro data. 64 bytes * 12 macros.
-chrtbll	=	$8c00	; lookup table to find character in character set
-chrtblh	=	$8c80
+chrtbl_l	=	$8c00	; lookup table to find character in character set (lo byte)
+chrtbl_h	=	$8c80	; lookup table to find character in character set (hi byte)
 ; charset =	$8d00	; main character set (defined in icet.asm)
 ; pcset =	$9100	; secondary (>128) character set (defined in icet.asm)
 txscrn	=	$9500	; text mirror
-txlinadr =	$9c80	; line addresses within text mirror
+txlinadr_l =	$9c80	; address of each line within text mirror, lo byte, 24 bytes
+txlinadr_h =	$9c98	; address of each line within text mirror, hi byte, 24 bytes
 tabs	=	$9cb0	; tab stops, 80 bytes
 
 	.bank
 	*=	$9d00
-savddat		.ds cfgnum
+savddat		.ds cfgnum	; Copy of configuration settings. Mirrors what's stored to disk and restored when Reset is pressed.
 clock_update	.ds 1	; flagged when VBI has updated the time (normally every second)
 clock_enable	.ds 1	; enables clock display in menu
 clock_flag_seconds	.ds 1	; VBI1 tells VBI2 to increase clock by this many seconds
@@ -324,9 +325,9 @@ savorgn		.ds 1
 savg0		.ds 1
 savg1		.ds 1
 savchs		.ds 1
-online		.ds 1
+online		.ds 1		; whether we are online (connected through dialer)
 mnplace		.ds 1
-remrhan		.ds 4
+remrhan		.ds 4		; Information on whether R: handler was loaded by us, and how to unload it when exiting
 crcchek		.ds 1
 isbold		.ds 1
 
@@ -344,7 +345,8 @@ screen	=	$9fb0
 ; at 'screen' is an unused line (as it crosses a 4K boundary) of 320 bytes
 	.bank
 	*=	screen
-linadr	.ds	50
+linadr_l	.ds	25	; address of each line in display bitmap, lo byte
+linadr_h	.ds	25	; address of each line in display bitmap, hi byte
 numstk	.ds	$100
 rush	.ds	1
 didrush	.ds	1
@@ -421,10 +423,10 @@ colortbl_4	.ds 24
 	.endif
 
 ; System equates
-casini	=	$02
-bootflag	=	$09
-dosvec	=	$0a
-dosini	=	$0c
+casini	=	$02		; steal this vector for when user presses Reset
+bootflag	=	$09	; indicates successful boot. We set to 3 so casini vector is used at reset
+dosvec	=	$0a		; jump to this vector to exit to DOS
+dosini	=	$0c		; we jsr here at every reset to let DOS initialize
 brkkey	=	$11		; BREAK key flag
 rtclock_0	=	$12
 rtclock_1	=	$13
@@ -449,6 +451,8 @@ color1	=	$2c5	; ANTIC mode 15: luminance of lit pixels
 color2	=	$2c6	; ANTIC mode 15: playfield color
 color3	=	$2c7	; Color of fifth player
 color4	=	$2c8	; ANTIC mode 15: border color
+dos_runad	=	$2e0	; When executable load is complete, runs at this vector
+dos_initad	=	$2e2	; During executable load, whenever this vector is updated the loader will jsr to this vector
 bcount	=	$2eb	; DVSTAT+1. When serial port is open in concurrent mode, after a STATUS command this word holds the amount of data in the input buffer 
 memlo	=	$2e7	; Pointer to bottom of free memory
 kbd_ch	=	$2fc	; Internal hardware value for the last key pressed, $FF means nothing was pressed. Use keydef to convert code to ASCII.
@@ -488,9 +492,9 @@ colbk	=	$d01a	; ANTIC mode 15: border color
 gractl	=	$d01d	; Enable P/Ms
 consol	=	$d01f	; console buttons (read)/internal speaker (write)
 ; POKEY
-kbcode	=	$d209
-random	=	$d20a
-skstat	=	$d20f
+kbcode	=	$d209	; keyboard code of pressed key
+random	=	$d20a	; read a pseudorandom value
+skstat	=	$d20f	; for checking if Shift key is pressed
 ; PIA
 portb	=	$d301	; PORTB, used for bank switching
 banksw	=	portb
@@ -511,8 +515,8 @@ setvbv	=	$e45c
 sysvbv	=	$e45f
 xitvbv	=	$e462
 
-undefined_addr	=	$ffff	; placeholder value for self-modified code
-
+undefined_addr	=	$ffff	; placeholder 2-byte value for self-modified code
+undefined_val	=	$ff		; placeholder 1-byte value for self-modified code
 
 ; Program data
 
@@ -577,7 +581,7 @@ cfgname_end
 ascprc
 	.byte	0
 
-cfgdat
+cfgdat	; Configuration data (size: cfgnum) stored to configuration file.
 
 baudrate	.byte 15	; baud rate, 8=300 baud, 15=19.2k
 stopbits	.byte 0
@@ -605,13 +609,14 @@ ascdelay	.byte 2		; Delay (or prompt) between lines during ASCII upload
 	.endif
 
 ; Translation table for graphical character set, ASCII 95-126 when enabled.
+; Note that values >= 128 indicate digraphs which are not part of the font.
 graftabl
 	.byte	32,6,0,128,129,130,131,7,8
 	.byte	132,133,3,5,17,26,19,15,16
 	.byte	20,21,25,1,4,24,23,124
 	.byte	9,10,11,12,13,14
 
-blkchr = pcset + (126*8) ; block shaped character is located in PC character set
+BLOCK_CHARACTER = 127 ; block shaped character for indicating buffer full, etc.
 
 digraph
 	.byte	170,238,170,0,119,34,34,0  ; ht
@@ -776,7 +781,7 @@ svscrlms
 
 	.byte	"Version "
 version_str
-	.byte 	"2.8.0(alpha7)"
+	.byte 	"2.8.0(alpha8)"
 version_str_end
 	.byte	", Oct 12 2014. Contact: itaych@gmail.com"
 tilmesg3_end
@@ -798,3 +803,9 @@ xmdtop2
 sparta_tdline_sym	.byte "I_TDON  "
 
 ;  End of data (For menu data see VTDT, VT23)
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include icet.asm
+	.endif
+;; End of WUDSN workaround

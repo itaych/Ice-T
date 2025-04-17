@@ -6,9 +6,8 @@
 
 ; This part	is resident in bank #2
 
-;
 	.bank
- 	*=	$4010
+ 	*=	$4000
 
 mnmenu
 	lda mnlnofbl
@@ -1015,13 +1014,12 @@ mxstrt
 	sta x
 	iny
 	lda (prfrom),y
-	asl a
 	tax
-	lda linadr,x
 	clc
+	lda linadr_l,x
 	adc x
 	sta invlo
-	lda linadr+1,x
+	lda linadr_h,x
 	adc #0
 	sta invhi
 	lda nodoinv
@@ -1243,10 +1241,10 @@ invsub
 	ldx mnmnucnt
 	lda ?tb,x
 	clc
-	adc linadr
+	adc linadr_l
 	sta invlo
 	lda #0
-	adc linadr+1
+	adc linadr_h
 	sta invhi
 	jmp doinv
 
@@ -5659,3 +5657,9 @@ sendcans
 	dex
 	bne ?l2
 	rts
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include icet.asm
+	.endif
+;; End of WUDSN workaround

@@ -8,14 +8,14 @@
 
 ; All menu-related data tables
 
-; Most title screen messages here
+; Most title screen messages here. A typical message is composed of x, y, length, string.
 
 tilmesg2
 	.byte	(80-75)/2,8,75
 	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2014 Itay Chamiel."
 .if 1
 tilmesg4
-	.byte	(80-75)/2,13,71
+	.byte	(80-71)/2,13,71
 	.byte	"This software is free, but donations are always appreciated (via Paypal"
 tilmesg5
 	.byte	(80-25)/2,14,25
@@ -607,10 +607,9 @@ xferfl2
 
 attnst	.ds	32	; Zmodem Attn string
 
-crchitab
-	.ds	256
-crclotab
-	.ds	256
+; Lookup tables for CRC-16 calculations
+crchitab	.ds	256
+crclotab	.ds	256
 
 mini2
 
@@ -626,5 +625,11 @@ mini2
 ; Move all of the above crap into banked memory
 
 	.bank
-	*=	$2e2
+	*=	dos_initad
 	.word inittrm
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include icet.asm
+	.endif
+;; End of WUDSN workaround

@@ -6,30 +6,35 @@
 
 ; This part is resident in main memory
 
-; First	init routines are at the
-; end of VT12.ASM
+; First	init routines are at initial_program_entry, at the end of this file
 
-reset			; System reset goes here
+go_to_dosini
+	jmp (dosini)
+
+reset				; System reset goes here
 	lda #0
-	sta sdmctl
-	sta color1
-	sta colpf1
-	sta color2
-	sta colpf2
-	sta fastr
-	jsr clrscrn
-	jsr vdelay
-	lda #<reset
+	sta sdmctl		; turn off display
+	sta fastr		; temporarily set "status calls" to "normal" so R: isn't polled during clear screen
+	jsr clrscrn		; clears screen, saves last existing screen (from before reset) in scrollback
+	lda #<reset		; rewrites reset vector in case it had been overwritten
 	sta casini
 	lda #>reset
 	sta casini+1
 	lda #3
 	sta bootflag
-	jsr dorst
+	jsr go_to_dosini	; initialize DOS
 
-; init (after program load) continues here
+	; Restore saved config (reset to same configuration as saved to disk)
+	ldx #cfgnum-1
+?lp
+	lda savddat,x
+	sta cfgdat,x
+	dex
+	bpl ?lp
 
-norst
+; common initialization (either at program load or after reset) continues here
+
+init_continued
 	; detect R-Time8 cartridge
 	jsr rt8_detect
 	sta rt8_detected
@@ -53,7 +58,7 @@ norst
 ?no0
 	cmp #$13
 	bcc ?no_over12
-	sed
+	sed			; and you better believe it
 	sec
 	sbc #$12
 	cld
@@ -61,15 +66,8 @@ norst
 	ldx #3
 	jsr rt8_to_menu_convert
 ?no_rt8
-
 ;	lda #1
 ;	sta clock_update
-	ldx #cfgnum-1
-?l
-	lda savddat,x	; Restore saved config
-	sta cfgdat,x
-	dex
-	bpl ?l
 
 	lda bank0
 	sta banksw
@@ -78,17 +76,10 @@ norst
 	lda flowctrl
 	sta savflow
 
-	lda #>dlist	; Create display list
-	sta sdlstl+1
-	sta prchar+1
-	lda #<dlist
-	sta sdlstl
-	clc
-	adc #2
-	sta prchar
-	lda #$70
+	; Create display list
+	lda #$70	; blank 7 lines
 	sta dlist
-	lda #$60
+	lda #$60	; blank 6 lines
 	sta dlist+1
 	lda #<screen
 	sta cntrl
@@ -96,73 +87,70 @@ norst
 	sta cntrh
 	lda #0
 	sta y
-dodl
-	ldy #0
-	lda #$4f
-	sta (prchar),y
+	tay
+?dlist_lines = dlist+2	; this is where we create the first line of graphics data
+?dodl
+	lda #$4f	; LMS + mode 15
+	sta ?dlist_lines,y
 	iny
+	ldx y
 	lda cntrl
-	sta (prchar),y
+	sta ?dlist_lines,y
+	sta linadr_l,x	; also store address to line lookup table
 	clc
-	adc #<320	; (40*8)
+	adc #<(40*8)
 	sta cntrl
 	iny
 	lda cntrh
-	sta (prchar),y
+	sta ?dlist_lines,y
+	sta linadr_h,x	; line lookup table, hi byte
 	adc #>320
 	sta cntrh
 	iny
-	ldx #6
-	lda #$f
+	ldx #6		; to create 7 mode lines
+	lda #$f		; mode 15
 ?dodl_lp
-	sta (prchar),y
+	sta ?dlist_lines,y
 	iny
 	dex
 	bpl ?dodl_lp
-	clc
-	lda prchar
-	adc #10
-	sta prchar
-	lda prchar+1
-	adc #0
-	sta prchar+1
+
 	lda y
 	bne ?o
-	tay 			; add blank scan line after first text line
-	sta (prchar),y
-	inc prchar
-	bne ?o
-	inc prchar+1
+	sta ?dlist_lines,y	; add blank scan line after first text line
+	iny
 ?o
 	inc y
 	lda y
 	cmp #25
-	bne dodl
+	bne ?dodl
 
-	ldy #0
-	lda #$41
-	sta (prchar),y
-	sta dlst2+$100
-	iny
+	lda #$41		; JVB
+	sta ?dlist_lines,y
 	lda #<dlist
-	sta (prchar),y
-	sta dlst2+$101
-	iny
+	sta sdlstl
+	sta ?dlist_lines+1,y
 	lda #>dlist
-	sta (prchar),y
-	sta dlst2+$102
-	; Some lines cross 4K boundaries; replace them with different lines.
+	sta sdlstl+1
+	sta ?dlist_lines+2,y
+
+	; A couple of lines cross 4K boundaries; replace them with alternative lines that do not. The skipped lines are used for other purposes.
 	lda #<(screen-320)
 	sta dlist+3
+	sta linadr_l
 	lda #>(screen-320)
 	sta dlist+4
+	sta linadr_h
 	lda #<(screen-640)
 	sta dlist+134
+	sta linadr_l+13
 	lda #>(screen-640)
 	sta dlist+135
+	sta linadr_h+13
 
-	jsr set_dlist_dli
+	jsr set_dlist_dli	; Set DLI enable bits at end of eack text line for PM color changes
 
+	; Copy display list to dlst2 (it just happens to be precisely $100 bytes long: 3 blanks, 3 JVB, 25 text lines of 10 bytes each)
 	ldx #0
 ?l
 	lda dlist,x
@@ -170,6 +158,8 @@ dodl
 	inx
 	bne ?l
 
+	; point to the "next" line and clear it. When scrolling, the line going in is not the same as the line going out
+	; to prevent display glitches.
 	lda #<xtraln
 	sta cntrl
 	sta nextln
@@ -178,26 +168,7 @@ dodl
 	sta nextln+1
 	jsr erslineraw
 
-	lda dlist+3	; Setup line-address table
-	sta linadr
-	lda dlist+4
-	sta linadr+1
-	ldx #10
-	ldy #2
-?d
-	lda dlist+4,x
-	sta linadr,y
-	lda dlist+5,x
-	sta linadr+1,y
-	iny
-	iny
-	txa
-	clc
-	adc #10
-	tax
-	cpx #250
-	bne ?d
-
+	; clear just the terminal screen bitmap, ensure that R: is not polled (as it's not opened yet)
 	lda fastr
 	pha
 	lda #0
@@ -206,25 +177,16 @@ dodl
 	pla
 	sta fastr
 
-	lda #24
-	sta look
-	lda #$40
-	sta captplc+1
+	jsr rslnsize	; reset set all line sizes
 
-	jsr rslnsize
-
-	lda #<buffer	; Set 16K buffer
+	lda #<buffer	; Initialize serial port input buffer
 	sta bufget
 	sta bufput
 	lda #>buffer
 	sta bufget+1
 	sta bufput+1
 
-	lda #1
-	sta ty
-	sta ymodemg_warn
-
-	lda #0
+	lda #0			; initialize lots of settings
 	sta zmauto
 	sta nowvbi
 	sta xoff
@@ -253,12 +215,20 @@ dodl
 	sta tx
 	sta mnmnucnt
 	sta useset
-	jsr resttrm
 
-	lda #16	; Write "Ice-T" in big letters
-	sta x
-	lda #5
-	sta y
+	lda #1
+	sta ty
+	sta ymodemg_warn
+
+	lda #24
+	sta look
+	lda #>banked_memory_bottom
+	sta captplc+1
+
+	jsr resttrm	; reset terminal settings
+
+	; Display title screen
+
 	lda color4
 	sta color3
 	sta colpf3	; Prevent PMs from appearing
@@ -273,16 +243,21 @@ dodl
 	lda #1			; color mode
 	sta boldallw
 	jsr boldclr
-	lda #1
-	sta boldypm
-	lda #2
+;	lda #1
+;	sta boldypm
+
+	lda #16	; Write "Ice-T" in big letters
+	sta x
+	lda #5
+	sta y
+	lda #2		; upper half of large characters
 	sta lnsizdat+4
 	sta lnsizdat+16
-	lda #3
+	lda #3		; lower half
 	sta lnsizdat+5
 	lda bank1	; for printerm
 	sta banksw
-	lda #1+(4*2)
+	lda #1		; set bold (+(4*2) for color)
 	sta boldface
 	ldx #0
 ?p
@@ -303,8 +278,8 @@ dodl
 	inx
 	cpx #8
 	bne ?p
-	lda #1+(2*2)
-	sta boldface
+;	lda #1+(2*2)	; color for Icesoft logo
+;	sta boldface
 	lda #17		; Make Icesoft logo bold
 	sta x
 	lda #17
@@ -318,20 +293,20 @@ dodl
 	cmp #22
 	bne ?p2
 
-	lda #1+(1*2)
-	sta boldface
-	lda #(80-75)/2 ; emphasize tilmesg2 too
-	sta x
-	lda #8
-	sta y
-?p3
-	lda #'_
-	sta prchar
-	jsr printerm
-	inc x
-	lda x
-	cmp #(80-75)/2+75
-	bne ?p3
+;	lda #1+(1*2)	; color for tilmesg2
+;	sta boldface
+;	lda #(80-75)/2	; emphasize tilmesg2 too with same underscore trick
+;	sta x
+;	lda #8
+;	sta y
+;?p3
+;	lda #'_
+;	sta prchar
+;	jsr printerm
+;	inc x
+;	lda x
+;	cmp #(80-75)/2+75
+;	bne ?p3
 
 	lda bank2		; Most title data is in bank 2
 	sta banksw
@@ -354,24 +329,24 @@ dodl
 	ldy #<menudta
 	jsr prmesgnov
 
-	jsr rslnsize
+	jsr rslnsize	; reset set all line sizes (again)
 	clc
-	lda linadr+10	; Draw XE logo
+	lda linadr_l+5	; Draw XE logo
 	adc #<262	; 320-80+22
 	sta cntrl
-	lda linadr+11
+	lda linadr_h+5
 	adc #>262
 	sta cntrh
 	ldx #0
 	ldy #0
 ?x
 	lda xelogo,x
-	eor #255
+	eor #$ff
 	sta (cntrl),y
 	iny
 	inx
 	lda xelogo,x
-	eor #255
+	eor #$ff
 	sta (cntrl),y
 	dey
 	clc
@@ -386,10 +361,10 @@ dodl
 	bne ?x
 
 	clc
-	lda linadr+34	; Draw Icesoft logo
+	lda linadr_l+17	; Draw Icesoft logo
 	adc #17
 	sta cntrl
-	lda linadr+35
+	lda linadr_h+17
 	adc #0
 	sta cntrh
 	ldx #0
@@ -403,8 +378,8 @@ dodl
 	cpy #5
 	bne ?t
 	ldy #0
-	lda cntrl
 	clc
+	lda cntrl
 	adc #40
 	sta cntrl
 	lda cntrh
@@ -413,6 +388,7 @@ dodl
 	cpx #40
 	bne ?t
 
+	; setup time correction
 	lda vframes_per_sec
 	sta time_correct_cnt
 	lda #0
@@ -434,6 +410,7 @@ dodl
 	stx vbi1_time_correct_hi+1
 ?no_setup_time_correction
 
+	; setup VBI
 	lda vvblki
 	sta sysvbi+1	; Keep old VBIs
 	lda vvblki+1
@@ -468,16 +445,16 @@ dodl
 	jsr setcolors	; Set screen colors
 	lda #nmien_DLI_ENABLE
 	sta nmien
-	lda #46
+	lda #$2e
 	sta sdmctl	; Show screen
-	jsr ropen	; Open port, wait for key
-	lda #255
-	sta kbd_ch
+	jsr ropen	; Open serial port
 	lda #1
 	sta clock_enable
 	sta clock_update
-	jsr getkeybuff
-	jsr clrscrnraw
+	lda #255
+	sta kbd_ch
+	jsr getkeybuff	; wait for user to press a key
+	jsr clrscrnraw	; clear screen and bold data
 	jsr boldclr
 	pla
 	sta boldallw
@@ -485,11 +462,12 @@ dodl
 	sta boldface
 	jsr setcolors
 
-	ldx #23*2	; Clear text mirror
+	; Clear text mirror. Now is a good time to do this because (a) its contents didn't matter up to now, and (b) the title screen has placed some text in it, which is now unwanted.
+	ldx #23
 ?ml
-	lda txlinadr,x
+	lda txlinadr_l,x
 	sta cntrl
-	lda txlinadr+1,x
+	lda txlinadr_h,x
 	sta cntrh
 	ldy #79
 	lda #32
@@ -498,8 +476,9 @@ dodl
 	dey
 	bpl ?lp
 	dex
-	dex
 	bpl ?ml
+
+	; Done with title screen, enter the menu
 
 gomenu
 	jsr boldoff
@@ -512,7 +491,8 @@ gomenu
 	lda #0
 	sta x
 	sta y
-	jsr mkblkchr
+	lda #BLOCK_CHARACTER
+	sta prchar
 	jsr print
 ?o1
 	lda rush
@@ -646,8 +626,8 @@ resttrm			; Reset most VT100 settings
 	bne ?tabloop
 	sta tabs,x  ; set 0 at position 0
 
-	lda bank1	; Set terminal for
-	sta banksw	; no Esc sequence now
+	lda bank1	; Set terminal for no Esc sequence now
+	sta banksw
 	lda #<regmode
 	sta trmode+1
 	lda #>regmode
@@ -716,14 +696,12 @@ drawwin			; Window drawer
 	inc prfrom+1
 
 wincpinit
-	lda topy
-	asl a
-	tax
-	lda linadr,x
+	ldx topy
+	lda linadr_l,x
 	clc
 	adc topx
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	adc #0
 	sta cntrh
 	lda botx
@@ -989,12 +967,10 @@ getkey_modify_keydef	; modified with value taken from KEYDEF at startup.
 	rts
 
 blurbyte
-	lda y
-	asl a
-	tax
-	lda linadr,x
+	ldx y
+	lda linadr_l,x
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	sta cntrh
 	lda x
 	lsr a
@@ -1044,79 +1020,77 @@ adcntrl
 ; general print character (for menus)
 
 print
-	lda y
-	asl a
-	tax
+	ldx y
 	clc
-	lda linadr,x
+	lda linadr_l,x
 	adc #40
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	adc #0
 	sta cntrh
-	ldy #255
-	sty pplc4+1
-	iny 			; sets y reg = 0, to be used soon
 	lda x
 	lsr a
 	clc
 	adc cntrl
 	sta cntrl
-	bcc ?ok1
+	bcc ?no_carry
 	inc cntrh
-?ok1
+?no_carry
+	ldy #$ff
+	sty ?mod3+1		; normally invert all bits ("lit" pixels are actually 0 because of boldface PMs)
 	lda prchar
-	bpl prchrdo2	; jump if not inverse-vid
+	bpl ?not_8bit	; jump if not inverse-vid
+	iny 			; this sets y reg = 0, to be used soon
 	ldx eitbit		; usually 0 or 1 but shifted left in certain situations (e.g. redrawing scrollback) to indicate
 	cpx #2			; whether characters >128 are inverse or from pc character set
-	bne ?ok2
-	sty prchar+1
+	bne ?inverse
+	sty prchar+1	; PC character set: calculate position (no lookup table since it's used less often)
 	asl a
 	asl a
 	rol prchar+1
 	asl a
 	rol prchar+1
-	sta pplc3+1
+	sta ?mod2+1
 	lda prchar+1
 	adc #>pcset
-	jmp prcharok
-?ok2
-	and #$7f
-	sty pplc4+1
-prchrdo2
-	tax
-	lda chrtbll,x
-	sta pplc3+1
-	lda chrtblh,x
-prcharok
-	sta pplc3+2
+	bne ?ok			; always branches
+?inverse
+	sty ?mod3+1		; do not invert bits, for inverse characters (again, "lit" pixels are 0)
+	and #$7f		; drop high bit so character is <128
+?not_8bit
+	tax				; find character position using lookup table
+	lda chrtbl_l,x
+	sta ?mod2+1
+	lda chrtbl_h,x
+?ok
+	sta ?mod2+2
 	lda x
 	and #1
 	tax
 	lda postbl,x
-	sta pplc2+1
+	sta ?mod4+1
 	eor #$ff
-	sta pplc1+1
+	sta ?mod1+1
 	ldx #7
-prtlp
+?lp
 	ldy yindextab,x
 	lda (cntrl),y
-pplc1	and #0	; ~postbl,x
-	sta prchar ; now used as a temp variable
-pplc3	lda undefined_addr,x	; (prchar),y
-pplc4	eor #0	; temp
-pplc2	and #0	; postbl,x
+?mod1	and #undefined_val		; ~postbl,x
+	sta prchar					; now used as a temp variable
+?mod2	lda undefined_addr,x	; (prchar),y
+?mod3	eor #undefined_val		; temp
+?mod4	and #undefined_val		; postbl,x
 	ora prchar
 	sta (cntrl),y
 	dex
 	bmi ?done
-	bne prtlp
+	bne ?lp
 	dec cntrh
-	bne prtlp
+	bne ?lp		; always branches
 ?done
 	rts
 
-yindextab ; table of y offsets
+yindextab ; table of y offsets (thanks to flashjazzcat for this optimization)
 	.byte 216,0,40,80,120,160,200,240
 
 clrscrn			; Clear screen
@@ -1128,19 +1102,18 @@ clrscrn			; Clear screen
 	sta banksv
 	ldx #0
 ?mlp
-	lda txlinadr,x
+	lda txlinadr_l,x
 	sta cntrl
-	lda txlinadr+1,x
+	lda txlinadr_h,x
 	sta cntrh
-	ldy #0
+	ldy #79
 ?lp
 	lda (cntrl),y
 	sta (scrlsv),y
 	lda #32
 	sta (cntrl),y
-	iny
-	cpy #80
-	bne ?lp
+	dey
+	bpl ?lp
 	lda looklim
 	cmp #76
 	beq ?ok
@@ -1149,13 +1122,12 @@ clrscrn			; Clear screen
 	jsr incscrl
 ; tend to the serial port buffer every 4 lines copied
 	txa
-	and #$7
+	and #$3
 	bne ?nobuff
 	jsr buffifnd	; does not affect X
 ?nobuff
 	inx
-	inx
-	cpx #48
+	cpx #24
 	bne ?mlp
 
 	pla
@@ -1180,7 +1152,7 @@ clrscrnraw		; Clear JUST the terminal screen, nothing else (text mirror etc.)
 	bne ?lp
 	rts
 
-; increments pointer to save location in scrollback buffer by 1 line
+; increments pointer to save location in scrollback buffer by 1 line, roll over if buffer end is reached
 incscrl
 	clc
 	lda scrlsv
@@ -1189,14 +1161,14 @@ incscrl
 	lda scrlsv+1
 	adc #0
 	sta scrlsv+1
-	cmp #$7f
+	cmp #>backscroll_top
 	bcc ?ok
 	lda scrlsv
-	cmp #$c0
+	cmp #<backscroll_top
 	bcc ?ok
-	lda #$40
+	lda #>backscroll_bottom
 	sta scrlsv+1
-	lda #$00
+	lda #<backscroll_bottom
 	sta scrlsv
 ?ok
 	rts
@@ -1252,8 +1224,7 @@ prmesgnov
 
 ropen			; Sub to open R: (uses config)
 	jsr gropen
-	cpy #128
-	bcc ropok
+	bpl ropok
 	jsr boldclr	; clear boldface display because it interferes with error window
 	ldx #>norhw
 	ldy #<norhw
@@ -1264,6 +1235,8 @@ ropen			; Sub to open R: (uses config)
 	jsr getscrn
 	jmp ropen
 ?ok
+	pla
+	pla
 	jmp doquit
 ropok
 	rts
@@ -1283,9 +1256,7 @@ gropen
 	lda #192
 	sta icaux1+$20
 	jsr ciov
-	bpl ?a
-	rts
-?a
+	bmi ropok
 
 ; Set no translation
 
@@ -1294,9 +1265,7 @@ gropen
 	lda #32
 	sta icaux1+$20
 	jsr ciov
-	bpl ?b
-	rts
-?b
+	bmi ropok
 
 ; Set baud,wordsize,stopbits
 
@@ -1309,9 +1278,7 @@ gropen
 	adc stopbits
 	sta icaux1,x
 	jsr ciov
-	bpl ?c
-	rts
-?c
+	bmi ropok
 
 ; Open "R:" for read/write
 
@@ -1320,9 +1287,7 @@ gropen
 	lda #13
 	sta icaux1+$20
 	jsr ciov
-	bpl ?d
-	rts
-?d
+	bmi ropok
 
 ; Enable concurrent mode I/O, set R: buffer
 ; (required for Atari 850, which otherwise uses a 32-byte buffer! other devices
@@ -1358,9 +1323,6 @@ close_anychan
 	sta iccom,x
 	jmp ciov
 
-dorst
-	jmp (dosini)	; Initialize DOS
-
 getscrn			; Close window
 	lda numofwin
 	bne gtwin
@@ -1392,14 +1354,12 @@ gtwninlp
 	sta prfrom+1
 
 gtwninit
-	lda topy
-	asl a
-	tax
-	lda linadr,x
+	ldx topy
 	clc
+	lda linadr_l,x
 	adc topx
 	sta cntrl
-	lda linadr+1,x
+	lda linadr_h,x
 	adc #0
 	sta cntrh
 	lda botx
@@ -1479,8 +1439,8 @@ buffpl
 	cmp #>buftop
 	bne ?ok2
 	; wraparound - set pointer to start of buffer
-	lda #<buffer
-	sta bufget
+;	lda #<buffer
+;	sta bufget	; no need to zero bufget as it's already zero.
 	lda #>buffer
 	sta bufget+1
 ?ok2
@@ -1655,12 +1615,13 @@ chkrsh			; Check for impending buffer overflow, and use flow control
 	lda #0
 	sta x
 	sta y			; upper left corner
+	ldx xoff
+	beq ?noblk
+	lda #BLOCK_CHARACTER ; xon - block character
+	.byte BIT_skip2bytes
+?noblk
 	lda #32			; xoff - put a space
 	sta prchar
-	lda xoff
-	beq ?noblk
-	jsr mkblkchr	; xon - block character (this also updates prchar)
-?noblk
 	jsr print		; display character
 	pla
 	sta cntrh		; restore saved variables
@@ -1716,17 +1677,6 @@ chkrsh			; Check for impending buffer overflow, and use flow control
 	lda banksv
 	sta banksw
 ?nd
-	rts
-
-mkblkchr		; Create block character (copy from PC character set)
-	ldx #7
-?lp
-	lda blkchr,x
-	sta charset+(91*8),x
-	dex
-	bpl ?lp
-	lda #27
-	sta prchar
 	rts
 
 buffifnd		; Status call in time-costly routines
@@ -1855,11 +1805,11 @@ vbi1_time_correct_pal = 366
 ?noinc
 	lda time_correct_cnt+1
 vbi1_time_correct_hi
-	cmp #1			; cmp value modified at init
+	cmp #undefined_val		; cmp value modified at initial_program_entry
 	bne vbi1_time_correct_done
 	lda time_correct_cnt
 vbi1_time_correct_lo
-	cmp #1			; cmp value modified at init
+	cmp #undefined_val		; cmp value modified at initial_program_entry
 	bne vbi1_time_correct_done
 	inc clock_cnt	; extra increment to time counter
 	lda #0
@@ -2036,14 +1986,13 @@ vbi2
 vbi2_donetm
 	lda crsscrl		; coarse scroll flag?
 	beq ?no
-	ldx #2
+	ldx #1
 	ldy #14
 ?lp
-	lda linadr+1,x	; update display list with line addresses
+	lda linadr_h,x	; update display list with line addresses
 	sta dlist+1,y
-	lda linadr,x
+	lda linadr_l,x
 	sta dlist,y
-	inx
 	inx
 	tya
 	clc
@@ -2135,12 +2084,10 @@ vbdn1lp
 	sta dlst2+256
 	lda #>dlst2
 	sta dlst2+257
-	lda scrlbot
-	asl a
-	tay
-	lda linadr+1,y
+	ldy scrlbot
+	lda linadr_h,y
 	sta dlst2,x
-	lda linadr,y
+	lda linadr_l,y
 	sta dlst2-1,x
 	lda #$4f
 	sta dlst2-2,x
@@ -2473,15 +2420,13 @@ vbuplp1
 	sta dlst2,x
 	sta dlst2-1,x
 	jsr vbmvf2
-	lda scrltop
-	asl a
-	tax
+	ldx scrltop
 	ldy vbsctp
-	lda linadr,x
 	clc
+	lda linadr_l,x
 	adc #<280
 	sta dlst2+1,y
-	lda linadr+1,x
+	lda linadr_h,x
 	adc #>280
 	sta dlst2+2,y
 	inc fscrolup
@@ -2607,16 +2552,17 @@ screenget		; Refresh screen
 	asl eitbit
 	lda #1
 	sta y
-	lda txlinadr
-	sta fltmp
-	lda txlinadr+1
-	sta fltmp+1
-	ldy #0
 	ldx #0
-sgloop
+?loop
+	ldy #0
+	lda txlinadr_l,x
+	sta fltmp
+	lda txlinadr_h,x
+	sta fltmp+1
+?line_loop
 	lda (fltmp),y
 	cmp #32
-	beq sglok
+	beq ?skip_print		; no need to print spaces
 	sta prchar
 	sty x
 	txa
@@ -2628,22 +2574,15 @@ sgloop
 	tay
 	pla
 	tax
-sglok
+?skip_print
 	iny
 	cpy #80
-	bne sgloop
-	jsr buffifnd
-	ldy #0
-	inx
-	inx
-	lda txlinadr,x
-	sta fltmp
-	lda txlinadr+1,x
-	sta fltmp+1
+	bne ?line_loop
+	jsr buffifnd		; poll R: if needed
 	inc y
-	lda y
-	cmp #25
-	bne sgloop
+	inx
+	cpx #24
+	bne ?loop
 	lsr eitbit
 	rts
 
@@ -2685,15 +2624,14 @@ chk1s
 	sta numb+2
 	rts
 
-erslineraw_a	; Erase line in screen (at Accumulator)
-	asl a
+erslineraw_a	; Erase line in screen (line number in accumulator)
 	tay
-	lda linadr,y
+	lda linadr_l,y
 	sta cntrl
-	lda linadr+1,y
+	lda linadr_h,y
 	sta cntrh
 erslineraw		; Erase line in screen (at cntrl)
-	lda #255
+	lda #$ff
 filline_custom_value
 	ldy #0
 ?a
@@ -2715,7 +2653,7 @@ filline_custom_value
 	iny
 	bne ?a
 	inc cntrh
-	ldy #63
+	ldy #(320-256)-1
 ?b
 	sta (cntrl),y
 	dey
@@ -2751,13 +2689,13 @@ doquit			; Quit program
 	jsr clrscrn
 	lda bank3
 	sta banksw
-	ldx #0
+	ldx #41
 ?lp
+	; save scrollback information, to be recovered in case program is loaded again.
 	lda svscrlms,x
-	sta banked_memory_top-45,x
-	inx
-	cpx #42
-	bne ?lp
+	sta banked_memory_top-45,x	; also write version info string to indicate data is valid
+	dex
+	bpl ?lp
 	lda looklim
 	sta banked_memory_top-3
 	lda scrlsv
@@ -2824,20 +2762,18 @@ doquit			; Quit program
 
 	lda bank0
 	sta banksw
-	jmp (dosvec)
+	jmp (dosvec)	; we are done, exit to DOS
 
 ; Calculate	memory position in ASCII mirror
 
 ; Puts memory location of X=0,
-; Y=y (passed data) in	ersl (2 bytes)
+; Y=y (passed data) in ersl (2 bytes)
 
 calctxln
-	lda y
-	asl a
-	tax
-	lda txlinadr-2,x
+	ldx y
+	lda txlinadr_l-1,x
 	sta ersl
-	lda txlinadr-1,x
+	lda txlinadr_h-1,x
 	sta ersl+1
 	rts
 
@@ -2876,19 +2812,20 @@ setcolors		; Set color registers
 
 ; Boldface routines
 
-boldon			; Enable PMs
+boldon			; Enable PMs. return value of boldallw in Y.
 	ldy boldallw
 	bne ?g
 	rts
 ?g
 	ldx #4
+	lda #0
 ?l
-	lda boldypm,x
-	bne ?g2
+	ora boldypm,x	; if all PMs are empty, no need to enable anything
 	dex
 	bpl ?l
-	rts
-?g2
+	tax				; shorter than cmp #0
+	beq ?done
+	; some PM is nonempty, proceed
 	sta isbold
 	lda sdmctl
 	beq ?o
@@ -2919,6 +2856,7 @@ boldon			; Enable PMs
 	bpl ?lp
 	lda #$11	; Players in front of playfield; group missiles into fifth player
 	sta gprior
+?done
 	rts
 
 pmhoztbl_players	.byte 80,112,144,176
@@ -3201,43 +3139,18 @@ endinit
 
 ; Initialization routines (run once, then get overwritten)
 	.bank
-	*=	$8004
-
-partial_load_check
-	ldx #0
-?lp
-	lda bank1
-	sta banksw
-	lda banked_memory_bottom,x	; Do I need to load
-	cmp svscrlms,x				; in the rest?
-	bne ?fail
-	lda bank2
-	sta banksw
-	lda banked_memory_bottom,x
-	cmp svscrlms,x
-	bne ?fail
-	inx
-	cpx #$10
-	bne ?lp
-	pla
-	pla
-	jmp init			; No, jump straight to init
-
-; Test failed, program has not been loaded previously
-?fail
-	lda bank0
-	sta banksw
-	rts
+	*=	banked_memory_top+4
 
 ststmr_clear	.byte	"00:00:00"
 menuclk_clear	.byte	"12:00:00"
 
-init
+initial_program_entry
 	cld
 	lda #0
 	sta sdmctl
 	sta color4
 	jsr vdelay
+	; move information stored by system_checkup to remrhan for safekeeping 
 	lda banked_memory_top
 	sta remrhan
 	lda banked_memory_top+1
@@ -3260,6 +3173,7 @@ init
 	lda keydef+1
 	sta getkey_modify_keydef+2
 
+	; save reset vectors for restoring when quitting
 	lda bootflag
 	sta rsttbl
 	lda casini
@@ -3267,17 +3181,25 @@ init
 	lda casini+1
 	sta rsttbl+2
 
-	lda #3	; Set Reset vector..
+	lda #3			; Set reset vector
 	sta bootflag
 	lda #<reset
 	sta casini
 	lda #>reset
 	sta casini+1
-	ldx #0
+
+	; Create lookup table for print routing: for each ASCII character, point to correct location in character set table.
+	; for each char from 0 to 127:
+	; first perform a simple translation:
+	;	(0-31)   -> add 64
+	;	(32-95)  -> subtract 32
+	;	(96-127) -> no change
+	; then multiply by 8 and add character set base address.
+	ldx #127
 ?lp
 	lda #0
-	sta chrtblh,x	; Lookup table for
-	txa 	; print routine
+	sta chrtbl_h,x
+	txa
 	cmp #96
 	bcs ?ok
 	cmp #32
@@ -3291,16 +3213,15 @@ init
 ?ok
 	asl a
 	asl a
-	rol chrtblh,x
+	rol chrtbl_h,x
 	asl a
-	rol chrtblh,x
-	sta chrtbll,x
-	lda chrtblh,x
+	rol chrtbl_h,x
+	sta chrtbl_l,x
+	lda chrtbl_h,x
 	adc #>charset
-	sta chrtblh,x
-	inx
-	cpx #128
-	bne ?lp
+	sta chrtbl_h,x
+	dex
+	bpl ?lp
 
 	; Clear dialing menu data
 	lda bank1
@@ -3320,15 +3241,15 @@ init
 	sta macro_data+$200,x
 	inx
 	bne ?lp1
-	stx coldst			; disable cold start on Reset
-
-	lda #0
-	sta online
-	sta bcount+1
+	; a is still 0
+	sta coldst			; disable cold start on Reset
+	sta online			; not online
+	sta bcount+1		; in case STATUS command never toches high byte, set it to 0
 ;	sta clock_cnt
 ;	sta clock_update
 ;	sta timer_1sec
 
+	;; detect PAL or NTSC machine
 	ldx #60
 	lda pal_flag	; PAL/NTSC indicator
 	and #$e			; check bits 1-3
@@ -3385,18 +3306,16 @@ init
 	dex
 	bpl ?clklp
 
-	lda #<txscrn	; Set text mirror
-	sta cntrl		; pointers
+	lda #<txscrn	; Set text mirror pointers
+	sta cntrl
 	lda #>txscrn
 	sta cntrh
 	ldx #0
 ?mktxlnadrs
 	lda cntrl
-	sta txlinadr,x
+	sta txlinadr_l,x
 	lda cntrh
-	sta txlinadr+1,x
-	inx
-	inx
+	sta txlinadr_h,x
 	clc
 	lda cntrl
 	adc #80
@@ -3404,30 +3323,30 @@ init
 	lda cntrh
 	adc #0
 	sta cntrh
-	cpx #24*2
+	inx
+	cpx #24
 	bne ?mktxlnadrs
 
-	lda #24		; Backscroll top
-	sta looklim
+	stx looklim		; Backscroll top (x happens to contain 24 here)
 
-	lda #0
+	lda #<backscroll_bottom
 	sta scrlsv
-	lda #$40
+	lda #>backscroll_bottom
 	sta scrlsv+1
 
-	lda bank3	; Recall old backscroll
-	sta banksw	; if there is one!
+	lda bank3	; Recall old backscroll if this information is saved from a previous program execution
+	sta banksw
 	ldx #41
 ?lp2
-	lda banked_memory_top-45,x
+	lda banked_memory_top-45,x	; check if info is valid (data must be equal to version info string)
 	cmp svscrlms,x
 	bne ?ok2
 	dex
 	bpl ?lp2
 	lda #0
-	sta banked_memory_top-45
+	sta banked_memory_top-45	; invalidate the information, it will only become valid on program exit
 	sta banked_memory_top-44
-	lda banked_memory_top-3	; Old info and some pointers are saved in bank 3.
+	lda banked_memory_top-3		; Data check passed, restore scrollback data.
 	sta looklim
 	lda banked_memory_top-2
 	sta scrlsv
@@ -3435,8 +3354,7 @@ init
 	sta scrlsv+1
 ?ok2
 
-; Find R: device vectors (at HATABS $31A)
-
+; Detect R:, D: and H: devices
 	ldx #0
 ?hatabs_lp
 	lda hatabs,x
@@ -3461,23 +3379,15 @@ init
 	ldx ?device_r_pos
 	cpx #255
 	beq ?no_rhandler
+
+; An R: device was found, copy the vectors we need (status, get, put)
 	lda hatabs+1,x	; vec. table
 	sta cntrl
 	lda hatabs+2,x
 	sta cntrh
 
-; increment each vector, since they are designed to be pushed onto the
-; stack then jumped to via an RTS instruction
-
-	ldy #4	; find GET vector
-	lda (cntrl),y
-	clc
-	adc #1
-	sta rgetvector+1
-	iny
-	lda (cntrl),y
-	adc #0
-	sta rgetvector+2
+; increment each vector, since they are originally designed to be pushed onto the
+; stack then jumped to via an RTS instruction, while we just JMP to them
 
 	ldy #8	; find STATUS vector
 	lda (cntrl),y
@@ -3488,6 +3398,16 @@ init
 	lda (cntrl),y
 	adc #0
 	sta rstatvector+2
+
+	ldy #4	; find GET vector
+	lda (cntrl),y
+	clc
+	adc #1
+	sta rgetvector+1
+	iny
+	lda (cntrl),y
+	adc #0
+	sta rgetvector+2
 
 	ldy #6	; find PUT vector
 	lda (cntrl),y
@@ -3625,17 +3545,17 @@ init
 	jsr close2
 ?interr
 
-; Setup	tables for bold
+; Setup	static lookup tables for bold/color
 
 	lda bank1
 	sta banksw
 	lda #1
 	ldx #7
 ?l0
-	sta boldwr,x
+	sta boldwr,x	; running 1's
 	tay
 	eor #$ff
-	sta boldwri,x
+	sta boldwri,x	; running 0's
 	tya
 	asl a
 	dex
@@ -3646,30 +3566,27 @@ init
 	clc
 	lda ?tb_lo,x
 	adc #<boldpm
-	sta boldtbpl,x
+	sta boldtbpl,x	; calculate base address of each player
 	lda ?tb_hi,x
 	adc #>boldpm
 	sta boldtbph,x
 	dex
 	bpl ?l3
 
-	ldx #0
-	ldy #0
+	ldx #39
 ?l1
-	tya
-	sta boldpmus,x
-	inx
 	txa
-	and #7
-	bne ?l1
-	iny
-	cpy #5
-	bne ?l1
+	lsr a
+	lsr a
+	lsr a
+	sta boldpmus,x	; convert column number (0-39) to PM number (0-4)
+	dex
+	bpl ?l1
 
 	lda #12
 	ldx #0
 ?l2
-	sta boldytb,x
+	sta boldytb,x	; converts line number to vertical offset within PM
 	clc
 	adc #4
 	inx
@@ -3720,10 +3637,10 @@ init
 	inx
 	bne ?cr
 
-; init code ends here.
-	jmp norst
+; initial_program_entry code ends here. Continue to common reset code.
+	jmp init_continued
 
-; converts number in A to 2 decimal ASCII digits, at X/Y
+; converts number in A to 2 decimal ASCII digits, stored at memory location indicated by X/Y
 ?numbr
 	stx cntrh
 	sty cntrl
@@ -3757,6 +3674,12 @@ init
 ?tb_lo	.byte	$00,$80,$00,$80,$00
 
 ; Make sure we're not conflicting with data tables created by this routine, or fonts
-	.if	* >= chrtbll
-	.error "font conflict!!"
+	.if	* >= macro_data
+	.error "initial_program_entry too large!"
 	.endif
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include icet.asm
+	.endif
+;; End of WUDSN workaround
