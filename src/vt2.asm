@@ -12,331 +12,331 @@
 ; VT-100 TERMINAL EMULATOR
 
 connect
-	lda	#0
-	sta	mnmnucnt
-	sta	oldbufc
-	jsr	erslineraw_a	; clear status line
-	jsr	chklnsiz
+	lda #0
+	sta mnmnucnt
+	sta oldbufc
+	jsr erslineraw_a	; clear status line
+	jsr chklnsiz
 
-	lda	xoff
-	beq	?ok1
-	lda	#0
-	sta	x
-	sta	y
-	jsr	mkblkchr
-	jsr	print		; draw block if XOFF is on
+	lda xoff
+	beq ?ok1
+	lda #0
+	sta x
+	sta y
+	jsr mkblkchr
+	jsr print		; draw block if XOFF is on
 ?ok1
 	jsr do_term_main_display
-	jsr	shctrl1
-	jsr	shcaps
-	jsr	shnuml
+	jsr shctrl1
+	jsr shcaps
+	jsr shnuml
 	jsr ledsdo
-	ldx	#>sts3
-	ldy	#<sts3
-	jsr	prmesgnov
+	ldx #>sts3
+	ldy #<sts3
+	jsr prmesgnov
 	lda #0
 	sta captold
 	jsr captbfdo
-	lda	online
-	beq	?o
-	ldx	#>sts2
-	ldy	#<sts2
-	jsr	prmesgnov
+	lda online
+	beq ?o
+	ldx #>sts2
+	ldy #<sts2
+	jsr prmesgnov
 ?o
-	lda	#1
-	sta	flashcnt
-	sta	newflash
-	sta	oldflash
-	sta	timer_1sec
-	sta	timer_10sec
-	jsr	timrdo
-	lda	didrush
-	bne	entnorsh
-	jsr	putcrs
+	lda #1
+	sta flashcnt
+	sta newflash
+	sta oldflash
+	sta timer_1sec
+	sta timer_10sec
+	jsr timrdo
+	lda didrush
+	bne entnorsh
+	jsr putcrs
 
-	lda	rush
-	bne	entnorsh
-	lda	didrush
-	beq	entnorsh
-	jsr	clrscrnraw
-	lda	#1
-	sta	crsscrl
-	jsr	vdelayr
-	jsr	screenget
-	jsr	crsifneed
-	lda	#0
-	sta	didrush
+	lda rush
+	bne entnorsh
+	lda didrush
+	beq entnorsh
+	jsr clrscrnraw
+	lda #1
+	sta crsscrl
+	jsr vdelayr
+	jsr screenget
+	jsr crsifneed
+	lda #0
+	sta didrush
 entnorsh
-	lda	baktow
-	cmp	#2
-	beq	gdopause
-	lda	#0
-	sta	baktow
-	jmp	bufgot
+	lda baktow
+	cmp #2
+	beq gdopause
+	lda #0
+	sta baktow
+	jmp bufgot
 gdopause
-	jmp	dopause
+	jmp dopause
 
 do_term_main_display
-	lda	bckgrnd
+	lda bckgrnd
 	pha
-	eor	invon
-	sta	bckgrnd
-	jsr	setcolors
+	eor invon
+	sta bckgrnd
+	jsr setcolors
 	pla
-	sta	bckgrnd
-	jsr	boldon
-	lda	boldallw
-	cmp	#3
-	bne	?nbl	; If blink - turn blinking characters on by disabling PMs
-	lda	#0
-	ldx	#3
+	sta bckgrnd
+	jsr boldon
+	lda boldallw
+	cmp #3
+	bne ?nbl	; If blink - turn blinking characters on by disabling PMs
+	lda #0
+	ldx #3
 ?bf
-	sta	53248,x
-	sta	53252,x
+	sta hposp0,x
+	sta hposm0,x
 	dex
-	bpl	?bf
-	lda	559
-	and	#~11110011	; Disable PM DMA
-	sta	559
-	sta	$d400
+	bpl ?bf
+	lda sdmctl
+	and #~11110011	; Disable PM DMA
+	sta sdmctl
+	sta dmactl
 ?nbl
 	rts
-	
+
 termloop
-	lda	newflash
-	cmp	oldflash
-	beq	noflsh
-	sta	oldflash	; Flash cursor
-	lda	didrush
-	bne	noflsh
-	jsr	putcrs
+	lda newflash
+	cmp oldflash
+	beq noflsh
+	sta oldflash	; Flash cursor
+	lda didrush
+	bne noflsh
+	jsr putcrs
 noflsh
-	jsr	timrdo
-	jsr	buffdo	; Update buffer
+	jsr timrdo
+	jsr buffdo	; Update buffer
 	txa
 	pha
-	jsr	bufcntdo
+	jsr bufcntdo
 	pla
-	beq	bufgot
+	beq bufgot
 
-	lda	didrush
-	beq	?nr
-	lda	rush
-	bne	?nr
-	jsr	clrscrnraw
-	lda	#1
-	sta	crsscrl
-	jsr	vdelayr
-	jsr	screenget
-	jsr	buffdo
-	jsr	crsifneed
-	lda	#0
-	sta	didrush
+	lda didrush
+	beq ?nr
+	lda rush
+	bne ?nr
+	jsr clrscrnraw
+	lda #1
+	sta crsscrl
+	jsr vdelayr
+	jsr screenget
+	jsr buffdo
+	jsr crsifneed
+	lda #0
+	sta didrush
 
 ?nr
-	jsr	readk	; Get key if bfr empty
-	lda	ctrl1mod
-	beq	termloop	; Check for ^1
-	jmp	dopause
+	jsr readk	; Get key if bfr empty
+	lda ctrl1mod
+	beq termloop	; Check for ^1
+	jmp dopause
 bufgot
-	lda	#0
-	sta	chrcnt
-	sta	chrcnt+1
-	lda	oldflash
-	beq	keepget
-	lda	didrush
-	bne	keepget
-	lda	#0	; Remove cursor
-	sta	oldflash
-	jsr	putcrs
+	lda #0
+	sta chrcnt
+	sta chrcnt+1
+	lda oldflash
+	beq keepget
+	lda didrush
+	bne keepget
+	lda #0	; Remove cursor
+	sta oldflash
+	jsr putcrs
 keepget
-	jsr	buffpl	; Pull char from bfr
-	cpx	#1
-	beq	endlp
-	jsr	dovt100	; Process char
+	jsr buffpl	; Pull char from bfr
+	cpx #1
+	beq endlp
+	jsr dovt100	; Process char
 ;	jmp getno256 ; TEMP TEMP TEMP DELETE ME
-	lda	fastr
-	beq	?nofr
-	cmp	#2
-	beq	?ok
-	inc	chrcnt
-	lda	chrcnt
-	cmp	#16
-	bne	getno256
-	lda	#0
-	sta	chrcnt
-	beq	?ok
+	lda fastr
+	beq ?nofr
+	cmp #2
+	beq ?ok
+	inc chrcnt
+	lda chrcnt
+	cmp #16
+	bne getno256
+	lda #0
+	sta chrcnt
+	beq ?ok
 ?nofr
-	inc	chrcnt
-	bne	getno256
-	inc	chrcnt+1
-	lda	chrcnt+1
-	cmp	#4	; Time to check buffer?
-	bne	getno256
-	lda	#0
-	sta	chrcnt+1
+	inc chrcnt
+	bne getno256
+	inc chrcnt+1
+	lda chrcnt+1
+	cmp #4	; Time to check buffer?
+	bne getno256
+	lda #0
+	sta chrcnt+1
 ?ok
 	; if status checks are set to "constantly" we do this for each byte. Try to save a few cycles at the expense of making
 	; the code a little ugly. (a jsr+rts takes 12 cycles)
-	
+
 	; equivalent to jsr timrdo - but save time if we don't need to jsr
-	lda	timer_1sec
-	beq	?skip_timer
-	jsr	timrdo?ok
+	lda timer_1sec
+	beq ?skip_timer
+	jsr timrdo?ok
 ?skip_timer
 
-	jsr	buffdo
-	
+	jsr buffdo
+
 	; equivalent to jsr bufcntdo - but save time if we don't need to jsr
-	lda	mybcount+1
+	lda mybcount+1
 	and #$f8
-	cmp	oldbufc
-	beq	?skip_bufcntdo
-	jsr	bufcntdo?ok
+	cmp oldbufc
+	beq ?skip_bufcntdo
+	jsr bufcntdo?ok
 ?skip_bufcntdo
 
-	lda	didrush
-	beq	getno256
-	lda	rush
-	bne	getno256
-	jsr	clrscrnraw
-	lda	#1
-	sta	crsscrl
-	jsr	vdelayr
-	jsr	screenget
-	jsr	buffdo
-	jsr	crsifneed
-	lda	#0
-	sta	didrush
+	lda didrush
+	beq getno256
+	lda rush
+	bne getno256
+	jsr clrscrnraw
+	lda #1
+	sta crsscrl
+	jsr vdelayr
+	jsr screenget
+	jsr buffdo
+	jsr crsifneed
+	lda #0
+	sta didrush
 getno256
-	lda	764
-	cmp	#255
-	beq	keepget	; Key?
-	lda	#0
-	sta	baktow
-	jsr	readk
-	lda	ctrl1mod
-	beq	keepget
-	jmp	dopause
+	lda kbd_ch
+	cmp #255
+	beq keepget	; Key?
+	lda #0
+	sta baktow
+	jsr readk
+	lda ctrl1mod
+	beq keepget
+	jmp dopause
 endlp
-	lda	newflash
-	sta	oldflash
-	beq	endlpncrs
-	lda	didrush
-	bne	endlpncrs
-	jsr	putcrs	; Return cursor
+	lda newflash
+	sta oldflash
+	beq endlpncrs
+	lda didrush
+	bne endlpncrs
+	jsr putcrs	; Return cursor
 endlpncrs
-	jmp	termloop
+	jmp termloop
 
 dopause
 
 ; Enter	Pause
 
-	jsr	lookst
-	jsr	shctrl1
+	jsr lookst
+	jsr shctrl1
 
 ; Pause	mode
 
 pausloop
-	jsr	timrdo
-	jsr	buffdo
-	cpx	#0
-	bne	?ok
-	lda	ctrl1mod
-	cmp	#2
-	beq	extpaus
+	jsr timrdo
+	jsr buffdo
+	cpx #0
+	bne ?ok
+	lda ctrl1mod
+	cmp #2
+	beq extpaus
 ?ok
-	jsr	bufcntdo
-	lda	rush
-	beq	pausl2
-	lda	#0
+	jsr bufcntdo
+	lda rush
+	beq pausl2
+	lda #0
 ?lp
 	pha
-	jsr	buffpl
-	jsr	dovt100
+	jsr buffpl
+	jsr dovt100
 	pla
 	clc
-	adc	#1
-	ldx	fastr
-	cmp	pstbl,x
-	bne	?lp
+	adc #1
+	ldx fastr
+	cmp pstbl,x
+	bne ?lp
 pausl2
-	lda	newflash
-	cmp	oldflash
-	beq	pausl1
-	sta	oldflash
-	lda	didrush
-	bne	pausl1
-	jsr	putcrs
+	lda newflash
+	cmp oldflash
+	beq pausl1
+	sta oldflash
+	lda didrush
+	bne pausl1
+	jsr putcrs
 pausl1
-	lda	53279
-	cmp	#3	;  Option = Up
-	bne	nolkup
-	lda	didrush
-	beq	psokup
-	lda	#14
-	sta	dobell
-	jmp	nolkup
+	lda consol
+	cmp #3	;  Option = Up
+	bne nolkup
+	lda didrush
+	beq psokup
+	lda #14
+	sta dobell
+	jmp nolkup
 psokup
-	jsr	buffifnd
-	jsr	timrdo
-	jsr	lookup
-	lda	look
-	bne	pausl2
+	jsr buffifnd
+	jsr timrdo
+	jsr lookup
+	lda look
+	bne pausl2
 nolkup
-	lda	53279
-	cmp	#5	;  Select = Down
-	bne	nolkdn
-	lda	didrush
-	beq	psokdn
-	lda	#14
-	sta	dobell
-	jmp	nolkdn
+	lda consol
+	cmp #5	;  Select = Down
+	bne nolkdn
+	lda didrush
+	beq psokdn
+	lda #14
+	sta dobell
+	jmp nolkdn
 psokdn
-	jsr	buffifnd
-	jsr	timrdo
-	jsr	lookdn
-	lda	look
-	cmp	#24
-	bne	pausl2
+	jsr buffifnd
+	jsr timrdo
+	jsr lookdn
+	lda look
+	cmp #24
+	bne pausl2
 nolkdn
 
-	lda	#2
-	sta	baktow
-	jsr	readk
-	lda	ctrl1mod
-	beq	extpaus
-	jmp	pausloop
+	lda #2
+	sta baktow
+	jsr readk
+	lda ctrl1mod
+	beq extpaus
+	jmp pausloop
 
 ; Exit pause
 
 extpaus
-	lda	#0
-	sta	ctrl1mod
-	lda	finescrol
+	lda #0
+	sta ctrl1mod
+	lda finescrol
 	pha
-	lda	#0
-	sta	finescrol
-	jsr	lookbk
+	lda #0
+	sta finescrol
+	jsr lookbk
 	pla
-	sta	finescrol
-	jsr	shctrl1
-	lda	#0
-	sta	baktow
-	lda	rush
-	bne	expnorsh
-	lda	didrush
-	beq	expnorsh
-	jsr	clrscrnraw
-	lda	#1
-	sta	crsscrl
-	jsr	vdelayr
-	jsr	screenget
-	jsr	crsifneed
-	lda	#0
-	sta	didrush
+	sta finescrol
+	jsr shctrl1
+	lda #0
+	sta baktow
+	lda rush
+	bne expnorsh
+	lda didrush
+	beq expnorsh
+	jsr clrscrnraw
+	lda #1
+	sta crsscrl
+	jsr vdelayr
+	jsr screenget
+	jsr crsifneed
+	lda #0
+	sta didrush
 expnorsh
-	jmp	bufgot
+	jmp bufgot
 
 dovt100			; ANSI/VT100 emulation code
 
@@ -344,43 +344,43 @@ dovt100			; ANSI/VT100 emulation code
 ; anything else cancels the sequence and is displayed normally.
 
 	; zmauto is usually 0, but set to 1 after ^X then counts up.
-	ldx	zmauto
-	beq	?zm_done
+	ldx zmauto
+	beq ?zm_done
 	cmp ?zm_string-1,x
 	bne ?bad
 	cpx #3
 	bne ?not_done
-	; ok, we got a trigger. Erase some junk from the screen (two ZPAD characters, 
+	; ok, we got a trigger. Erase some junk from the screen (two ZPAD characters,
 	; appearing as asterisks) and jump to Zmodem download.
-	ldx	#0
+	ldx #0
 	stx zmauto
 ?lp1
 	txa
 	pha
-	lda	?et,x
-	jsr	dovt100
+	lda ?et,x
+	jsr dovt100
 	pla
 	tax
 	inx
-	cpx	#6
-	bne	?lp1
+	cpx #6
+	bne ?lp1
 	pla
 	pla
 	lda #1
 	sta z_came_from_vt_flag
-	jmp	gozmdm
+	jmp gozmdm
 
 ?et	.byte	8,8,32,32,8,8     ; String for erasing Zmodem junk (bs bs space space bs bs)
 ?zm_string	.byte "B00"
-	
+
 ?not_done
 	inc zmauto
 	rts
 ?bad				; got partial trigger then something else: flush to terminal and finish.
 	dec zmauto		; change zmauto to contain amount of bytes we've partially received.
 	beq ?zm_done	; if there were none, we're done. go process this character.
-	pha				; push character we've just received
-	ldx	#0
+	pha 			; push character we've just received
+	ldx #0
 	ldy zmauto
 	stx zmauto
 ?lp4
@@ -388,71 +388,71 @@ dovt100			; ANSI/VT100 emulation code
 	pha
 	tya
 	pha
-	lda	?zm_string,x
-	jsr	dovt100
+	lda ?zm_string,x
+	jsr dovt100
 	pla
 	tay
 	pla
 	tax
 	inx
 	dey
-	bne	?lp4
+	bne ?lp4
 	lda #0
 	sta zmauto
-	pla	; restore character and continue processing it as normal.
+	pla ; restore character and continue processing it as normal.
 ?zm_done
 
 ; End Zmodem init
 
-	ldx	capture
-	beq	?nocapture
+	ldx capture
+	beq ?nocapture
 
 ; Capture -	 EOL, TAB translation
 
 	pha
-	ldx	ansiflt
-	beq	?nan
-	cmp	#27
-	beq	?end
-	ldx	trmode+1
-	cpx	#<regmode
-	bne	?end
-	ldx	trmode+2
-	cpx	#>regmode
-	bne	?end
+	ldx ansiflt
+	beq ?nan
+	cmp #27
+	beq ?end
+	ldx trmode+1
+	cpx #<regmode
+	bne ?end
+	ldx trmode+2
+	cpx #>regmode
+	bne ?end
 ?nan
-	ldx	eoltrns
-	beq	?ne
-	cmp	#9
-	bne	?notb
-	lda	#127
+	ldx eoltrns
+	beq ?ne
+	cmp #9
+	bne ?notb
+	lda #127
 ?notb
 	dex
-	cmp	#10	; lf
-	bne	?nlf
-	lda	lftb,x
-	beq	?end
-	bne	?ne
+	cmp #10	; lf
+	bne ?nlf
+	lda lftb,x
+	beq ?end
+	bne ?ne
 ?nlf
-	cmp	#13	; cr
-	bne	?ne
-	lda	crtb,x
-	beq	?end
+	cmp #13	; cr
+	bne ?ne
+	lda crtb,x
+	beq ?end
 ?ne
-	ldx	captplc
-	stx	outdat
-	ldx	captplc+1
-	cpx	#$80
-	beq	?end
-	stx	outdat+1
-	ldy	#0
-	ldx	bank4
-	jsr	staoutdt
-	inc	captplc
-	lda	captplc
-	bne	?end
-	inc	captplc+1
-	jsr	captbfdo
+	ldx captplc
+	stx outdat
+	ldx captplc+1
+	cpx #$80
+	beq ?end
+	stx outdat+1
+	ldy #0
+	ldx bank4
+	jsr staoutdt
+	inc captplc
+	lda captplc
+	bne ?end
+	inc captplc+1
+	jsr captbfdo
 ?end
 	pla
 
@@ -461,161 +461,161 @@ dovt100			; ANSI/VT100 emulation code
 	cmp #127
 	bcs vt100_check_hi_chars
 vt100_done_check_hi_chars
-	cmp	#32
-	bcc	trmode?cc
+	cmp #32
+	bcc trmode?cc
 trmode
-	jmp	regmode	; Self-modified address, depending on terminal parser state
+	jmp regmode	; Self-modified address, depending on terminal parser state
 ?cc
 	ldx #>ctrlcode_jumptable
 	ldy #<ctrlcode_jumptable
 	jmp parse_jumptable
 vt100_check_hi_chars
-	cmp	#155	; ATASCII end-of-line?
-	bne	?ok1
-	ldx	eolchar	; Change to ASCII if
-	cpx	#3		; enabled
-	bne	?ok1
-	lda	#$0d	; convert to a CR - which will later be handler as a CR/LF
+	cmp #155	; ATASCII end-of-line?
+	bne ?ok1
+	ldx eolchar	; Change to ASCII if
+	cpx #3		; enabled
+	bne ?ok1
+	lda #$0d	; convert to a CR - which will later be handler as a CR/LF
 ?ok1
-	ldx	eitbit
-	bne	?ok8
-	and	#$7f
+	ldx eitbit
+	bne ?ok8
+	and #$7f
 ?ok8
-	cmp	#127	; ATASCII Tab?
-	bne	vt100_done_check_hi_chars
-	ldx	eolchar	; Change to ASCII if
-	cpx	#3		; enabled.
+	cmp #127	; ATASCII Tab?
+	bne vt100_done_check_hi_chars
+	ldx eolchar	; Change to ASCII if
+	cpx #3		; enabled.
 	beq ?ok
-	rts			; 127 is an invalid code, ignore
+	rts 		; 127 is an invalid code, ignore
 ?ok
-	lda	#9
+	lda #9
 	jmp vt100_done_check_hi_chars
 
 putcrs			; Cursor flasher
-	lda	ty
+	lda ty
 	tay
 	dey
-	asl	a
+	asl a
 	tax
-	lda	linadr,x
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	lda	lnsizdat,y	; 0 or 4 and up - small, 1-3 - big
+	lda linadr,x
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	lda lnsizdat,y	; 0 or 4 and up - small, 1-3 - big
 	beq smcurs
-	cmp	#4
-	bcc	bigcurs
+	cmp #4
+	bcc bigcurs
 smcurs			; narrow (4 pixel) cursor
-	lda	tx
+	lda tx
 	and #1
 	tax
 	lda tx
-	lsr	a
+	lsr a
 	clc
-	adc	cntrl
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
-	ldy	curssiz		; contains 0 (block) or 6 (line)
-	beq	?lp
-	lda	cntrl
+	adc cntrl
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
+	ldy curssiz		; contains 0 (block) or 6 (line)
+	beq ?lp
+	lda cntrl
 	clc
-	adc	#39*6
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
+	adc #39*6
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
 ?lp
-	lda	(cntrl),y
-	eor	postbl,x
-	sta	(cntrl),y
-	lda	cntrl
+	lda (cntrl),y
+	eor postbl,x
+	sta (cntrl),y
+	lda cntrl
 	clc
-	adc	#39
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
+	adc #39
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
 	iny
-	cpy	#8
-	bne	?lp
+	cpy #8
+	bne ?lp
 	rts
 bigcurs			; wide (8-pixel) cursor
-	lda	tx
-	cmp	#40
-	bcc	?ok
-	lda	#39
+	lda tx
+	cmp #40
+	bcc ?ok
+	lda #39
 ?ok
 	clc
-	adc	cntrl
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
-	ldy	curssiz		; contains 0 (block) or 6 (line)
-	beq	?lp
-	lda	cntrl
+	adc cntrl
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
+	ldy curssiz		; contains 0 (block) or 6 (line)
+	beq ?lp
+	lda cntrl
 	clc
-	adc	#39*6
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
+	adc #39*6
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
 ?lp
-	lda	(cntrl),y
-	eor	#255
-	sta	(cntrl),y
-	lda	cntrl
+	lda (cntrl),y
+	eor #255
+	sta (cntrl),y
+	lda cntrl
 	clc
-	adc	#39
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
+	adc #39
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
 	iny
-	cpy	#8
-	bne	?lp
+	cpy #8
+	bne ?lp
 	rts
 
 regmode				; Display character on terminal output.
-	sta	prchar
-	ldx	chset
-	lda	g0set,x
-	beq	notgrph		; Skip this bit if graphical character set is not presently enabled.
-	lda	prchar		; Check if we're within range of characters affected by VT100 graphics mode (95-126)
+	sta prchar
+	ldx chset
+	lda g0set,x
+	beq notgrph		; Skip this bit if graphical character set is not presently enabled.
+	lda prchar		; Check if we're within range of characters affected by VT100 graphics mode (95-126)
 	cmp #127
 	bcs notgrph		; characters 127 and up - nothing to do
 	sec
-	sbc	#95
-	bcc	notgrph		; less than 95? it's not graphical either
-	tax				
-	lda	graftabl,x		; After subtracting 95 get value from translation table.
-	bpl	?no_digraph		; (values over 128 are for additional digraph characters not in the font)
-	and	#$7f
-	asl	a
-	asl	a
-	asl	a
+	sbc #95
+	bcc notgrph		; less than 95? it's not graphical either
 	tax
-	ldy	#0
+	lda graftabl,x		; After subtracting 95 get value from translation table.
+	bpl ?no_digraph		; (values over 128 are for additional digraph characters not in the font)
+	and #$7f
+	asl a
+	asl a
+	asl a
+	tax
+	ldy #0
 ?lp					; Digraphs (glyphs containing two small letters) are not part of the font so
-	lda	digraph,x	; generate and display a special character
-	sta	charset+(91*8),y
+	lda digraph,x	; generate and display a special character
+	sta charset+(91*8),y
 	inx
 	iny
-	cpy	#8
-	bne	?lp
-	lda	#27
+	cpy #8
+	bne ?lp
+	lda #27
 ?no_digraph
-	sta	prchar
-	lda	#1
-	sta	useset
-	sta	dblgrph
+	sta prchar
+	lda #1
+	sta useset
+	sta dblgrph
 notgrph
-	lda	seol			; was cursor at end of line after writing last character?
-	beq	?noseol
-	jsr	retrn			; yes, wrap to next line before outputting next character
-	jsr	reset_seol
+	lda seol			; was cursor at end of line after writing last character?
+	beq ?noseol
+	jsr retrn			; yes, wrap to next line before outputting next character
+	jsr reset_seol
 ?noseol
 	lda insertmode
 	beq ?noins
@@ -627,35 +627,35 @@ notgrph
 	pla
 	sta prchar
 ?noins
-	lda	tx
-	sta	x
-	lda	ty
-	sta	y
-	jsr	printerm
-	lda	#0
-	sta	useset
-	sta	dblgrph
-	inc	tx
-	ldx	ty
+	lda tx
+	sta x
+	lda ty
+	sta y
+	jsr printerm
+	lda #0
+	sta useset
+	sta dblgrph
+	inc tx
+	ldx ty
 	dex
-	lda	lnsizdat,x
+	lda lnsizdat,x
 	tax
-	lda	tx
-	cmp	szlen,x		; 40 or 80 depending on line width
+	lda tx
+	cmp szlen,x		; 40 or 80 depending on line width
 	bcs ?at_eol
-	lda	#0
-	sta	seol
+	lda #0
+	sta seol
 	rts
-?at_eol	
-	dec	tx
-	lda	wrpmode
-	sta	seol
+?at_eol
+	dec tx
+	lda wrpmode
+	sta seol
 	beq ?done
-	lda	ansibbs
+	lda ansibbs
 	cmp #1
-	bne	?done
-	jsr	retrn
-	jsr	reset_seol	
+	bne ?done
+	jsr retrn
+	jsr reset_seol
 ?done
 	rts
 
@@ -699,8 +699,8 @@ ctrlcode_jumptable_end
 	.endif
 
 ctrlcode_1b		; Escape
-	ldy	#<esccode
-	ldx	#>esccode
+	ldy #<esccode
+	ldx #>esccode
 	jmp setnextmode
 
 ctrlcode_05		; ^E - transmit answerback ("Ice-T <version>")
@@ -712,62 +712,62 @@ ctrlcode_05		; ^E - transmit answerback ("Ice-T <version>")
 	ldy #<version_str
 	lda #version_strlen
 	jmp rputstring
-	
+
 ctrlcode_07		; ^G - bell
-	lda	#14
-	sta	dobell
+	lda #14
+	sta dobell
 ctrlcode_unused
 	rts
 
 ctrlcode_0d		; ^M - CR
-	lda	#0
-	sta	tx
-	lda	eolchar	; Add an LF? (user)
+	lda #0
+	sta tx
+	lda eolchar	; Add an LF? (user)
 	cmp #2
-	bcs	ctrlcode_0c	; yes
-	jmp	reset_seol	; no
+	bcs ctrlcode_0c	; yes
+	jmp reset_seol	; no
 
 ctrlcode_0a		; ^J - LF
-	lda	eolchar	; Add a CR? (user)
+	lda eolchar	; Add a CR? (user)
 	cmp #1
-	bne	ctrlcode_0c
-	lda	#0		; yes.
-	sta	tx
+	bne ctrlcode_0c
+	lda #0		; yes.
+	sta tx
 
 ctrlcode_0b		; ^K - VT, same as lf
 ctrlcode_0c		; ^L - FF, same as lf
-	lda	newlmod	; Add a CR? (host)
-	beq	?no
-	lda	#0		; yes.
-	sta	tx
+	lda newlmod	; Add a CR? (host)
+	beq ?no
+	lda #0		; yes.
+	sta tx
 ?no
-	jsr	cmovedwn
-	jmp	reset_seol
+	jsr cmovedwn
+	jmp reset_seol
 
 ctrlcode_08		; ^H - Backspace
-	dec	tx
-	lda	tx
-	cmp	#80
-	bcc	?ok
-	lda	#0
-	sta	tx
+	dec tx
+	lda tx
+	cmp #80
+	bcc ?ok
+	lda #0
+	sta tx
 ?ok
-	jmp	reset_seol
+	jmp reset_seol
 
 ctrlcode_18		; ^X - CAN - cancel Esc sequence / begin Zmodem packet
-	lda	#1
-	sta	zmauto
+	lda #1
+	sta zmauto
 ctrlcode_1a		; ^Z - SUB, same as CAN.
-	lda	trmode+1
-	cmp	#<regmode
-	bne	docan
-	lda	trmode+2
-	cmp	#>regmode
-	bne	docan
+	lda trmode+1
+	cmp #<regmode
+	bne docan
+	lda trmode+2
+	cmp #>regmode
+	bne docan
 	rts
 docan
-	ldy	#<regmode
-	ldx	#>regmode
+	ldy #<regmode
+	ldx #>regmode
 	jsr setnextmode
 	; Since an escape sequence was in progress, output checkerboard character to indicate error
 	lda #0
@@ -779,42 +779,42 @@ ctrlcode_09		; ^I - Tab
 	dey
 	ldx lnsizdat,y	; get line width
 	ldy szlen,x		; get corresponding number of chars (40 or 80)
-	dey				; subtract by 1
+	dey 			; subtract by 1
 	sty temp		; and store it
-	
-	ldx	tx
+
+	ldx tx
 	cpx temp
 	beq ?done
 ?lp
 	inx
-	cpx	temp		; at edge of screen?
-	bcs	?done
-	lda	tabs,x		; no. is there a tab stop here?
-	beq	?lp
+	cpx temp		; at edge of screen?
+	bcs ?done
+	lda tabs,x		; no. is there a tab stop here?
+	beq ?lp
 ?done
-	stx	tx			; yes, done
-	jmp	reset_seol
+	stx tx			; yes, done
+	jmp reset_seol
 
 ctrlcode_0e		; ^N - use g1 character set
-	lda	#1
-	sta	chset
+	lda #1
+	sta chset
 	rts
-	
+
 ctrlcode_0f		; ^O - use g0 character set
-	lda	#0
-	sta	chset
+	lda #0
+	sta chset
 	rts
 
 retrn
-	lda	#0
-	sta	tx
-	jmp	cmovedwn
+	lda #0
+	sta tx
+	jmp cmovedwn
 
 esccode
-	ldx	#255
-	stx	numstk
-	ldx	#0
-	stx	numgot
+	ldx #255
+	stx numstk
+	ldx #0
+	stx numgot
 	ldx ansibbs
 	cpx #2
 	beq ?do_vt52
@@ -902,27 +902,27 @@ esccode_vt52_jumptable
 	.word fincmnd
 
 esccode_vt52_set_gfx	; set graphics mode (but graphics are same as VT102)
-	lda	#1
+	lda #1
 	.byte BIT_skip2bytes
 esccode_vt52_unset_gfx	; unset graphics mode
-	lda	#0
-	sta	chset
+	lda #0
+	sta chset
 	jmp fincmnd
 
 ; Esc Y n1 n2 - position cursor
 esccode_vt52_setpos
-	ldy	#<esccode_vt52_setpos_1
-	ldx	#>esccode_vt52_setpos_1
+	ldy #<esccode_vt52_setpos_1
+	ldx #>esccode_vt52_setpos_1
 	jmp setnextmode
 
 esccode_vt52_setpos_1
 	sec
 	sbc #31
 	sta numstk
-	ldy	#<esccode_vt52_setpos_2
-	ldx	#>esccode_vt52_setpos_2
+	ldy #<esccode_vt52_setpos_2
+	ldx #>esccode_vt52_setpos_2
 	jmp setnextmode
-	
+
 esccode_vt52_setpos_2
 	sec
 	sbc #31
@@ -950,132 +950,132 @@ esccode_vt52_decanm
 ; End of VT-52 code
 
 esccode_brak	; '[' - start escape sequence with arguments (CSI)
-	lda	#255
-	sta	finnum	; mark that we haven't received a number yet
-	lda	#0
-	sta	qmark	; mark that we didn't (yet) get a question mark character after '['
-	sta	csi_last_interm
-	ldy	#<brakpro_first_char
-	ldx	#>brakpro_first_char
+	lda #255
+	sta finnum	; mark that we haven't received a number yet
+	lda #0
+	sta qmark	; mark that we didn't (yet) get a question mark character after '['
+	sta csi_last_interm
+	ldy #<brakpro_first_char
+	ldx #>brakpro_first_char
 	jmp setnextmode
 
 esccode_ind		; D - down 1 line
-	jsr	cmovedwn
-	jmp	fincmnd_reset_seol
+	jsr cmovedwn
+	jmp fincmnd_reset_seol
 
 esccode_nel		; E - return
-	jsr	retrn
-	jmp	fincmnd_reset_seol
+	jsr retrn
+	jmp fincmnd_reset_seol
 
 esccode_ri		; M - up line
-	jsr	cmoveup
-	jmp	fincmnd_reset_seol
+	jsr cmoveup
+	jmp fincmnd_reset_seol
 
 esccode_deckpam	; = - Numlock off
-	lda	#0
-	sta	numlock
-	jsr	shnuml
-	jmp	fincmnd
+	lda #0
+	sta numlock
+	jsr shnuml
+	jmp fincmnd
 
 esccode_deckpnm	; > - Num on
-	lda	#1
-	sta	numlock
-	jsr	shnuml
-	jmp	fincmnd
+	lda #1
+	sta numlock
+	jsr shnuml
+	jmp fincmnd
 
 esccode_decsc	; 7 - save curs+attrib
-	lda	tx
-	sta	savcursx
-	lda	ty
-	sta	savcursy
-	lda	origin_mode
-	sta	savorgn
-	lda	g0set
-	sta	savg0
-	lda	g1set
-	sta	savg1
-	lda	chset
-	sta	savchs
-	lda	undrln
-	sta	savgrn
-	lda	boldface
-	sta	savgrn+1
-	lda	revvid
-	sta	savgrn+2
-	lda	invsbl
-	sta	savgrn+3
-	jmp	fincmnd
+	lda tx
+	sta savcursx
+	lda ty
+	sta savcursy
+	lda origin_mode
+	sta savorgn
+	lda g0set
+	sta savg0
+	lda g1set
+	sta savg1
+	lda chset
+	sta savchs
+	lda undrln
+	sta savgrn
+	lda boldface
+	sta savgrn+1
+	lda revvid
+	sta savgrn+2
+	lda invsbl
+	sta savgrn+3
+	jmp fincmnd
 
 esccode_decrc	; 8 - restore above
-	lda	savcursx
+	lda savcursx
 	cmp #255	; initial value indicating no value ever stored
 	bne ?ok
 	lda #0
 	sta numgot
 	jmp csicode_cup		; just home the cursor
 ?ok
-	sta	tx
-	lda	savcursy
-	sta	ty
-	lda	savorgn
-	sta	origin_mode
-	lda	savg0
-	sta	g0set
-	lda	savg1
-	sta	g1set
-	lda	savchs
-	sta	chset
-	lda	savgrn
-	sta	undrln
-	lda	savgrn+2
-	sta	revvid
-	lda	savgrn+3
-	sta	invsbl
-	lda	boldallw
-	beq	?o			; prevent boldface from being restored
-	lda	savgrn+1	; if disabled by user
+	sta tx
+	lda savcursy
+	sta ty
+	lda savorgn
+	sta origin_mode
+	lda savg0
+	sta g0set
+	lda savg1
+	sta g1set
+	lda savchs
+	sta chset
+	lda savgrn
+	sta undrln
+	lda savgrn+2
+	sta revvid
+	lda savgrn+3
+	sta invsbl
+	lda boldallw
+	beq ?o			; prevent boldface from being restored
+	lda savgrn+1	; if disabled by user
 ?o
-	sta	boldface
-	jmp	fincmnd_reset_seol
+	sta boldface
+	jmp fincmnd_reset_seol
 
 esccode_decid	; Z - send ID string
-	ldx	#>?data
-	ldy	#<?data
+	ldx #>?data
+	ldy #<?data
 	lda #5
 	jsr rputstring
-	jmp	fincmnd
+	jmp fincmnd
 ?data
 	.byte	27,  "[?6c"
 
 esccode_hts		; H - set tab at this position.
-	ldx	tx
-	lda	#1
-	sta	tabs,x
-	jmp	fincmnd
+	ldx tx
+	lda #1
+	sta tabs,x
+	jmp fincmnd
 
 esccode_parop	; ( - start seq for g0
-	lda	#0
+	lda #0
 	.byte BIT_skip2bytes
 esccode_parcl	; ) - start seq for g1
-	lda	#1
-	sta	gntodo
-	ldy	#<parpro
-	ldx	#>parpro
+	lda #1
+	sta gntodo
+	ldy #<parpro
+	ldx #>parpro
 	jmp setnextmode
-	
+
 esccode_hash	; # - start for line size
-	ldy	#<hash_process
-	ldx	#>hash_process
+	ldy #<hash_process
+	ldx #>hash_process
 	jmp setnextmode
 
 esccode_resttrm	; c - Reset terminal
-	lda	#1
-	sta	ty
-	lda	#0
-	sta	tx
-	jsr	resttrm
-	jsr	clrscrn
-	jmp	fincmnd_reset_seol
+	lda #1
+	sta ty
+	lda #0
+	sta tx
+	jsr resttrm
+	jsr clrscrn
+	jmp fincmnd_reset_seol
 
 ; process chars after Esc #
 
@@ -1087,163 +1087,163 @@ esccode_resttrm	; c - Reset terminal
 ; 8 - Fill screen with E's
 
 hash_process
-	cmp	#'8
-	bne	no_fill_e
+	cmp #'8
+	bne no_fill_e
 
 ; Fill screen with E's
-	jsr	boldclr
-	lda	#1
-	sta	y
+	jsr boldclr
+	lda #1
+	sta y
 ?txlp1
-	jsr	calctxln
-	lda	#'E
-	ldy	#0
+	jsr calctxln
+	lda #'E
+	ldy #0
 ?txlp2
-	sta	(ersl),y
+	sta (ersl),y
 	iny
-	cpy	#80
-	bne	?txlp2
-	inc	y
-	lda	y
-	cmp	#25
-	bne	?txlp1
+	cpy #80
+	bne ?txlp2
+	inc y
+	lda y
+	cmp #25
+	bne ?txlp1
 
-	jsr	rslnsize
-	lda	#0
-	sta	x
-	sta	y
+	jsr rslnsize
+	lda #0
+	sta x
+	sta y
 ?lpy
-	inc	y
-	lda	y
-	asl	a
+	inc y
+	lda y
+	asl a
 	tax
-	lda	linadr,x
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	ldx	#0
+	lda linadr,x
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	ldx #0
 ?lpx
-	lda	charset+296,x ; (37*8)
-	eor	#255
-	ldy	#0
+	lda charset+296,x ; (37*8)
+	eor #255
+	ldy #0
 ?lp1
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	cpy	#40
-	bne	?lp1
-	lda	cntrl
+	cpy #40
+	bne ?lp1
+	lda cntrl
 	clc
-	adc	#40
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
+	adc #40
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
 	inx
-	cpx	#8
-	bne	?lpx
-	jsr	buffifnd
-	lda	y
-	cmp	#24
-	bne	?lpy
-	jmp	fincmnd
+	cpx #8
+	bne ?lpx
+	jsr buffifnd
+	lda y
+	cmp #24
+	bne ?lpy
+	jmp fincmnd
 
 ; check values 3-7, which change the line size
 no_fill_e
 
 	sec
-	sbc	#'3			; subtract ASCII value of digit 3 so we have 0-4
-	cmp	#5
-	bcc	?ok			; 3/4/5/6/7 - change size
-	jmp	fincmnd		; some other value, quit
+	sbc #'3			; subtract ASCII value of digit 3 so we have 0-4
+	cmp #5
+	bcc ?ok			; 3/4/5/6/7 - change size
+	jmp fincmnd		; some other value, quit
 ?ok
 changesize_templine = numstk+$80
 
 	pha
-	jsr	chklnsiz
+	jsr chklnsiz
 	pla
-	ldx	ty
-	stx	y
+	ldx ty
+	stx y
 	dex
 	tay
-	lda	sizes,y		; translate command to internal size value
-	cmp	lnsizdat,x
-	bne	?not_same
-	jmp	fincmnd		; line is already this size, quit
+	lda sizes,y		; translate command to internal size value
+	cmp lnsizdat,x
+	bne ?not_same
+	jmp fincmnd		; line is already this size, quit
 ?not_same
 	tay
-	lda	lnsizdat,x	; remember old value
-	sta	topx		; used as temp here
+	lda lnsizdat,x	; remember old value
+	sta topx		; used as temp here
 	tya
-	sta	lnsizdat,x	; and set new value
-	lda	szlen,y		; get size of new line (80 or 40 columns)
-	sta	szprchng+1	; self modified code defining size of redrawn line
-	jsr	ersline_no_txtmirror	; clear line including bold underlay, but don't erase in text mirror
-	jsr	calctxln	; calculate position of line in ascii mirror and put in ersl
-	lda	#32
-	ldx	#79
+	sta lnsizdat,x	; and set new value
+	lda szlen,y		; get size of new line (80 or 40 columns)
+	sta szprchng+1	; self modified code defining size of redrawn line
+	jsr ersline_no_txtmirror	; clear line including bold underlay, but don't erase in text mirror
+	jsr calctxln	; calculate position of line in ascii mirror and put in ersl
+	lda #32
+	ldx #79
 ?szloop1
-	sta	changesize_templine,x
+	sta changesize_templine,x
 	dex
-	bpl	?szloop1
-	ldx	#0
-	ldy	#0
+	bpl ?szloop1
+	ldx #0
+	ldy #0
 ?szloop2
-	lda	(ersl),y		; copy old text line to a temp buffer
-	sta	changesize_templine,x
+	lda (ersl),y		; copy old text line to a temp buffer
+	sta changesize_templine,x
 	lda #32
 	sta (ersl),y		; blank old text line
 	iny
 	inx
-	lda	topx			; previously 80 columns?
-	beq	?szlp2v			; yes, don't do anything special
-	iny					; no - we're switching from 40 to 80, so skip 1 byte when reading because in 40-col
+	lda topx			; previously 80 columns?
+	beq ?szlp2v			; yes, don't do anything special
+	iny 				; no - we're switching from 40 to 80, so skip 1 byte when reading because in 40-col
 ?szlp2v					; characters are spaced 1 byte apart in ascii mirror.
-	cpy	#80
-	bne	?szloop2
-	lda	invsbl			; before redrawing line in new size, turn off all attributes
+	cpy #80
+	bne ?szloop2
+	lda invsbl			; before redrawing line in new size, turn off all attributes
 	pha
-	lda	boldface
+	lda boldface
 	pha
-	lda	revvid
+	lda revvid
 	pha
-	lda	undrln
+	lda undrln
 	pha
-	lda	#0
-	sta	invsbl
-	sta	revvid
-	sta	undrln
-	sta	boldface
-	sta	x
+	lda #0
+	sta invsbl
+	sta revvid
+	sta undrln
+	sta boldface
+	sta x
 	tax
 szprloop				; redraw line
-	lda	changesize_templine,x
-	cmp	#32
-	beq	?s				; skip spaces
-	cmp	#128
-	bcc	?i
-	and	#127			; 128 and over is in inverse
-	ldx	#1
-	stx	revvid
+	lda changesize_templine,x
+	cmp #32
+	beq ?s				; skip spaces
+	cmp #128
+	bcc ?i
+	and #127			; 128 and over is in inverse
+	ldx #1
+	stx revvid
 ?i
-	sta	prchar
-	jsr	printerm
-	lda	#0
-	sta	revvid
+	sta prchar
+	jsr printerm
+	lda #0
+	sta revvid
 ?s
-	inc	x
-	lda	x
+	inc x
+	lda x
 	tax
 szprchng
-	cmp	#80				; value is modified to actual number of columns
-	bne	szprloop
-	pla					; restore attributes
-	sta	undrln
+	cmp #80				; value is modified to actual number of columns
+	bne szprloop
+	pla 				; restore attributes
+	sta undrln
 	pla
-	sta	revvid
+	sta revvid
 	pla
-	sta	boldface
+	sta boldface
 	pla
-	sta	invsbl
+	sta invsbl
 	; check if cursor is now out of bounds
 	lda tx
 	cmp szprchng+1
@@ -1252,87 +1252,87 @@ szprchng
 	dex
 	stx tx
 ?ok
-	jmp	fincmnd_reset_seol
+	jmp fincmnd_reset_seol
 
 ; Process character after Esc '(' or Esc ')'
 parpro
-	ldx	gntodo	; indicates '(' or ')'
-	cmp	#'A
-	beq	?dog1
-	cmp	#'B
-	bne	?dog2
+	ldx gntodo	; indicates '(' or ')'
+	cmp #'A
+	beq ?dog1
+	cmp #'B
+	bne ?dog2
 ?dog1
-	lda	#0
-	sta	g0set,x
+	lda #0
+	sta g0set,x
 	beq ?dog4
 ?dog2
-	cmp	#'0
-	beq	?dog3
-	cmp	#'1
-	beq	?dog3
-	cmp	#'2
-	bne	?dog4
+	cmp #'0
+	beq ?dog3
+	cmp #'1
+	beq ?dog3
+	cmp #'2
+	bne ?dog4
 ?dog3
-	lda	#1
-	sta	g0set,x
+	lda #1
+	sta g0set,x
 ?dog4
-	jmp	fincmnd
+	jmp fincmnd
 
 brakpro_first_char	; process first char after Esc [ (which may be a question mark)
-	ldy	#<brakpro
-	ldx	#>brakpro	; next char cannot be a '?' so do not accept one
+	ldy #<brakpro
+	ldx #>brakpro	; next char cannot be a '?' so do not accept one
 	jsr setnextmode
-	cmp	#63			; is this a question mark?
-	bne	brakpro
-	lda	#1
-	sta	qmark		; indicate that we got a question mark and finish
+	cmp #63			; is this a question mark?
+	bne brakpro
+	lda #1
+	sta qmark		; indicate that we got a question mark and finish
 	rts
 
 brakpro			; Get numerical arguments and command after 'Esc ['
-	cmp	#'0		; is this a digit?
-	bcs	?not_param
+	cmp #'0		; is this a digit?
+	bcs ?not_param
 	; value is between $20-$2f, store it
 	sta csi_last_interm
 	rts
 ?not_param
-	cmp	#'9+1
-	bcs	?not_digit
+	cmp #'9+1
+	bcs ?not_digit
 	; we got a digit, 0-9
 	sec
-	sbc	#'0
-	sta	temp
-	lda	finnum
+	sbc #'0
+	sta temp
+	lda finnum
 	cmp #255
-	bne	?mltpl10
-	lda	temp
-	sta	finnum
+	bne ?mltpl10
+	lda temp
+	sta finnum
 	rts
 ?mltpl10
-	lda	finnum	; multiply existing value by 10
-	asl	a		; (we assume high bits are 0 so carry gets cleared)
-	asl	a
-	adc	finnum
-	asl	a
-	adc	temp	; and add new digit
-	sta	finnum
+	lda finnum	; multiply existing value by 10
+	asl a		; (we assume high bits are 0 so carry gets cleared)
+	asl a
+	adc finnum
+	asl a
+	adc temp	; and add new digit
+	sta finnum
 	rts
 ?not_digit		; not a digit, so the number is complete. add it to arguments stack.
 	; in case of no args at all, a spurious 255 argument may be added to the stack. this doesn't matter.
 	tay
-	lda	finnum
-	ldx	numgot
-	sta	numstk,x
-	inc	numgot
+	lda finnum
+	ldx numgot
+	sta numstk,x
+	inc numgot
 	tya
-	cmp	#59		; was this character a semicolon?
-	bne	?notsemic
-	lda	#255	; yes, we're done, wait for more arguments
-	sta	finnum
+	cmp #59		; was this character a semicolon?
+	bne ?notsemic
+	lda #255	; yes, we're done, wait for more arguments
+	sta finnum
 	rts
 ?notsemic
 	; this is the command character. Jump according to whether sequence started with a question mark
-	ldx	qmark
-	bne	?qmark
+	ldx qmark
+	bne ?qmark
 	ldx #>csi_code_jumptable
 	ldy #<csi_code_jumptable
 	jmp parse_jumptable
@@ -1466,7 +1466,7 @@ csicode_cup		; H or f - Position cursor
 	CHECK_PARAMS 0,1,24
 	CHECK_PARAMS 1,1,80
 
-	lda	numstk	; new Y coordinate
+	lda numstk	; new Y coordinate
 	ldx origin_mode
 	beq ?ok
 	clc
@@ -1479,11 +1479,11 @@ csicode_cup		; H or f - Position cursor
 ?ok
 	sta ty
 
-	lda	numstk+1	; new X coordinate
+	lda numstk+1	; new X coordinate
 	sec
 	sbc #1			; X - change 1-80 to 0-79
-	sta	tx
-	jmp	fincmnd_reset_seol
+	sta tx
+	jmp fincmnd_reset_seol
 
 ; for VPA and CHA: fake it by pretending we got 2 args then jump to csicode_cup
 csicode_vpa		; d - position cursor (Y only)
@@ -1506,9 +1506,9 @@ csicode_cha		; G - position cursor (X only)
 
 csicode_cuu		; A - Move cursor up
 	CHECK_PARAMS 0,1,24
-	lda	ty
+	lda ty
 	sec
-	sbc	numstk
+	sbc numstk
 	bpl ?ok1
 	lda #1
 ?ok1
@@ -1522,14 +1522,14 @@ csicode_cuu		; A - Move cursor up
 	bcs ?ok3
 	lda scrltop
 ?ok3
-	sta	ty
-	jmp	fincmnd_reset_seol
+	sta ty
+	jmp fincmnd_reset_seol
 
 csicode_cud		; B - Move cursor down
 	CHECK_PARAMS 0,1,24
-	lda	ty
+	lda ty
 	clc
-	adc	numstk
+	adc numstk
 	cmp #25
 	bcc ?ok1
 	lda #24
@@ -1540,102 +1540,102 @@ csicode_cud		; B - Move cursor down
 	bcc ?ok2
 	lda scrlbot
 ?ok2
-	sta	ty
-	jmp	fincmnd_reset_seol
+	sta ty
+	jmp fincmnd_reset_seol
 
 csicode_cuf		; C - Move cursor right
 	CHECK_PARAMS 0,1,80
-	lda	tx
+	lda tx
 	clc
-	adc	numstk
-	cmp	#80
-	bcc	?ok
-	lda	#79
+	adc numstk
+	cmp #80
+	bcc ?ok
+	lda #79
 ?ok
-	sta	tx
-	jmp	fincmnd_reset_seol
+	sta tx
+	jmp fincmnd_reset_seol
 
 csicode_cub		; D - Move cursor left
 	CHECK_PARAMS 0,1,80
-	lda	tx
+	lda tx
 	sec
-	sbc	numstk
+	sbc numstk
 	bpl ?ok
 	lda #0
 ?ok
-	sta	tx
-	jmp	fincmnd_reset_seol
+	sta tx
+	jmp fincmnd_reset_seol
 
 csicode_decstbm	; r - set scroll margins
 	CHECK_PARAMS 0,1,23
 	CHECK_PARAMS 1,24,24
-	lda	numstk+1
-	cmp	numstk	; ensure bottom > top
+	lda numstk+1
+	cmp numstk	; ensure bottom > top
 	beq ?m7
-	bcs	?m8
+	bcs ?m8
 ?m7
-	lda	#1		; invalid combination? use defaults
-	sta	numstk
-	lda	#24
-	sta	numstk+1
+	lda #1		; invalid combination? use defaults
+	sta numstk
+	lda #24
+	sta numstk+1
 ?m8
 	jsr fscrol_critical		; fine scroll critical section? wait
-	lda	numstk+1
-	sta	scrlbot
-	lda	numstk
-	sta	scrltop	; we want scrltop to stay in A
-	ldx	#0		; home cursor to start of line
+	lda numstk+1
+	sta scrlbot
+	lda numstk
+	sta scrltop	; we want scrltop to stay in A
+	ldx #0		; home cursor to start of line
 	stx tx
 	inx
 	ldy origin_mode
 	beq ?ok		; not origin mode? move cursor to top line of screen
-	tax			; origin mode? move to first line of new scroll region
+	tax 		; origin mode? move to first line of new scroll region
 ?ok
-	stx	ty
-	jmp	fincmnd_reset_seol
+	stx ty
+	jmp fincmnd_reset_seol
 
 csicode_el		; K - erase in line
-	lda	numstk
+	lda numstk
 	beq ?v0
-	cmp	#3
-	bcs	?v0
+	cmp #3
+	bcs ?v0
 	cmp #1
 	beq ?v1
-	lda	ty			; 2 - clear entire line
-	sta	y
-	jsr	ersline
-	jmp	fincmnd
+	lda ty			; 2 - clear entire line
+	sta y
+	jsr ersline
+	jmp fincmnd
 ?v0
-	jsr	ersfmcurs	; 0 or other - erase from cursor
-	jmp	fincmnd
+	jsr ersfmcurs	; 0 or other - erase from cursor
+	jmp fincmnd
 ?v1					; 1 - erase to cursor
-	jsr	erstocurs
-	jmp	fincmnd
+	jsr erstocurs
+	jmp fincmnd
 
 csicode_ed		; J - erase in screen
-	lda	numstk
+	lda numstk
 	beq ?v0
-	cmp	#3
-	bcs	?v0
+	cmp #3
+	bcs ?v0
 	cmp #1
 	beq ?v1
 
 ?v2					; 2 - clear entire screen. cursor does not move. (ANSI-BBS: home cursor)
-	jsr	clrscrn
-	lda	ansibbs
+	jsr clrscrn
+	lda ansibbs
 	cmp #1
-	bne	?nc
-	lda	#0
-	sta	tx
-	lda	#1
+	bne ?nc
+	lda #0
+	sta tx
+	lda #1
 	ldx origin_mode
 	beq ?no_org
 	lda scrltop
 ?no_org
-	sta	ty
+	sta ty
 ?nc
-	jmp	fincmnd
-	
+	jmp fincmnd
+
 ?v0					; 0 - clear from cursor position (inclusive) to end of line and all lines below
 					; (exception: if cursor is at home, just go and clear the whole screen. This is simpler plus
 					;  pushes the text mirror into scrollback buffer)
@@ -1645,43 +1645,43 @@ csicode_ed		; J - erase in screen
 	lda tx
 	beq ?v2
 ?not_home
-	jsr	ersfmcurs
-	lda	ty
-	sta	y
+	jsr ersfmcurs
+	lda ty
+	sta y
 	lda tx		; is cursor at start of line? don't skip this line when resetting line sizes
 	beq ?ed0lp2
 ?ed0lp
-	inc	y
+	inc y
 ?ed0lp2
-	lda	y
-	cmp	#25
-	beq	?ed0ok
-	tax			; reset line sizes
+	lda y
+	cmp #25
+	beq ?ed0ok
+	tax 		; reset line sizes
 	dex
-	lda	#0
-	sta	lnsizdat,x
-	jsr	ersline
-	jsr	buffifnd
-	jmp	?ed0lp
+	lda #0
+	sta lnsizdat,x
+	jsr ersline
+	jsr buffifnd
+	jmp ?ed0lp
 ?ed0ok
-	jmp	fincmnd
+	jmp fincmnd
 ?v1				; 1 - clear from cursor position (inclusive) to start of line and all lines above
-	lda	#1
-	sta	y
+	lda #1
+	sta y
 ?ed1lp
-	lda	y
-	cmp	ty
-	beq	?ed1ok
-	tax			; reset line sizes
+	lda y
+	cmp ty
+	beq ?ed1ok
+	tax 		; reset line sizes
 	dex
-	lda	#0
-	sta	lnsizdat,x
-	jsr	ersline
-	jsr	buffifnd
-	inc	y
-	jmp	?ed1lp
+	lda #0
+	sta lnsizdat,x
+	jsr ersline
+	jsr buffifnd
+	inc y
+	jmp ?ed1lp
 ?ed1ok
-	jsr	erstocurs
+	jsr erstocurs
 	; is cursor at end of a line? reset line size of this line too
 	ldx ty
 	dex
@@ -1693,8 +1693,8 @@ csicode_ed		; J - erase in screen
 	lda #0		; yes, so reset it.
 	sta lnsizdat,x
 ?done
-	jmp	fincmnd
-	
+	jmp fincmnd
+
 csicode_leds	; q - control LEDs
 	CHECK_PARAMS 0,0,4
 	ldx #0
@@ -1720,37 +1720,37 @@ csicode_leds	; q - control LEDs
 	cpx numgot
 	bne ?lp
 	jsr ledsdo
-	jmp	fincmnd
+	jmp fincmnd
 led_tbl .byte 1,2,4,8
 
 csicode_dsr	; n - device status
 	CHECK_PARAMS 0,5,255
-	lda	numstk
-	cmp	#5
-	bne	dsrno5
+	lda numstk
+	cmp #5
+	bne dsrno5
 	; send status ok
-	ldx	#>dsrdata
-	ldy	#<dsrdata
+	ldx #>dsrdata
+	ldy #<dsrdata
 	lda #4
 	jsr rputstring
-	jmp	fincmnd
+	jmp fincmnd
 dsrdata
 	.byte 27, "[0n"
 
 dsrno5
-	cmp	#6
-	beq	dsrys6
-	jmp	dsrno6
+	cmp #6
+	beq dsrys6
+	jmp dsrno6
 dsrys6
 	; report cursor position
 cprd = numstk + $80
 
-	lda	#27	; Esc
-	sta	cprd
-	lda	#'[
-	sta	cprd+1
-	ldy	#0	; Y register is a helper in converting values to text
-	lda	ty
+	lda #27	; Esc
+	sta cprd
+	lda #'[
+	sta cprd+1
+	ldy #0	; Y register is a helper in converting values to text
+	lda ty
 ; in origin mode we report Y position relative to scrolling margins.
 	ldx origin_mode
 	beq cprlp1
@@ -1762,47 +1762,47 @@ cprd = numstk + $80
 	clc
 	adc #1	; add 1 because scrltop is biased (upper line is 1)
 cprlp1
-	cmp	#10
-	bcc	cprok1
+	cmp #10
+	bcc cprok1
 	sec
-	sbc	#10
+	sbc #10
 	iny
-	jmp	cprlp1
+	jmp cprlp1
 cprok1
 	clc
-	adc	#'0
-	sta	cprd+3
+	adc #'0
+	sta cprd+3
 	tya
-	beq	cpr1
+	beq cpr1
 	clc
-	adc	#'0
+	adc #'0
 cpr1
-	sta	cprd+2
-	lda	#';
-	sta	cprd+4
-	ldy	#0
-	lda	tx
+	sta cprd+2
+	lda #';
+	sta cprd+4
+	ldy #0
+	lda tx
 	clc
-	adc	#1
+	adc #1
 cprlp2
-	cmp	#10
-	bcc	cprok2
+	cmp #10
+	bcc cprok2
 	sec
-	sbc	#10
+	sbc #10
 	iny
-	jmp	cprlp2
+	jmp cprlp2
 cprok2
 	clc
-	adc	#'0
-	sta	cprd+6
+	adc #'0
+	sta cprd+6
 	tya
-	beq	cpr2
+	beq cpr2
 	clc
-	adc	#'0
+	adc #'0
 cpr2
-	sta	cprd+5
-	lda	#'R
-	sta	cprd+7
+	sta cprd+5
+	lda #'R
+	sta cprd+7
 
 	; send the string
 	ldx #>cprd
@@ -1810,7 +1810,7 @@ cpr2
 	lda #8
 	jsr rputstring
 dsrno6
-	jmp	fincmnd
+	jmp fincmnd
 
 csicode_decreqtparm	; x - DECREQTPARM – Request Terminal Parameters
 	CHECK_PARAMS 0,0,255
@@ -1844,7 +1844,7 @@ csicode_decreqtparm	; x - DECREQTPARM – Request Terminal Parameters
 	lda #decreqtparm_string_end-decreqtparm_string
 	jsr rputstring
 ?skip
-	jmp	fincmnd
+	jmp fincmnd
 
 decreqtparm_string		.byte 27, "["
 decreqtparm_resptype	.byte "2;1;1;"
@@ -1864,63 +1864,63 @@ decreqtparm_encoded_baudrates
 
 csicode_bc	; g - clear tabs
 	CHECK_PARAMS 0,0,255
-	lda	numstk
+	lda numstk
 	beq ?v0
-	cmp	#3
-	bne	?done
-	lda	#0
+	cmp #3
+	bne ?done
+	lda #0
 	ldx #79
 ?lp
-	sta	tabs,x
+	sta tabs,x
 	dex
-	bpl	?lp
+	bpl ?lp
 ?done
-	jmp	fincmnd
+	jmp fincmnd
 ?v0
-	ldx	tx
-	sta	tabs,x
-	jmp	fincmnd
-	
+	ldx tx
+	sta tabs,x
+	jmp fincmnd
+
 csicode_sm	; h - set mode
-	lda	#1
+	lda #1
 	.byte BIT_skip2bytes
 csicode_rm	; l - reset mode
-	lda	#0
-	sta	modedo
+	lda #0
+	sta modedo
 
 	ldx #255
 	.byte BIT_skip2bytes
-	
+
 fincmnd_domode	; loop over arguments for h/l
 	pla
 	tax
 	inx
 	cpx numgot
 	bne ?ok
-	jmp	fincmnd ; done, exit.
+	jmp fincmnd ; done, exit.
 ?ok
 	txa
 	pha
 	lda numstk,x
-	ldx	qmark
-	bne	?domode_qmark
-	cmp	#20			; without question mark after the Esc [..
-	bne	?noLNM
-	lda	modedo
-	sta	newlmod		; set Newline mode
+	ldx qmark
+	bne ?domode_qmark
+	cmp #20			; without question mark after the Esc [..
+	bne ?noLNM
+	lda modedo
+	sta newlmod		; set Newline mode
 ?noLNM
 	cmp #4
 	bne ?noIRM
-	lda	modedo
-	sta	insertmode	; set Insert mode	
+	lda modedo
+	sta insertmode	; set Insert mode
 ?noIRM
-	jmp	fincmnd_domode
+	jmp fincmnd_domode
 ?domode_qmark		; with question mark
-	cmp	#1
-	bne	nodecckm	; set arrowkeys mode
-	lda	modedo
-	sta	ckeysmod
-	jmp	fincmnd_domode
+	cmp #1
+	bne nodecckm	; set arrowkeys mode
+	lda modedo
+	sta ckeysmod
+	jmp fincmnd_domode
 nodecckm
 	cmp #2
 	bne nodecanm
@@ -1928,138 +1928,138 @@ nodecckm
 	eor #1
 	sta vt52mode
 	beq ?ok
-	lda	#0
-	sta	g0set
-	sta	chset
+	lda #0
+	sta g0set
+	sta chset
 	sta insertmode
-	lda	#1
-	sta	g1set
+	lda #1
+	sta g1set
 ?ok
-	jmp	fincmnd_domode	
+	jmp fincmnd_domode
 nodecanm
 	cmp #3	; set 80/132 columns - but we don't support 132 columns so just reset screen and scroll margins
 	bne nodeccolm
 	jsr fscrol_critical		; fine scroll critical section? wait
-	lda	#0
-	sta	tx
-	lda	#1
-	sta	ty
-	sta	scrltop
-	lda	#24
-	sta	scrlbot
-	jsr	clrscrn
+	lda #0
+	sta tx
+	lda #1
+	sta ty
+	sta scrltop
+	lda #24
+	sta scrlbot
+	jsr clrscrn
 	jsr reset_seol
-	jmp	fincmnd_domode
+	jmp fincmnd_domode
 nodeccolm
-	cmp	#5	; set inverse screen
-	bne	nodecscnm
-	lda	modedo
-	sta	invon
-	eor	bckgrnd
-	sta	bckgrnd
-	jsr	setcolors
-	lda	bckgrnd
-	eor	invon
-	sta	bckgrnd
-	jmp	fincmnd_domode
+	cmp #5	; set inverse screen
+	bne nodecscnm
+	lda modedo
+	sta invon
+	eor bckgrnd
+	sta bckgrnd
+	jsr setcolors
+	lda bckgrnd
+	eor invon
+	sta bckgrnd
+	jmp fincmnd_domode
 nodecscnm
 	cmp #6	; Set origin mode
 	bne nodecom
-	lda	modedo
+	lda modedo
 	sta origin_mode
-	lda	#0
-	sta	tx
-	lda	#1
+	lda #0
+	sta tx
+	lda #1
 	ldx origin_mode
 	beq ?no_org
 	lda scrltop
 ?no_org
-	sta	ty
+	sta ty
 	jsr reset_seol
-	jmp	fincmnd_domode
+	jmp fincmnd_domode
 nodecom
-	cmp	#7	; Set auto-wrap mode
-	bne	nodecawm
-	lda	modedo
-	sta	wrpmode
+	cmp #7	; Set auto-wrap mode
+	bne nodecawm
+	lda modedo
+	sta wrpmode
 nodecawm
-	jmp	fincmnd_domode
-	
+	jmp fincmnd_domode
+
 csicode_sgr	; m - set graphic rendition
-	ldy	#255
-	lda	numgot
-	bne	sgrlp
+	ldy #255
+	lda numgot
+	bne sgrlp
 	inc numgot	; no args? act as if there was 1 arg. (contains value 255)
 sgrlp
 	iny
-	cpy	numgot
+	cpy numgot
 	bne ?ok
-	jmp	fincmnd
+	jmp fincmnd
 ?ok
-	lda	numstk,y
-	beq	sgrmd0
-	cmp	#255
-	bne	sgrmdno0
+	lda numstk,y
+	beq sgrmd0
+	cmp #255
+	bne sgrmdno0
 sgrmd0
-	lda	#0
-	sta	undrln
-	sta	revvid
-	sta	invsbl
-	sta	boldface
-	jmp	sgrlp
+	lda #0
+	sta undrln
+	sta revvid
+	sta invsbl
+	sta boldface
+	jmp sgrlp
 sgrmdno0
-	cmp	#1
-	bne	?n1
-	lda	boldallw	; bold
+	cmp #1
+	bne ?n1
+	lda boldallw	; bold
 	beq ?nb
-	cmp	#3
-	bcs	?nb
+	cmp #3
+	bcs ?nb
 	lda boldface
 	ora #1
-	sta	boldface
+	sta boldface
 ?nb
-	jmp	sgrlp
+	jmp sgrlp
 ?n1
 	cmp #22
 	bne ?n22
-	lda	boldallw	; normal intensity (bold off)
+	lda boldallw	; normal intensity (bold off)
 	beq ?nb22
-	cmp	#3
-	bcs	?nb22
+	cmp #3
+	bcs ?nb22
 	lda boldface
 	and #$fe
-	sta	boldface
+	sta boldface
 ?nb22
-	jmp	sgrlp
+	jmp sgrlp
 ?n22
-	cmp	#4
-	bne	sgrmdno4	; underline
-	lda	#1
-	sta	undrln
-	jmp	sgrlp
-sgrmdno4
-	cmp	#5
-	bne	sgrmdno5	; blink
-	lda	boldallw
-	cmp	#3
-	bne	?nl
+	cmp #4
+	bne sgrmdno4	; underline
 	lda #1
-	sta	boldface
+	sta undrln
+	jmp sgrlp
+sgrmdno4
+	cmp #5
+	bne sgrmdno5	; blink
+	lda boldallw
+	cmp #3
+	bne ?nl
+	lda #1
+	sta boldface
 ?nl
-	jmp	sgrlp
+	jmp sgrlp
 sgrmdno5
-	cmp	#7
-	bne	sgrmdno7	; inverse
-	lda	#1
-	sta	revvid
-	jmp	sgrlp
+	cmp #7
+	bne sgrmdno7	; inverse
+	lda #1
+	sta revvid
+	jmp sgrlp
 sgrmdno7
-	cmp	#8
-	bne	sgrmdno8	; invisible
+	cmp #8
+	bne sgrmdno8	; invisible
 sgrsetinvsbl
-	lda	#1
-	sta	invsbl
-	jmp	sgrlp
+	lda #1
+	sta invsbl
+	jmp sgrlp
 sgrmdno8
 	cmp #39			; change 39 (default) to 37
 	bne ?no39
@@ -2069,7 +2069,7 @@ sgrmdno8
 	bcc ?nocolor
 	cmp #38
 	bcs ?nocolor
-	sec				; ANSI colors 31-37
+	sec 			; ANSI colors 31-37
 	sbc #30
 ?forecolor
 	cmp #7
@@ -2084,7 +2084,7 @@ sgrmdno8
 	txa
 	ora boldface
 	sta boldface
-	jmp	sgrlp
+	jmp sgrlp
 ?nocolor
 	cmp #49			; change 49 (default) to 47
 	bne ?no49
@@ -2102,8 +2102,8 @@ sgrmdno8
 	sec
 	sbc #40
 	jmp ?forecolor
-?nobackcolor	
-	jmp	sgrlp
+?nobackcolor
+	jmp sgrlp
 
 csicode_il				; L - insert lines at cursor
 	lda #0
@@ -2127,8 +2127,8 @@ csicode_dl				; M - delete lines at cursor
 	jsr fscrol_critical
 	lda scrltop
 	pha
-	lda	ty
-	sta	scrltop
+	lda ty
+	sta scrltop
 	; code splits here
 	lda numstk+1
 	beq ?lp_il
@@ -2166,13 +2166,13 @@ csicode_dch				; P - delete characters at cursor
 	jmp fincmnd
 
 csicode_cnl				; E - move cursor to left margin and down
-	lda	#0
-	sta	tx
+	lda #0
+	sta tx
 	jmp csicode_cud
 
 csicode_cpl				; F - move cursor to left margin and up
-	lda	#0
-	sta	tx
+	lda #0
+	sta tx
 	jmp csicode_cuu
 
 csicode_su				; S - scroll down by n lines
@@ -2181,20 +2181,20 @@ csicode_su				; S - scroll down by n lines
 ?lp
 	txa
 	pha
-	jsr	scrldown
+	jsr scrldown
 	pla
 	tax
 	dex
 	bne ?lp
 	jmp fincmnd
-	
+
 csicode_sd				; T - scroll up by n lines
 	CHECK_PARAMS 0,1,24
 	ldx numstk
 ?lp
 	txa
 	pha
-	jsr	scrlup
+	jsr scrlup
 	pla
 	tax
 	dex
@@ -2207,7 +2207,7 @@ csicode_ech				; X - erases characters from cursor position
 	sta y
 	tay
 	dey
-	ldx	lnsizdat,y	; check line size
+	ldx lnsizdat,y	; check line size
 	lda szlen,x
 	sta ?ech_maxcols+1
 	lda tx
@@ -2228,17 +2228,17 @@ csicode_ech				; X - erases characters from cursor position
 
 csicode_cbt				; Z - move backwards n tab stops
 	CHECK_PARAMS 0,1,80
-	ldx	tx
+	ldx tx
 	beq ?done
 ?lp
 	dex
 	beq ?done
-	lda	tabs,x
+	lda tabs,x
 	beq ?lp
 	dec numstk
 	bne ?lp
 ?done
-	stx	tx
+	stx tx
 	jmp fincmnd_reset_seol
 
 ; Handle private escape code - Esc [ .. / t
@@ -2270,8 +2270,8 @@ icet_privcode_vdelay	; 1 - vdelay
 	lda numstk+1
 ?lp
 	pha
-	jsr	vdelayr
-	jsr	buffdo
+	jsr vdelayr
+	jsr buffdo
 	pla
 	sec
 	sbc #1
@@ -2279,15 +2279,15 @@ icet_privcode_vdelay	; 1 - vdelay
 	jmp fincmnd
 
 fincmnd_reset_seol
-	jsr	reset_seol
+	jsr reset_seol
 fincmnd
-	ldy	#<regmode
-	ldx	#>regmode
+	ldy #<regmode
+	ldx #>regmode
 
 ; set next mode for terminal. receives character handler for next byte in X/Y.
 setnextmode
-	sty	trmode+1
-	stx	trmode+2
+	sty trmode+1
+	stx trmode+2
 	rts
 
 reset_seol
@@ -2311,12 +2311,12 @@ handle_insert_delete_char
 	sta ?idc_action
 	stx ?idc_num
 
-	lda	ty
-	sta	y
-	jsr	calctxln
-	ldx	ty
+	lda ty
+	sta y
+	jsr calctxln
+	ldx ty
 	dex
-	lda	lnsizdat,x	; wide line?
+	lda lnsizdat,x	; wide line?
 	beq ?z
 	lda #1			; we need a boolean value here
 ?z
@@ -2351,9 +2351,9 @@ handle_insert_delete_char
 	cmp #32
 	beq ?done
 	stx ?idc_templine_maxvalid
-	
+
 	; step 2: clear the line from cursor position forward.
-	jsr	ersfmcurs
+	jsr ersfmcurs
 
 	; step 3: are we done?
 	lda ?idc_maxcols
@@ -2362,21 +2362,21 @@ handle_insert_delete_char
 	cmp ?idc_num
 	bcc ?done
 	beq ?done
-	
+
 	; step 4: redraw text at new position.
-	lda	invsbl			; before redrawing anything, turn off all attributes
+	lda invsbl			; before redrawing anything, turn off all attributes
 	pha
-	lda	boldface
+	lda boldface
 	pha
-	lda	revvid
+	lda revvid
 	pha
-	lda	undrln
+	lda undrln
 	pha
-	lda	#0
-	sta	invsbl
-	sta	revvid
-	sta	undrln
-	sta	boldface
+	lda #0
+	sta invsbl
+	sta revvid
+	sta undrln
+	sta boldface
 
 	ldy ?idc_num
 	lda tx
@@ -2387,36 +2387,36 @@ handle_insert_delete_char
 	ldy #0
 ?noins
 	sta x
-	
+
 ?lp						; redraw moved characters
-	lda	?idc_templine,y
-	cmp	#32
-	beq	?s				; skip spaces
-	sta	prchar
+	lda ?idc_templine,y
+	cmp #32
+	beq ?s				; skip spaces
+	sta prchar
 	tya
 	pha
-	jsr	printerm
+	jsr printerm
 	pla
 	tay
 ?s
 	iny
 	cpy ?idc_templine_maxvalid
 	beq ?lp_done
-	inc	x
-	lda	x
+	inc x
+	lda x
 	tax
-	cmp	?idc_maxcols
-	bne	?lp
+	cmp ?idc_maxcols
+	bne ?lp
 ?lp_done
 
-	pla					; restore attributes
-	sta	undrln
+	pla 				; restore attributes
+	sta undrln
 	pla
-	sta	revvid
+	sta revvid
 	pla
-	sta	boldface
+	sta boldface
 	pla
-	sta	invsbl
+	sta invsbl
 
 ?done
 	rts
@@ -2424,20 +2424,20 @@ handle_insert_delete_char
 ?modcmd
 	nop
 	iny
-	
+
 ; erase text from cursor (inclusive) to end of the line
 ersfmcurs
 	; erase in text mirror first
-	lda	ty
-	sta	y
-	jsr	calctxln
+	lda ty
+	sta y
+	jsr calctxln
 	ldy tx
 	sty x
-	ldx	ty
+	ldx ty
 	dex
-	lda	lnsizdat,x	; wide line?
+	lda lnsizdat,x	; wide line?
 	beq ?ok
-	tya			; yes, multiply X position by 2, taking care not to go beyond edge
+	tya 		; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
 	tay
 	sty x		; for bold clear (later)
@@ -2448,10 +2448,10 @@ ersfmcurs
 ?ok
 	lda #32
 txerfm
-	sta	(ersl),y
+	sta (ersl),y
 	iny
-	cpy	#80
-	bne	txerfm
+	cpy #80
+	bne txerfm
 
 	; erase bold info
 	lda boldallw
@@ -2470,76 +2470,76 @@ txerfm
 ?nobold
 
 	; erase text on screen
-	lda	ty
+	lda ty
 	tay
-	lda	tx
-	sta	x
+	lda tx
+	sta x
 	dey
-	ldx	lnsizdat,y	; check line width
+	ldx lnsizdat,y	; check line width
 	stx temp		; remember for later
-	bne	erfmbt		; wide line? skip check for odd character.
-	and	#1			; narrow line: is X position odd?
-	beq	erfmbt
-	lda	#32			; if so, we need to print a space to erase this one character
-	sta	prchar
-	jsr	print
-	inc	x
-	lda	x
-	cmp	#80			; we're done if X was 79 (end of the line)
-	bne	erfmbt
+	bne erfmbt		; wide line? skip check for odd character.
+	and #1			; narrow line: is X position odd?
+	beq erfmbt
+	lda #32			; if so, we need to print a space to erase this one character
+	sta prchar
+	jsr print
+	inc x
+	lda x
+	cmp #80			; we're done if X was 79 (end of the line)
+	bne erfmbt
 	rts
 erfmbt
 	lda ty			; mass erase by blanking whole bytes of screen data
-	asl	a
+	asl a
 	tax
-	lda	linadr,x	; get data address for this line
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	lda	x
+	lda linadr,x	; get data address for this line
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	lda x
 	ldx temp		; was this a wide line?
 	bne ?ok1
-	lsr	a			; narrow line: divide X by 2 to get byte offset
+	lsr a			; narrow line: divide X by 2 to get byte offset
 ?ok1
 	cmp #40			; are we for whatever reason beyond the edge of the screen?
 	bcc ?ok2
 	lda #39			; force to right edge
 ?ok2
-	sta	temp		; temp will now store byte offset of area to start erasing from
+	sta temp		; temp will now store byte offset of area to start erasing from
 	tay
-	ldx	#7			; bitmap line counter (there are 8 lines to partially clear)
-	lda	#255
+	ldx #7			; bitmap line counter (there are 8 lines to partially clear)
+	lda #255
 erfmbtlp
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	cpy	#40
-	bne	erfmbtlp
-	lda	cntrl
+	cpy #40
+	bne erfmbtlp
+	lda cntrl
 	clc
-	adc	#40
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
-	lda	#255
-	ldy	temp
+	adc #40
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
+	lda #255
+	ldy temp
 	dex
-	bpl	erfmbtlp
+	bpl erfmbtlp
 	rts
 
 ; erase text from start of line to cursor (inclusive)
 erstocurs
 	; erase in text mirror first
-	lda	ty
-	sta	y
-	jsr	calctxln
+	lda ty
+	sta y
+	jsr calctxln
 	ldy tx
 	sty x
-	ldx	ty
+	ldx ty
 	dex
-	lda	lnsizdat,x	; wide line?
+	lda lnsizdat,x	; wide line?
 	beq ?ok
-	tya			; yes, multiply X position by 2, taking care not to go beyond edge
+	tya 		; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
 	tay
 	sty x		; for bold clear (later)
@@ -2550,14 +2550,14 @@ erstocurs
 ?ok
 	lda #32
 txerto
-	sta	(ersl),y
+	sta (ersl),y
 	dey
-	bpl	txerto
+	bpl txerto
 
 	; erase bold info
 	lda boldallw
 	beq ?nobold
-	lda	lnsizdat,x	; wide line?
+	lda lnsizdat,x	; wide line?
 	bne ?boldlp		; if so skip this check
 	lda x			; do not start from even character as this may unbold character to its right; skip it.
 	and #1
@@ -2571,84 +2571,84 @@ txerto
 ?nobold
 
 	; erase text on screen
-	lda	ty
+	lda ty
 	tay
-	lda	tx
-	sta	x
+	lda tx
+	sta x
 	dey
-	ldx	lnsizdat,y	; check line width
+	ldx lnsizdat,y	; check line width
 	stx temp		; remember for later
-	bne	ertobt		; wide line? skip check for even character.
-	and	#1			; narrow line: is X position even?
-	bne	ertobt
-	lda	#32			; if so, we need to print a space to erase this one character
-	sta	prchar
-	jsr	print
-	dec	x
-	lda	x			; we're done if X was 0 (start of line)
-	bpl	ertobt
+	bne ertobt		; wide line? skip check for even character.
+	and #1			; narrow line: is X position even?
+	bne ertobt
+	lda #32			; if so, we need to print a space to erase this one character
+	sta prchar
+	jsr print
+	dec x
+	lda x			; we're done if X was 0 (start of line)
+	bpl ertobt
 	rts
 ertobt
 	lda ty			; mass erase by blanking whole bytes of screen data
-	asl	a
+	asl a
 	tax
-	lda	linadr,x	; get data address for this line
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	lda	x
+	lda linadr,x	; get data address for this line
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	lda x
 	ldx temp		; was this a wide line?
 	bne ?ok1
-	lsr	a			; narrow line: divide X by 2 to get byte offset
+	lsr a			; narrow line: divide X by 2 to get byte offset
 ?ok1
 	cmp #40			; are we for whatever reason beyond the edge of the screen?
 	bcc ?ok2
 	lda #39			; force to right edge
 ?ok2
-	sta	temp		; temp will now store byte offset of last byte to erase per bitmap line
+	sta temp		; temp will now store byte offset of last byte to erase per bitmap line
 	tay
-	ldx	#7			; bitmap line counter (there are 8 lines to partially clear)
-	lda	#255
+	ldx #7			; bitmap line counter (there are 8 lines to partially clear)
+	lda #255
 ertobtlp
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	bpl	ertobtlp
-	lda	cntrl
+	bpl ertobtlp
+	lda cntrl
 	clc
-	adc	#40
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
-	lda	#255
-	ldy	temp
+	adc #40
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
+	lda #255
+	ldy temp
 	dex
-	bpl	ertobtlp
+	bpl ertobtlp
 	rts
 
 ; move cursor down 1 line, scroll down if margin is reached.
 cmovedwn
-	lda	ty
-	cmp	scrlbot
-	bne	?ns
-	jmp	scrldown
+	lda ty
+	cmp scrlbot
+	bne ?ns
+	jmp scrldown
 ?ns
-	cmp	#24
-	beq	?nm
-	inc	ty
+	cmp #24
+	beq ?nm
+	inc ty
 ?nm
 	rts
 
 ; same for up
 cmoveup
-	lda	ty
-	cmp	scrltop
-	bne	?ns
-	jmp	scrlup
+	lda ty
+	cmp scrltop
+	bne ?ns
+	jmp scrlup
 ?ns
-	cmp	#1
-	beq	?nm
-	dec	ty
+	cmp #1
+	beq ?nm
+	dec ty
 ?nm
 	rts
 
@@ -2666,198 +2666,198 @@ printerm
 ; 2 - x2 width, double height, upper half
 ; 3 - x2 width, double height, lower half
 
-	lda	y
+	lda y
 	tay
-	asl	a
+	asl a
 	tax
-	lda	txlinadr-2,x
-	sta	ersl
-	lda	txlinadr-1,x
-	sta	ersl+1
-	lda	linadr,x
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	ldx	prchar
-	lda	invsbl
-	beq	?noinv		; 'invisible' mode: change to space
-	ldx	#32
+	lda txlinadr-2,x
+	sta ersl
+	lda txlinadr-1,x
+	sta ersl+1
+	lda linadr,x
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	ldx prchar
+	lda invsbl
+	beq ?noinv		; 'invisible' mode: change to space
+	ldx #32
 ?noinv
 	tya
-	beq	?notxprn_jmp	; if y=0 no need to handle text mirror
-	lda	lnsizdat-1,y
-	beq	ptxreg
+	beq ?notxprn_jmp	; if y=0 no need to handle text mirror
+	lda lnsizdat-1,y
+	beq ptxreg
 
 ; Text mirror - double-size text
 
-	lda	x
-	cmp	#40
-	bcc	?xok
-	lda	#39
+	lda x
+	cmp #40
+	bcc ?xok
+	lda #39
 ?xok
-	asl	a
+	asl a
 	tay
 	txa
-	and	#127		; double width does not support chars >128 (PC set)!
+	and #127		; double width does not support chars >128 (PC set)!
 	tax
-	sta	(ersl),y
+	sta (ersl),y
 	iny
-	lda	#32
-	sta	(ersl),y
-	lda	revvid
-	beq	?no_inverse
-	lda	eitbit
-	bne	?no_inverse	; reverse video and in 7-bit mode? use bit 7 to indicate inverse
-	lda	#128+32
-	sta	(ersl),y	; also, store an inverse space in the adjacent location
+	lda #32
+	sta (ersl),y
+	lda revvid
+	beq ?no_inverse
+	lda eitbit
+	bne ?no_inverse	; reverse video and in 7-bit mode? use bit 7 to indicate inverse
+	lda #128+32
+	sta (ersl),y	; also, store an inverse space in the adjacent location
 	dey
 	txa
-	ora	#$80		
-	sta	(ersl),y
+	ora #$80
+	sta (ersl),y
 ?no_inverse
-	
+
 	; after storing in text mirror, perform a few translations needed for double-width
-	cpx	#96				; grave accent
-	bne	?no96
-	ldx	#30
+	cpx #96				; grave accent
+	bne ?no96
+	ldx #30
 ?notxprn_jmp
-	jmp	notxprn
+	jmp notxprn
 ?no96
-	cpx	#123			; open curly brace
-	bne	?no123
-	ldx	#28
-	bne	notxprn
+	cpx #123			; open curly brace
+	bne ?no123
+	ldx #28
+	bne notxprn
 ?no123
-	cpx	#125			; close curly brace
-	bne	?no125
-	ldx	#29
-	bne	notxprn
+	cpx #125			; close curly brace
+	bne ?no125
+	ldx #29
+	bne notxprn
 ?no125
-	cpx	#126			; tilde
-	bne	notxprn
-	ldx	#31
+	cpx #126			; tilde
+	bne notxprn
+	ldx #31
 	bne notxprn			; always branches
 
 ; Text mirror - normal-size text
 ; bold/unbold is also handled here (todo: why is this different from dbl size logic?)
 ptxreg
-	ldy	x
-	lda	(ersl),y
-	sta	outdat	; remember character we're overwriting
-	cpx	#32
-	bne	?db		; Space character: no bold/unbold as this may pointlessly ruin an adjacent character.
-	lda	undrln	; but if Underlined/Inverse/Bold change to 127 so we know it's there if it needs to be overwritten later
-	ora	revvid	; (127 is also a blank character)
-	beq	?snb
-	ldx	#127
+	ldy x
+	lda (ersl),y
+	sta outdat	; remember character we're overwriting
+	cpx #32
+	bne ?db		; Space character: no bold/unbold as this may pointlessly ruin an adjacent character.
+	lda undrln	; but if Underlined/Inverse/Bold change to 127 so we know it's there if it needs to be overwritten later
+	ora revvid	; (127 is also a blank character)
+	beq ?snb
+	ldx #127
 ?db
-	lda	boldface
-	beq	?ndb
+	lda boldface
+	beq ?ndb
 	txa
 	pha
-	jsr	dobold
-	ldy	x
+	jsr dobold
+	ldy x
 	pla
-	jmp	?sb
+	jmp ?sb
 ?snb
 	txa
-	jmp	?sb
+	jmp ?sb
 ?ndb
 	txa
-	ldx	isbold
-	beq	?sb
+	ldx isbold
+	beq ?sb
 	pha
-	jsr	unbold
-	ldy	x
+	jsr unbold
+	ldy x
 	pla
 ?sb
-	sta	(ersl),y
+	sta (ersl),y
 	tax
-	lda	revvid
-	beq	notxprn
-	lda	eitbit
-	bne	notxprn
+	lda revvid
+	beq notxprn
+	lda eitbit
+	bne notxprn
 	txa
-	ora	#128
-	sta	(ersl),y
+	ora #128
+	sta (ersl),y
 
 ; done with text mirror
 
 notxprn
-	lda	rush
-	beq	ignrsh
-	lda	y
-	beq	ignrsh
+	lda rush
+	beq ignrsh
+	lda y
+	beq ignrsh
 	rts
 ignrsh
-	ldy	#0
+	ldy #0
 	txa
-	bpl	nopcchar
+	bpl nopcchar
 	; character >= 128 - this is part of the PC character set.
-	sty	prchar+1
+	sty prchar+1
 	; multiply by 8 to find location in character set
-	asl	a
-	asl	a
-	rol	prchar+1
-	asl	a
-	rol	prchar+1
-	sta	prchar
-	sta	plc2+1
-	lda	prchar+1
-	adc	#>pcset
-	sta	prchar+1
-	sta	plc2+2
-	jmp	prt1
+	asl a
+	asl a
+	rol prchar+1
+	asl a
+	rol prchar+1
+	sta prchar
+	sta plc2+1
+	lda prchar+1
+	adc #>pcset
+	sta prchar+1
+	sta plc2+2
+	jmp prt1
 nopcchar
 	; for characters < 128 we have a lookup table
-	lda	chrtbll,x
-	sta	prchar
-	sta	plc2+1
-	lda	chrtblh,x
-	sta	prchar+1
-	sta	plc2+2
+	lda chrtbll,x
+	sta prchar
+	sta plc2+1
+	lda chrtblh,x
+	sta prchar+1
+	sta plc2+2
 prt1
 	; check line size. for double width lines jump to psiznot0
-	ldy	y
-	lda	lnsizdat-1,y
-	sta	temp
+	ldy y
+	lda lnsizdat-1,y
+	sta temp
 	beq ?sz0
 	jmp psiznot0
 
 ?sz0
 	; A = 0 at this point
-	ora	undrln
-	ora	revvid
-	bne	ps0ok
-	lda	outdat	; are we overwriting a space?
-	cmp	#32
-	bne	ps0ok
+	ora undrln
+	ora revvid
+	bne ps0ok
+	lda outdat	; are we overwriting a space?
+	cmp #32
+	bne ps0ok
 
 ; Special fast routine if no special mode on and no character to overwrite
 
-	lda	x		; divide X by 2, remainder in reg.x
-	and	#1
+	lda x		; divide X by 2, remainder in reg.x
+	and #1
 	tax
-	lda	x
-	lsr	a
+	lda x
+	lsr a
 	clc
-	
+
 	; add 40 bytes so offsets will be <256 (for first 7 iterations)
 	adc #40 ; this will never cause a carry
-	adc	cntrl
+	adc cntrl
 	sta cntrl
 	bcc ?ok
 	inc cntrh
 ?ok
-	lda	postbl,x
-	sta	plc1+1
+	lda postbl,x
+	sta plc1+1
 	ldx #7
 lp
 	ldy yindextab,x ; in vt1.asm
-plc2	lda	$ffff,x	; (prchar),y
-plc1	and	#0 		; postbl,x
-	eor	(cntrl),y	; changing this to self-modified code is not worth it
-	sta	(cntrl),y
+plc2	lda undefined_addr,x	; (prchar),y
+plc1	and #0 		; postbl,x
+	eor (cntrl),y	; changing this to self-modified code is not worth it
+	sta (cntrl),y
 	dex
 	bmi ?done
 	bne lp
@@ -2869,58 +2869,58 @@ plc1	and	#0 		; postbl,x
 ; regular 80-column print routine supporting all rendition modes
 
 ps0ok
-	ldy	revvid	; inverse?
-	dey			; 1 becomes 0, 0 becomes 255
-	sty	?ep+1
-;	bne	?i
-;	lda	#0
-;	sta	?ep+1
+	ldy revvid	; inverse?
+	dey 		; 1 becomes 0, 0 becomes 255
+	sty ?ep+1
+;	bne ?i
+;	lda #0
+;	sta ?ep+1
 ;?i
-	ldy	#7
+	ldy #7
 ?b
-	lda	(prchar),y
-?ep	eor	#0
-	sta	chartemp,y
+	lda (prchar),y
+?ep	eor #0
+	sta chartemp,y
 	dey
-	bpl	?b
+	bpl ?b
 
-	lda	undrln	; add underline (or reverse underline)
-	beq	?nu
-	lda	revvid
-	beq	?ku
-	lda	#255
+	lda undrln	; add underline (or reverse underline)
+	beq ?nu
+	lda revvid
+	beq ?ku
+	lda #255
 ?ku
-	sta	chartemp+7
+	sta chartemp+7
 ?nu
-	lda	x
-	and	#1
+	lda x
+	and #1
 	tax
 	lda x	; loading again is quicker than anything else
-	lsr	a
+	lsr a
 	clc
 
 	; add 40 bytes so offsets will be <256 (for first 7 iterations)
 	adc #40	 ; this will never cause a carry
-	adc	cntrl
+	adc cntrl
 	sta cntrl
 	bcc ?ok
 	inc cntrh
 ?ok
 
-	lda	postbl,x
-	sta	?p2+1
+	lda postbl,x
+	sta ?p2+1
 	eor #$ff
-	sta	?p1+1
-	ldx	#7
+	sta ?p1+1
+	ldx #7
 ?lp						; Main character-draw loop
 	ldy yindextab,x
-	lda	chartemp,x
-?p2	and	#0
-	sta	prchar 			; now used as a temp variable
-	lda	(cntrl),y
-?p1	and	#0
-	ora	prchar
-	sta	(cntrl),y
+	lda chartemp,x
+?p2	and #0
+	sta prchar 			; now used as a temp variable
+	lda (cntrl),y
+?p1	and #0
+	ora prchar
+	sta (cntrl),y
 	dex
 	bmi ?done
 	bne ?lp
@@ -2944,108 +2944,108 @@ psiznot0
 ?nospecial
 
 	; update character set pointers to OS font if useset flag is off.
-	lda	useset
+	lda useset
 	bne ?done
-	lda	prchar+1
+	lda prchar+1
 	clc
-	adc	#>($e000-charset)
-	sta	prchar+1
+	adc #>(os_charset-charset)
+	sta prchar+1
 ?done
 
 	; check size (regular height/top-half/bottom-half)
-	lda	#0
+	lda #0
 	tax
 	tay
 	lda temp
-	cmp	#3
-	beq	psiz3
-	cmp	#2
-	beq	psiz2
+	cmp #3
+	beq psiz3
+	cmp #2
+	beq psiz2
 
 	; regular height: copy whole character
 psiz1
-	lda	(prchar),y
-	jsr	dblchar
-	sta	chartemp,y
+	lda (prchar),y
+	jsr dblchar
+	sta chartemp,y
 	iny
-	cpy	#8
-	bne	psiz1
-	beq	psizoki		; always branches
+	cpy #8
+	bne psiz1
+	beq psizoki		; always branches
 
 	; half-height: copy half character, duplicating lines
 psiz3
-	ldy	#4	; bottom half: start from middle
+	ldy #4	; bottom half: start from middle
 psiz2
-	lda	(prchar),y
-	jsr	dblchar
-	sta	chartemp,x
+	lda (prchar),y
+	jsr dblchar
+	sta chartemp,x
 	inx
-	sta	chartemp,x
+	sta chartemp,x
 	inx
 	iny
-	cpx	#8
-	bne	psiz2
+	cpx #8
+	bne psiz2
 
 psizoki
-	lda	boldface
-	beq	?ndb
-	jsr	doboldbig
-	jmp	?nb
+	lda boldface
+	beq ?ndb
+	jsr doboldbig
+	jmp ?nb
 ?ndb
-	lda	isbold
-	beq	?nb
-	jsr	unboldbig
+	lda isbold
+	beq ?nb
+	jsr unboldbig
 ?nb
-	lda	revvid
-	bne	?ni
-	ldy	#7
+	lda revvid
+	bne ?ni
+	ldy #7
 ?i
-	lda	chartemp,y
-	eor	#255
-	sta	chartemp,y
+	lda chartemp,y
+	eor #255
+	sta chartemp,y
 	dey
-	bpl	?i
+	bpl ?i
 ?ni
 
-	lda	undrln	; add underline (or reverse underline)
-	beq	?nu
+	lda undrln	; add underline (or reverse underline)
+	beq ?nu
 	lda temp	; do not underline if size=2 (upper half of double height)
 	cmp #2
 	beq ?nu
-	lda	revvid
-	beq	?ku
-	lda	#255
+	lda revvid
+	beq ?ku
+	lda #255
 ?ku
-	sta	chartemp+7
+	sta chartemp+7
 ?nu
 
 	; draw the character.
-	lda	x
-	cmp	#40
-	bcc	pxok
-	lda	#39
+	lda x
+	cmp #40
+	bcc pxok
+	lda #39
 pxok
 	clc
-	adc	cntrl
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
-	ldy	#0
+	adc cntrl
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
+	ldy #0
 prbiglp
-	lda	chartemp,y
-	sta	(cntrl),y
-	lda	cntrl
+	lda chartemp,y
+	sta (cntrl),y
+	lda cntrl
 	clc
-	adc	#39
-	sta	cntrl
-	lda	cntrh
-	adc	#0
-	sta	cntrh
+	adc #39
+	sta cntrl
+	lda cntrh
+	adc #0
+	sta cntrh
 	iny
-	cpy	#8
-	bne	prbiglp
-	
+	cpy #8
+	bne prbiglp
+
 	; done with double-width character. restore a couple of flags.
 	lda #0
 	sta useset
@@ -3055,22 +3055,22 @@ prbiglp
 ; doubles the size of a 4-pixel character to 8 pixels
 ; (may not use x/y regs)
 dblchar
-	sta	dbltmp1
-	sta	dbltmp2
-	lda	dblgrph
-	beq	?done
-	lda	#0
-	sta	dbltmp2
+	sta dbltmp1
+	sta dbltmp2
+	lda dblgrph
+	beq ?done
+	lda #0
+	sta dbltmp2
 	lda #$8
 	sta fltmp
 ?lp
-	lda	dbltmp1
-	and	fltmp
+	lda dbltmp1
+	and fltmp
 	beq ?z
 	sec
-	rol	dbltmp2
+	rol dbltmp2
 	sec
-	rol	dbltmp2
+	rol dbltmp2
 	bcc ?endlp	; always branches
 ?z
 	clc
@@ -3081,21 +3081,21 @@ dblchar
 	lsr fltmp
 	bne ?lp
 ?done
-	lda	dbltmp2
+	lda dbltmp2
 	rts
 
 ; sanity check to make sure lnsizdat table is not corrupt
 chklnsiz
-	ldx	#23
+	ldx #23
 chklnslp
-	lda	lnsizdat,x
-	cmp	#4
-	bcc	?ok
-	lda	#0
-	sta	lnsizdat,x
+	lda lnsizdat,x
+	cmp #4
+	bcc ?ok
+	lda #0
+	sta lnsizdat,x
 ?ok
 	dex
-	bpl	chklnslp
+	bpl chklnslp
 	rts
 
 ; Boldface stuff in vt22.asm
@@ -3111,21 +3111,21 @@ chklnslp
 ; First, some boldface stuff..
 
 doboldbig		; Highlight a wide character: skip right shift because we have 40 text columns
-	lda	x
-	bpl	boldbok	; this will always branch
+	lda x
+	bpl boldbok	; this will always branch
 
 dobold			; Highlight a character
-	lda	x
-	lsr	a		; We have 80 text columns but only 40 boldface columns, so divide by 2
+	lda x
+	lsr a		; We have 80 text columns but only 40 boldface columns, so divide by 2
 boldbok
 	tax
-	and	#7		; this chooses the position within one PM
+	and #7		; this chooses the position within one PM
 	tay
-	lda	boldpmus,x	; convert column to PM number
+	lda boldpmus,x	; convert column to PM number
 	tax
-	lda	#1
-	sta	boldypm,x	; flag that this PM now contains lit pixels
-	
+	lda #1
+	sta boldypm,x	; flag that this PM now contains lit pixels
+
 	; update PM color table, if in color mode
 	lda boldallw
 	cmp #1
@@ -3143,7 +3143,7 @@ boldbok
 	dey
 	bmi ?colordone
 ?colorval	lda #$ff
-?coloraddr	sta $ffff,y
+?coloraddr	sta undefined_addr,y
 	cpy #0
 	bne ?colordone
 	jsr update_colors_line0
@@ -3152,98 +3152,98 @@ boldbok
 	tay
 ?nocolor
 
-	lda	isbold	; enable PM overlay if it's off
-	bne	?ok
+	lda isbold	; enable PM overlay if it's off
+	bne ?ok
 	txa
 	pha
 	tya
 	pha
-	jsr	boldon
+	jsr boldon
 	pla
 	tay
 	pla
 	tax
 ?ok
-	lda	boldtbpl,x	; get address of start of PM data
-	sta	?p+1		; set self-modified code (below)
-	sta	?p2+1
-	lda	boldtbph,x
-	sta	?p+2
-	sta	?p2+2
-	lda	boldwr,y	; get bitmask of bit to enable in PM
-	sta	?p1+1
-	lda	boldscb,x	; Do we have any scroll data (marking highest and lowest known bold area for this PM)?
-	cmp	#255
-	bne	?ns
-	lda	y			; No, create data
-	sta	boldsct,x
-	sta	boldscb,x
-	jmp	?sk
+	lda boldtbpl,x	; get address of start of PM data
+	sta ?p+1		; set self-modified code (below)
+	sta ?p2+1
+	lda boldtbph,x
+	sta ?p+2
+	sta ?p2+2
+	lda boldwr,y	; get bitmask of bit to enable in PM
+	sta ?p1+1
+	lda boldscb,x	; Do we have any scroll data (marking highest and lowest known bold area for this PM)?
+	cmp #255
+	bne ?ns
+	lda y			; No, create data
+	sta boldsct,x
+	sta boldscb,x
+	jmp ?sk
 ?ns
-	lda	y	; Update existing scroll data
-	cmp	boldsct,x
-	bcs	?s4
-	sta	boldsct,x
+	lda y	; Update existing scroll data
+	cmp boldsct,x
+	bcs ?s4
+	sta boldsct,x
 ?s4
-	lda	y
-	cmp	boldscb,x
-	bcc	?sk
-	sta	boldscb,x
+	lda y
+	cmp boldscb,x
+	bcc ?sk
+	sta boldscb,x
 ?sk
-	ldx	y			; All updates done, draw bold block
-	lda	boldytb,x	; convert line number to vertical offset in PM
+	ldx y			; All updates done, draw bold block
+	lda boldytb,x	; convert line number to vertical offset in PM
 	tay
-?p	lda	$ffff,y
-?p1	ora	#0
-	ldx	#3			; there are 4 bytes in (half vertical resolution) PM to set
-?p2	sta	$ffff,y
+?p	lda undefined_addr,y
+?p1	ora #0
+	ldx #3			; there are 4 bytes in (half vertical resolution) PM to set
+?p2	sta undefined_addr,y
 	iny
 	dex
-	bpl	?p2
+	bpl ?p2
 	rts
 
 ; this code is similar to dobold above, except there is no updating of scroll data.
 ; this is because even after removing a bold character we can make no assumptions about whether there are
 ; any other bold characters nearby.
 unboldbig
-	lda	x
-	bpl	bolduok
+	lda x
+	bpl bolduok
 
 unbold			; Un-highlight this character
-	lda	x
-	lsr	a
+	lda x
+	lsr a
 bolduok
 	tax
-	and	#7
+	and #7
 	tay
-	lda	boldpmus,x
+	lda boldpmus,x
 	tax
-	lda	boldypm,x	; does this PM contain no lit pixels? in that case - quit.
-	beq	?q
-	lda	boldtbpl,x
-	sta	?p+1
-	sta	?p2+1
-	lda	boldtbph,x
-	sta	?p+2
-	sta	?p2+2
-	lda	boldwri,y
-	sta	?p1+1
-	ldx	y
-	lda	boldytb,x
+	lda boldypm,x	; does this PM contain no lit pixels? in that case - quit.
+	beq ?q
+	lda boldtbpl,x
+	sta ?p+1
+	sta ?p2+1
+	lda boldtbph,x
+	sta ?p+2
+	sta ?p2+2
+	lda boldwri,y
+	sta ?p1+1
+	ldx y
+	lda boldytb,x
 	tay
-	ldx	#3
-?p	lda	$ffff,y
-?p1	and	#0
-?p2	sta	$ffff,y
+	ldx #3
+?p	lda undefined_addr,y
+?p1	and #0
+?p2	sta undefined_addr,y
 	iny
 	dex
-	bpl	?p2
+	bpl ?p2
 ?q
 	rts
 
 ; End of "printerm" routine.
 
-; - End	of incoming-code processing
+; - End of incoming-code processing
 
 ; - Scrollers -
 
@@ -3251,240 +3251,240 @@ bolduok
 ; terminal screen. So, backscroll buffer is not updated, line size table is not changed, text mirror is not scrolled.
 
 scrldown
-	lda	scrltop	; Move scrolled-out line into screen-saver
-	cmp	#1
-	bne	noscrsv	; (but only if top of scroll region is top line)
-	lda	outnum
-	cmp	#255	; scroll shouldn't save anything
-	beq	noscrsv
-	lda	looklim
-	cmp	#76
-	beq	?ok
-	dec	looklim
+	lda scrltop	; Move scrolled-out line into screen-saver
+	cmp #1
+	bne noscrsv	; (but only if top of scroll region is top line)
+	lda outnum
+	cmp #255	; scroll shouldn't save anything
+	beq noscrsv
+	lda looklim
+	cmp #76
+	beq ?ok
+	dec looklim
 ?ok
-	lda	txlinadr
-	sta	ersl
-	lda	txlinadr+1
-	sta	ersl+1
-	ldy	#0
-	jsr	scrllnsv
+	lda txlinadr
+	sta ersl
+	lda txlinadr+1
+	sta ersl+1
+	ldy #0
+	jsr scrllnsv
 	jsr incscrl
 noscrsv
 	jsr fscrol_critical		; if fine-scrolling is in state '1', wait for it to change (next VBI)
-	lda	#0
-	sta	crsscrl
-	lda	outnum
-	cmp	#255
-	beq	nodolnsz
-	ldx	scrltop	; Scroll line-size table
-	cpx	scrlbot
-	beq	?skip
+	lda #0
+	sta crsscrl
+	lda outnum
+	cmp #255
+	beq nodolnsz
+	ldx scrltop	; Scroll line-size table
+	cpx scrlbot
+	beq ?skip
 ?lp
-	lda	lnsizdat,x	; note that scrltop and scrlbot are 1-24, whereas lnsizdat indices are 0-23.
-	sta	lnsizdat-1,x
+	lda lnsizdat,x	; note that scrltop and scrlbot are 1-24, whereas lnsizdat indices are 0-23.
+	sta lnsizdat-1,x
 	inx
-	cpx	scrlbot
-	bne	?lp
+	cpx scrlbot
+	bne ?lp
 ?skip
-	lda	#0
-	sta	lnsizdat-1,x
+	lda #0
+	sta lnsizdat-1,x
 nodolnsz
-	lda	scrlbot
+	lda scrlbot
 	tax
-	asl	scrlbot
-	cpx	scrltop
-	beq	scdnadbd
-	lda	scrltop	; Scroll address-table
-	asl	a
+	asl scrlbot
+	cpx scrltop
+	beq scdnadbd
+	lda scrltop	; Scroll address-table
+	asl a
 	tax
-	lda	linadr,x
-	sta	nextlnt
-	lda	linadr+1,x
-	sta	nextlnt+1
+	lda linadr,x
+	sta nextlnt
+	lda linadr+1,x
+	sta nextlnt+1
 scdnadlp
-	lda	linadr+2,x
-	sta	linadr,x
-	lda	linadr+3,x
-	sta	linadr+1,x
+	lda linadr+2,x
+	sta linadr,x
+	lda linadr+3,x
+	sta linadr+1,x
 	inx
 	inx
-	cpx	scrlbot
-	bne	scdnadlp
-	jmp	scdnadok
+	cpx scrlbot
+	bne scdnadlp
+	jmp scdnadok
 scdnadbd
-	ldx	scrlbot ;	If top=bot, no scroll occurs
-	lda	linadr,x
-	sta	nextlnt
-	lda	linadr+1,x
-	sta	nextlnt+1
+	ldx scrlbot ;	If top=bot, no scroll occurs
+	lda linadr,x
+	sta nextlnt
+	lda linadr+1,x
+	sta nextlnt+1
 scdnadok
-	lda	nextln
-	sta	linadr,x
-	lda	nextln+1
-	sta	linadr+1,x
-	lda	nextlnt
-	sta	nextln
-	lda	nextlnt+1
-	sta	nextln+1
-	lsr	scrlbot
+	lda nextln
+	sta linadr,x
+	lda nextln+1
+	sta linadr+1,x
+	lda nextlnt
+	sta nextln
+	lda nextlnt+1
+	sta nextln+1
+	lsr scrlbot
 
-	lda	outnum
-	cmp	#255
-	beq	nodotxsc
-	lda	scrlbot	; Scroll text mirror
+	lda outnum
+	cmp #255
+	beq nodotxsc
+	lda scrlbot	; Scroll text mirror
 	sec
-	sbc	scrltop
-	beq	dncltxln
+	sbc scrltop
+	beq dncltxln
 	tax
-	lda	scrltop
-	asl	a
+	lda scrltop
+	asl a
 	tay
 	dey
 	dey
-	lda	txlinadr,y
+	lda txlinadr,y
 	pha
-	lda	txlinadr+1,y
+	lda txlinadr+1,y
 	pha
 dntbtxlp
-	lda	txlinadr+2,y
-	sta	txlinadr,y
-	lda	txlinadr+3,y
-	sta	txlinadr+1,y
+	lda txlinadr+2,y
+	sta txlinadr,y
+	lda txlinadr+3,y
+	sta txlinadr+1,y
 	iny
 	iny
 	dex
-	bne	dntbtxlp
+	bne dntbtxlp
 	pla
-	sta	txlinadr+1,y
+	sta txlinadr+1,y
 	pla
-	sta	txlinadr,y
+	sta txlinadr,y
 dncltxln
-	lda	scrlbot
-	asl	a
+	lda scrlbot
+	asl a
 	tax
 	dex
 	dex
-	lda	txlinadr,x
-	sta	ersl
-	lda	txlinadr+1,x
-	sta	ersl+1
-	ldy	#79
-	lda	#32
+	lda txlinadr,x
+	sta ersl
+	lda txlinadr+1,x
+	sta ersl+1
+	ldy #79
+	lda #32
 dnerstxlp
-	sta	(ersl),y
+	sta (ersl),y
 	dey
-	bpl	dnerstxlp
+	bpl dnerstxlp
 
 nodotxsc
-	lda	rush		; rush mode on? we're done
-	bne	scdnrush
+	lda rush		; rush mode on? we're done
+	bne scdnrush
 
-	lda	finescrol	; Fine-scroll if on
-	beq	doscroldn
-	jsr	scvbwta		; wait for previous fine scroll to finish
-	inc	fscroldn	; initiate new fine scroll
+	lda finescrol	; Fine-scroll if on
+	beq doscroldn
+	jsr scvbwta		; wait for previous fine scroll to finish
+	inc fscroldn	; initiate new fine scroll
 scdnrush
 	rts
 
 doscroldn
-	lda	scrlbot
-	jsr	erslineraw_a	; blank the new line
-	lda	#1
-	sta	crsscrl
+	lda scrlbot
+	jsr erslineraw_a	; blank the new line
+	lda #1
+	sta crsscrl
 
-	lda	isbold		; bold disabled? we're done.
-	bne	?db
+	lda isbold		; bold disabled? we're done.
+	bne ?db
 	rts
 ?db
 
 ; Scroll boldface info DOWN
 
-	ldx	#4
+	ldx #4
 ?mlp
-	lda	boldypm,x	; Anything in this PM? (1 of 5)
-	bne	?db2
+	lda boldypm,x	; Anything in this PM? (1 of 5)
+	bne ?db2
 ?mlp_skip
 	dex
-	bpl	?mlp
+	bpl ?mlp
 	rts
 ?db2
-	lda	boldtbpl,x	; Get address of PM bitmap
-	sta	cntrl
+	lda boldtbpl,x	; Get address of PM bitmap
+	sta cntrl
 	clc
-	adc	#4
-	sta	prfrom		; Address + 4 also needed
-	lda	boldtbph,x
-	sta	cntrh
-	adc	#0
-	sta	prfrom+1
-	
+	adc #4
+	sta prfrom		; Address + 4 also needed
+	lda boldtbph,x
+	sta cntrh
+	adc #0
+	sta prfrom+1
+
 	ldy #1			; scrolling down.
 	jsr prep_boldface_scroll
 	beq ?mlp_skip	; nothing to do for this PM
 	cmp #255		; is this PM being emptied?
 	bne ?sb2		; No.
-	lda	#0			; Yes - mark this PM as empty.
-	sta	boldypm,x
-	lda	#255
-	sta	boldscb,x
+	lda #0			; Yes - mark this PM as empty.
+	sta boldypm,x
+	lda #255
+	sta boldscb,x
 	txa
 	pha
-	ldx	#4
-	lda	#0
+	ldx #4
+	lda #0
 ?sb4
-	ora	boldypm,x	; Are ALL PMs empty?
+	ora boldypm,x	; Are ALL PMs empty?
 	dex
-	bpl	?sb4
-	cmp	#0
-	bne	?sb5
+	bpl ?sb4
+	cmp #0
+	bne ?sb5
 	pla
-	jmp	boldclr		; Yep - switch 'em off and quit
+	jmp boldclr		; Yep - switch 'em off and quit
 ?sb5
 	pla
 	tax
 ?sb2
 	ldy prep_boldface_scroll_ret2_scroll_bot
-	lda	boldytb,y
-	sta	s764		; lower limit of this scroll operation
+	lda boldytb,y
+	sta s764		; lower limit of this scroll operation
 
 	ldy prep_boldface_scroll_ret1_scroll_top
-	lda	boldytb,y
+	lda boldytb,y
 	tay
 
 	cpy s764
 	beq ?end		; nothing to scroll (just one line so blank it)
-	
+
 ?lp
-	lda	(prfrom),y	; Scroll it!
-	cmp	(cntrl),y
-	beq	?lk			; no need to copy if data is the same..
-	sta	(cntrl),y
+	lda (prfrom),y	; Scroll it!
+	cmp (cntrl),y
+	beq ?lk			; no need to copy if data is the same..
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	cpy	s764
-	bcc	?lp
-	bcs	?end
+	cpy s764
+	bcc ?lp
+	bcs ?end
 ?lk
 	iny
 	iny
 	iny
 	iny
-	cpy	s764
-	bcc	?lp
+	cpy s764
+	bcc ?lp
 ?end
-	lda	#0
-	sta	(cntrl),y
+	lda #0
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 
 	; scroll color info
 	lda boldallw
@@ -3499,7 +3499,7 @@ doscroldn
 	sta prfrom+1
 	sbc #0
 	sta cntrh
-	
+
 	ldy prep_boldface_scroll_ret1_scroll_top
 	cpy prep_boldface_scroll_ret2_scroll_bot
 	beq ?cend
@@ -3513,196 +3513,196 @@ doscroldn
 	lda #0
 	sta (cntrl),y
 	jsr update_colors_line0
-?nocolor	
-	dex		; on to the next PM
-	bmi	?en
-	jmp	?mlp
+?nocolor
+	dex 	; on to the next PM
+	bmi ?en
+	jmp ?mlp
 ?en
 	rts
 
 scrlup			; SCROLL UP
-	ldx	scrlbot
-	cpx	scrltop
-	beq	?ns
+	ldx scrlbot
+	cpx scrltop
+	beq ?ns
 ?ls			; Scroll line-size table
-	lda	lnsizdat-2,x
-	sta	lnsizdat-1,x
+	lda lnsizdat-2,x
+	sta lnsizdat-1,x
 	dex
-	cpx	scrltop
-	bne	?ls
+	cpx scrltop
+	bne ?ls
 ?ns
-	lda	#0
-	sta	lnsizdat-1,x
+	lda #0
+	sta lnsizdat-1,x
 
 	jsr fscrol_critical		; if fine-scrolling is in state '1', wait for it to change (next VBI)
-	lda	#0
-	sta	crsscrl
-	lda	scrlbot ;	Scroll line-adr tbl
-	cmp	scrltop
-	beq	?ab
-	asl	scrltop
-	lda	scrlbot
-	asl	a
+	lda #0
+	sta crsscrl
+	lda scrlbot ;	Scroll line-adr tbl
+	cmp scrltop
+	beq ?ab
+	asl scrltop
+	lda scrlbot
+	asl a
 	tax
-	lda	linadr,x
-	sta	nextlnt
-	lda	linadr+1,x
-	sta	nextlnt+1
+	lda linadr,x
+	sta nextlnt
+	lda linadr+1,x
+	sta nextlnt+1
 ?al
-	lda	linadr-1,x
-	sta	linadr+1,x
-	lda	linadr-2,x
-	sta	linadr,x
+	lda linadr-1,x
+	sta linadr+1,x
+	lda linadr-2,x
+	sta linadr,x
 	dex
 	dex
-	cpx	scrltop
-	bne	?al
-	beq	?ak
+	cpx scrltop
+	bne ?al
+	beq ?ak
 ?ab
-	lda	scrltop
-	asl	a
-	sta	scrltop
+	lda scrltop
+	asl a
+	sta scrltop
 	tax
-	lda	linadr,x
-	sta	nextlnt
-	lda	linadr+1,x
-	sta	nextlnt+1
+	lda linadr,x
+	sta nextlnt
+	lda linadr+1,x
+	sta nextlnt+1
 ?ak
-	lda	nextln
-	sta	linadr,x
-	lda	nextln+1
-	sta	linadr+1,x
-	lda	nextlnt
-	sta	nextln
-	lda	nextlnt+1
-	sta	nextln+1
+	lda nextln
+	sta linadr,x
+	lda nextln+1
+	sta linadr+1,x
+	lda nextlnt
+	sta nextln
+	lda nextlnt+1
+	sta nextln+1
 
-	lda	scrltop
-	lsr	a
-	sta	scrltop ;	Scroll text mirror
-	cmp	scrlbot
-	beq	?et
+	lda scrltop
+	lsr a
+	sta scrltop ;	Scroll text mirror
+	cmp scrlbot
+	beq ?et
 	sec
-	lda	scrlbot
+	lda scrlbot
 	pha
-	sbc	scrltop
+	sbc scrltop
 	tay
 	pla
-	asl	a
+	asl a
 	tax
 	dex
 	dex
-	lda	txlinadr,x
-	sta	ersl
-	lda	txlinadr+1,x
-	sta	ersl+1
+	lda txlinadr,x
+	sta ersl
+	lda txlinadr+1,x
+	sta ersl+1
 ?tl
-	lda	txlinadr-2,x
-	sta	txlinadr,x
-	lda	txlinadr-1,x
-	sta	txlinadr+1,x
+	lda txlinadr-2,x
+	sta txlinadr,x
+	lda txlinadr-1,x
+	sta txlinadr+1,x
 	dex
 	dex
 	dey
-	bne	?tl
-	lda	ersl
-	sta	txlinadr,x
-	lda	ersl+1
-	sta	txlinadr+1,x
-	jmp	?gu
+	bne ?tl
+	lda ersl
+	sta txlinadr,x
+	lda ersl+1
+	sta txlinadr+1,x
+	jmp ?gu
 ?et
-	lda	scrltop
-	asl	a
+	lda scrltop
+	asl a
 	tax
 	dex
 	dex
-	lda	txlinadr,x
-	sta	ersl
-	lda	txlinadr+1,x
-	sta	ersl+1
+	lda txlinadr,x
+	sta ersl
+	lda txlinadr+1,x
+	sta ersl+1
 ?gu
-	ldy	#0
-	lda	#32
+	ldy #0
+	lda #32
 ?ut
-	sta	(ersl),y
+	sta (ersl),y
 	iny
-	cpy	#80
-	bne	?ut
+	cpy #80
+	bne ?ut
 
-	lda	rush
-	bne	?sr
+	lda rush
+	bne ?sr
 
-	lda	finescrol
-	beq	?up
-	jsr	scvbwta
-	inc	fscrolup
+	lda finescrol
+	beq ?up
+	jsr scvbwta
+	inc fscrolup
 ?sr
 	rts
 ?up
-	lda	scrltop
-	jsr	erslineraw_a
-	lda	#1
-	sta	crsscrl
+	lda scrltop
+	jsr erslineraw_a
+	lda #1
+	sta crsscrl
 
-	lda	isbold	; bold disabled? we're done.
-	bne	?db
+	lda isbold	; bold disabled? we're done.
+	bne ?db
 	rts
 ?db
 
 ; Scroll boldface info UP
 
-	ldx	#4
+	ldx #4
 ?mlp
-	lda	boldypm,x	; Anything in this PM? (1 of 5)
-	bne	?db2
+	lda boldypm,x	; Anything in this PM? (1 of 5)
+	bne ?db2
 ?mlp_skip
 	dex
-	bpl	?mlp
+	bpl ?mlp
 	rts
 ?db2
-	lda	boldtbpl,x	; Get PM address
-	sta	cntrl
+	lda boldtbpl,x	; Get PM address
+	sta cntrl
 	sec
-	sbc	#4
-	sta	prfrom		; Address - 4 also needed
-	lda	boldtbph,x
-	sta	cntrh
-	sbc	#0
-	sta	prfrom+1
+	sbc #4
+	sta prfrom		; Address - 4 also needed
+	lda boldtbph,x
+	sta cntrh
+	sbc #0
+	sta prfrom+1
 
 	ldy #0			; scrolling up.
 	jsr prep_boldface_scroll
 	beq ?mlp_skip	; nothing to do for this PM
 	cmp #255		; is this PM being emptied?
 	bne ?st2		; No.
-	lda	#0			; Yes - mark this PM as empty.
-	sta	boldypm,x
-	lda	#255
-	sta	boldscb,x
+	lda #0			; Yes - mark this PM as empty.
+	sta boldypm,x
+	lda #255
+	sta boldscb,x
 	txa
 	pha
-	ldx	#4
-	lda	#0
+	ldx #4
+	lda #0
 ?st4
-	ora	boldypm,x	; Are ALL PMs empty?
+	ora boldypm,x	; Are ALL PMs empty?
 	dex
-	bpl	?st4
-	cmp	#0
-	bne	?st5
+	bpl ?st4
+	cmp #0
+	bne ?st5
 	pla
-	jmp	boldclr		; Yep - switch 'em off and quit
+	jmp boldclr		; Yep - switch 'em off and quit
 ?st5
 	pla
 	tax
 ?st2
 	ldy prep_boldface_scroll_ret1_scroll_top
-	lda	boldytb,y
+	lda boldytb,y
 	clc
 	adc #3
-	sta	s764		; upper limit of this scroll operation
+	sta s764		; upper limit of this scroll operation
 
 	ldy prep_boldface_scroll_ret2_scroll_bot
-	lda	boldytb,y
+	lda boldytb,y
 	clc
 	adc #3
 	tay
@@ -3711,38 +3711,38 @@ scrlup			; SCROLL UP
 	beq ?end		; nothing to scroll (just one line so blank it)
 
 ?lp
-	lda	(prfrom),y	; Scroll it!
-	cmp	(cntrl),y
-	beq	?lk			; no need to copy if data is the same..
-	sta	(cntrl),y
+	lda (prfrom),y	; Scroll it!
+	cmp (cntrl),y
+	beq ?lk			; no need to copy if data is the same..
+	sta (cntrl),y
 	dey
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	cpy	s764
-	beq	?end
-	bcs	?lp
-	bcc	?end
+	cpy s764
+	beq ?end
+	bcs ?lp
+	bcc ?end
 ?lk
 	dey
 	dey
 	dey
 	dey
-	cpy	s764
-	beq	?end
-	bcs	?lp
+	cpy s764
+	beq ?end
+	bcs ?lp
 ?end
-	lda	#0
-	sta	(cntrl),y
+	lda #0
+	sta (cntrl),y
 	dey
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	sta	(cntrl),y
+	sta (cntrl),y
 
 	; scroll color info
 	lda boldallw
@@ -3757,7 +3757,7 @@ scrlup			; SCROLL UP
 	lda boldcolrtables_hi,x
 	sta cntrh
 	sta prfrom+1
-	
+
 	ldy prep_boldface_scroll_ret2_scroll_bot
 	cpy prep_boldface_scroll_ret1_scroll_top
 	beq ?cend
@@ -3772,10 +3772,10 @@ scrlup			; SCROLL UP
 	sta (cntrl),y
 	jsr update_colors_line0
 ?nocolor
-	
-	dex		; on to the next PM
-	bmi	?en
-	jmp	?mlp
+
+	dex 	; on to the next PM
+	bmi ?en
+	jmp ?mlp
 ?en
 	rts
 
@@ -3787,16 +3787,16 @@ scrlup			; SCROLL UP
 ; (1)   (2)   (3)   (4)   (5)   (6)
 ;
 ; S B   S B   S B   S B   S B   S B
-;                   
+;
 ; T       T   T       T   T       T
 ; |       |   |       |   |       |
 ; |       |   | T   T |   | T   T |
 ; B       B   | |   | |   B |   | B
 ;             | |   | |     |   |
 ;   T   T     | B   B |     B   B
-;   |   |     |       |   
-;   |   |     |       |  
-;   B   B     B       B   
+;   |   |     |       |
+;   |   |     |       |
+;   B   B     B       B
 ;
 ; expects PM number (0-4) in X register.
 ; expects 1 if scrolling down, 0 if up, in Y register.
@@ -3839,7 +3839,7 @@ prep_boldface_scroll
 	lda #1
 	sta prep_boldface_scroll_var1_update_top
 	sta prep_boldface_scroll_var1_update_bot
-	
+
 ; now check for cases 4-6, that is, top or bottom or both of scrolling area are beyond bounds of screen scrolling area.
 
 ; if (prep_boldface_scroll_ret2_scroll_bot > scrlbot) then fix bottom, and remember not to update bottom later
@@ -3851,7 +3851,7 @@ prep_boldface_scroll
 	sta prep_boldface_scroll_ret2_scroll_bot
 	lda #0
 	sta prep_boldface_scroll_var1_update_bot
-	
+
 ; if (scrltop > prep_boldface_scroll_ret1_scroll_top) then fix top, and remember not to update top later
 ; because uppermost known bold character is not being moved.
 
@@ -3883,7 +3883,7 @@ prep_boldface_scroll
 	cmp scrltop
 	beq ?no5 ; if top is already at top of scrollable area, don't do anything.
 	dec prep_boldface_scroll_ret1_scroll_top
-?no5	
+?no5
 	; step 2: update boldsct/boldscb.
 	lda prep_boldface_scroll_var1_update_top
 	beq ?no6
@@ -3901,8 +3901,8 @@ prep_boldface_scroll
 ?no7
 	jmp ?done
 ?up
-	; scrolling up. 
-	
+	; scrolling up.
+
 	; step 1: add line below if possible.
 	lda prep_boldface_scroll_ret2_scroll_bot
 	cmp scrlbot
@@ -3935,23 +3935,23 @@ prep_boldface_scroll
 
 ; erase line Y (1-24)
 ersline
-	lda	y
-	beq	ersline_done
+	lda y
+	beq ersline_done
 	; erase text mirror
-	asl	a
+	asl a
 	tax
 	dex
 	dex
-	lda	txlinadr,x
-	sta	cntrl
-	lda	txlinadr+1,x
-	sta	cntrh
-	ldy	#79
-	lda	#32
+	lda txlinadr,x
+	sta cntrl
+	lda txlinadr+1,x
+	sta cntrh
+	ldy #79
+	lda #32
 ?lp
-	sta	(cntrl),y
+	sta (cntrl),y
 	dey
-	bpl	?lp
+	bpl ?lp
 ersline_no_txtmirror
 	; erase bold underlay (if enabled) for this line
 	lda boldallw
@@ -3966,13 +3966,13 @@ ersline_no_txtmirror
 	lda boldytb,y
 	tay
 	lda #0
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	iny
-	sta	(cntrl),y
+	sta (cntrl),y
 	dex
 	bpl ?bold_lp
 ?nobold
@@ -3981,525 +3981,525 @@ ersline_done
 	jmp erslineraw_a	; in VT1
 
 lookst			; Init buffer-scroller
-	lda	scrlsv
-	sta	lookln
-	lda	scrlsv+1
-	sta	lookln+1
-	lda	nextln
-	sta	cntrl
-	lda	nextln+1
-	sta	cntrh
-	jsr	erslineraw
-	lda	#24
-	sta	look	; look = line @bottom!
+	lda scrlsv
+	sta lookln
+	lda scrlsv+1
+	sta lookln+1
+	lda nextln
+	sta cntrl
+	lda nextln+1
+	sta cntrh
+	jsr erslineraw
+	lda #24
+	sta look	; look = line @bottom!
 lkupen
 	rts
 lookup			; Buffer-scroll UP
-	jsr	boldoff
-	lda	look
-	cmp	looklim	; 24, down to 76
-	beq	lkupen
-	dec	look
-	jsr	scvbwta
+	jsr boldoff
+	lda look
+	cmp looklim	; 24, down to 76
+	beq lkupen
+	dec look
+	jsr scvbwta
 	sec
-	lda	lookln
-	sbc	#80
-	sta	lookln
-	lda	lookln+1
-	sbc	#0
-	sta	lookln+1
-	cmp	#$40
-	bcs	novrup
-	lda	#$7f
-	sta	lookln+1
-	lda	#$70
-	sta	lookln
+	lda lookln
+	sbc #80
+	sta lookln
+	lda lookln+1
+	sbc #0
+	sta lookln+1
+	cmp #$40
+	bcs novrup
+	lda #$7f
+	sta lookln+1
+	lda #$70
+	sta lookln
 novrup
-	jsr	crsifneed
+	jsr crsifneed
 
-	lda	linadr+48	; Scroll linadr table
+	lda linadr+48	; Scroll linadr table
 	pha
-	lda	linadr+49
+	lda linadr+49
 	pha
-	ldx	#46
+	ldx #46
 lkupscadlp
-	lda	linadr,x
-	sta	linadr+2,x
-	lda	linadr+1,x
-	sta	linadr+3,x
+	lda linadr,x
+	sta linadr+2,x
+	lda linadr+1,x
+	sta linadr+3,x
 	dex
 	dex
-	cpx	#0
-	bne	lkupscadlp
-	lda	nextln
-	sta	linadr+2
-	lda	nextln+1
-	sta	linadr+3
+	cpx #0
+	bne lkupscadlp
+	lda nextln
+	sta linadr+2
+	lda nextln+1
+	sta linadr+3
 	pla
-	sta	nextln+1
+	sta nextln+1
 	pla
-	sta	nextln
+	sta nextln
 
-	lda	finescrol
-	beq	lkupnofn
-	lda	scrltop	; initiate fine scroll
+	lda finescrol
+	beq lkupnofn
+	lda scrltop	; initiate fine scroll
 	pha
-	lda	scrlbot
+	lda scrlbot
 	pha
-	lda	#1
-	sta	scrltop
-	lda	#24
-	sta	scrlbot
-	jsr	scvbwta
-	inc	fscrolup
-	lda	$14
+	lda #1
+	sta scrltop
+	lda #24
+	sta scrlbot
+	jsr scvbwta
+	inc fscrolup
+	lda rtclock_2
 	pha
 lkupnofn
-	ldy	#0	; Print new line
-	sty	x
-	lda	#1
-	sta	y
-	lda	lookln
-	sta	lookln2
-	lda	lookln+1
-	sta	lookln2+1
-	jsr	lkprlp
-	lda	finescrol
-	beq	lkupcrs
+	ldy #0	; Print new line
+	sty x
+	lda #1
+	sta y
+	lda lookln
+	sta lookln2
+	lda lookln+1
+	sta lookln2+1
+	jsr lkprlp
+	lda finescrol
+	beq lkupcrs
 	pla
 lkupwtvb ; continue fine scroll
-	cmp	$14
-	beq	lkupwtvb
+	cmp rtclock_2
+	beq lkupwtvb
 	pla
-	sta	scrlbot
+	sta scrlbot
 	pla
-	sta	scrltop
-	jsr	scvbwta
-	jsr	crsifneed
+	sta scrltop
+	jsr scvbwta
+	jsr crsifneed
 	rts
 lkupcrs
-	jsr	vdelayr	; Coarse-scroll
-	ldx	#2
-	ldy	#10
+	jsr vdelayr	; Coarse-scroll
+	ldx #2
+	ldy #10
 lkupsclp
-	lda	linadr,x
-	sta	dlist+4,y
-	lda	linadr+1,x
-	sta	dlist+5,y
+	lda linadr,x
+	sta dlist+4,y
+	lda linadr+1,x
+	sta dlist+5,y
 	inx
 	inx
 	tya
 	clc
-	adc	#10
+	adc #10
 	tay
-	cpy	#250
-	bcc	lkupsclp
-	jsr	crsifneed
-	lda	nextln
-	sta	cntrl
-	lda	nextln+1
-	sta	cntrh
-	jmp	erslineraw
+	cpy #250
+	bcc lkupsclp
+	jsr crsifneed
+	lda nextln
+	sta cntrl
+	lda nextln+1
+	sta cntrh
+	jmp erslineraw
 
 lookdn			; Buffer-scroll DOWN
-	lda	look
-	cmp	#24
-	bne	?g
-	jmp	boldon
+	lda look
+	cmp #24
+	bne ?g
+	jmp boldon
 ?g
-	inc	look
-	jsr	scvbwta
+	inc look
+	jsr scvbwta
 	clc
-	lda	lookln
-	adc	#80
-	sta	lookln
-	lda	lookln+1
-	adc	#0
-	sta	lookln+1
-	cmp	#$7f
-	bcc	novrdn
-	lda	lookln
-	cmp	#$c0
-	bcc	novrdn
-	lda	#$40
-	sta	lookln+1
-	lda	#$00
-	sta	lookln
+	lda lookln
+	adc #80
+	sta lookln
+	lda lookln+1
+	adc #0
+	sta lookln+1
+	cmp #$7f
+	bcc novrdn
+	lda lookln
+	cmp #$c0
+	bcc novrdn
+	lda #$40
+	sta lookln+1
+	lda #$00
+	sta lookln
 novrdn
-	jsr	crsifneed
+	jsr crsifneed
 
-	lda	linadr+2	; Scroll linadr table
+	lda linadr+2	; Scroll linadr table
 	pha
-	lda	linadr+3
+	lda linadr+3
 	pha
-	ldx	#2
+	ldx #2
 lkdnscadlp
-	lda	linadr+2,x
-	sta	linadr,x
-	lda	linadr+3,x
-	sta	linadr+1,x
+	lda linadr+2,x
+	sta linadr,x
+	lda linadr+3,x
+	sta linadr+1,x
 	inx
 	inx
-	cpx	#48
-	bne	lkdnscadlp
-	lda	nextln
-	sta	linadr,x
-	lda	nextln+1
-	sta	linadr+1,x
+	cpx #48
+	bne lkdnscadlp
+	lda nextln
+	sta linadr,x
+	lda nextln+1
+	sta linadr+1,x
 	pla
-	sta	nextln+1
+	sta nextln+1
 	pla
-	sta	nextln
+	sta nextln
 
-	lda	finescrol
-	beq	lkdnnofn
-	lda	scrltop	; initiate Fine-scroll
+	lda finescrol
+	beq lkdnnofn
+	lda scrltop	; initiate Fine-scroll
 	pha
-	lda	scrlbot
+	lda scrlbot
 	pha
-	lda	#1
-	sta	scrltop
-	lda	#24
-	sta	scrlbot
-	jsr	scvbwta
-	inc	fscroldn
-	lda	$14
+	lda #1
+	sta scrltop
+	lda #24
+	sta scrlbot
+	jsr scvbwta
+	inc fscroldn
+	lda rtclock_2
 	pha
 
 lkdnnofn
-	ldy	#0	; Print new line
-	sty	x
-	lda	#24
-	sta	y
-	lda	look
-	beq	lkzro
-	cmp	#25
-	bcc	lkoky
+	ldy #0	; Print new line
+	sty x
+	lda #24
+	sta y
+	lda look
+	beq lkzro
+	cmp #25
+	bcc lkoky
 lkzro
 	clc
-	lda	lookln
-	adc	#$30
-	sta	lookln2
-	lda	lookln+1
-	adc	#$07
-	sta	lookln2+1
-	cmp	#$7f
-	bcc	?ok
-	beq	?lb1
-	bcs	?lb2
+	lda lookln
+	adc #$30
+	sta lookln2
+	lda lookln+1
+	adc #$07
+	sta lookln2+1
+	cmp #$7f
+	bcc ?ok
+	beq ?lb1
+	bcs ?lb2
 ?lb1
-	lda	lookln2
-	cmp	#$c0
-	bcc	?ok
+	lda lookln2
+	cmp #$c0
+	bcc ?ok
 ?lb2
 	sec
-	lda	lookln2
-	sbc	#$c0
-	sta	lookln2
-	lda	lookln2+1
-	sbc	#$3f
-	sta	lookln2+1
+	lda lookln2
+	sbc #$c0
+	sta lookln2
+	lda lookln2+1
+	sbc #$3f
+	sta lookln2+1
 ?ok
-	jsr	lkprlp
-	jmp	lkdnprdn
+	jsr lkprlp
+	jmp lkdnprdn
 
 lkoky
-	asl	a
+	asl a
 	tax
 	dex
 	dex
-	lda	txlinadr,x
-	sta	lookln2
-	lda	txlinadr+1,x
-	sta	lookln2+1
-	asl	eitbit
+	lda txlinadr,x
+	sta lookln2
+	lda txlinadr+1,x
+	sta lookln2+1
+	asl eitbit
 lkdnprlp
-	lda	(lookln2),y
-	sta	prchar
-	cmp	#32
-	beq	lkdnnopr
+	lda (lookln2),y
+	sta prchar
+	cmp #32
+	beq lkdnnopr
 	tya
 	pha
-	jsr	print
+	jsr print
 	pla
 	tay
 lkdnnopr
-	inc	x
+	inc x
 	iny
-	cpy	#80
-	bne	lkdnprlp
-	lsr	eitbit
+	cpy #80
+	bne lkdnprlp
+	lsr eitbit
 
 lkdnprdn
-	lda	finescrol	; Skip if no f-scroll
-	beq	lkdndocr
+	lda finescrol	; Skip if no f-scroll
+	beq lkdndocr
 
 	pla
 lkdnvbwt		; continue fine-scroll
-	cmp	$14
-	beq	lkdnvbwt
+	cmp rtclock_2
+	beq lkdnvbwt
 	pla
-	sta	scrlbot
+	sta scrlbot
 	pla
-	sta	scrltop
-	jsr	scvbwta
-	jsr	crsifneed
+	sta scrltop
+	jsr scvbwta
+	jsr crsifneed
 	rts
 
 lkdndocr
-	jsr	vdelayr	; Coarse scroll
-	ldx	#2
-	ldy	#10
+	jsr vdelayr	; Coarse scroll
+	ldx #2
+	ldy #10
 lkdnsclp
-	lda	linadr,x
-	sta	dlist+4,y
-	lda	linadr+1,x
-	sta	dlist+5,y
+	lda linadr,x
+	sta dlist+4,y
+	lda linadr+1,x
+	sta dlist+5,y
 	inx
 	inx
 	tya
 	clc
-	adc	#10
+	adc #10
 	tay
-	cpy	#250
-	bcc	lkdnsclp
-	jsr	crsifneed
-	lda	nextln
-	sta	cntrl
-	lda	nextln+1
-	sta	cntrh
-	jmp	erslineraw
+	cpy #250
+	bcc lkdnsclp
+	jsr crsifneed
+	lda nextln
+	sta cntrl
+	lda nextln+1
+	sta cntrh
+	jmp erslineraw
 
 lookbk			; Go all the way down
-	lda	look
-	cmp	#24
-	beq	?n
-	bcs	?l2
-	jsr	lookdn
-	jsr	buffifnd
-	jmp	lookbk
+	lda look
+	cmp #24
+	beq ?n
+	bcs ?l2
+	jsr lookdn
+	jsr buffifnd
+	jmp lookbk
 ?l2
-	jsr	clrscrnraw
-	jsr	screenget
-	jsr	crsifneed
-	lda	#24
-	sta	look
+	jsr clrscrnraw
+	jsr screenget
+	jsr crsifneed
+	lda #24
+	sta look
 ?n
-	jmp	boldon
+	jmp boldon
 
 crsifneed
-	lda	oldflash
-	beq	?n
-	jmp	putcrs
+	lda oldflash
+	beq ?n
+	jmp putcrs
 ?n
 	rts
 
 scvbwta     		; Wait for fine scroll (in either direction) to finish
-	lda	fscroldn
-	ora	fscrolup
-	bne	?busy
+	lda fscroldn
+	ora fscrolup
+	bne ?busy
 	rts
 ?busy
-	jsr	buffdo
-	jmp	scvbwta
+	jsr buffdo
+	jmp scvbwta
 
 ; waits for fine scroll critical section (during which we may not modify scroll region) to end
 fscrol_critical
-	lda	fscroldn
-	cmp	#1
+	lda fscroldn
+	cmp #1
 	beq ?in_crit
-	lda	fscrolup
-	cmp	#1
+	lda fscrolup
+	cmp #1
 	beq ?in_crit
 	rts
 ?in_crit
 	; we are in critical section. handle buffering while we wait, and loop
-	jsr	buffifnd
+	jsr buffifnd
 	jmp fscrol_critical
 
 ; Outgoing stuff, keyboard handler
 
 readk
-	lda	53279  ; Option - pause+backscroll
-	cmp	#3
-	bne	?c1ok
-	lda	ctrl1mod
-	bne	?c1ok
-	lda	looklim
-	cmp	#24
-	beq	?c1ok
-	lda	#2
-	sta	ctrl1mod
+	lda consol  ; Option - pause+backscroll
+	cmp #3
+	bne ?c1ok
+	lda ctrl1mod
+	bne ?c1ok
+	lda looklim
+	cmp #24
+	beq ?c1ok
+	lda #2
+	sta ctrl1mod
 ?c1ok
-	lda	764
-	cmp	#255
-	bne	?gtky
+	lda kbd_ch
+	cmp #255
+	bne ?gtky
 	rts
 ?gtky
-	sta	s764
-	and	#$c0
-	cmp	#$c0
-	beq	?ctshft
-	jmp	noctshft
+	sta s764
+	and #$c0
+	cmp #$c0
+	beq ?ctshft
+	jmp noctshft
 ?ctshft				; ctrl-shift held down
-	lda	s764
-	and	#$3f
+	lda s764
+	and #$3f
 	tax
-	lda	keytab,x
+	lda keytab,x
 	cmp #'d			; d - dump screen to disk
 	bne ?nodiskdump
 	jmp diskdumpscrn
 ?nodiskdump
-	cmp	#'p			; p - print screen
-	bne	?noprtscrn
-	jmp	prntscrn
+	cmp #'p			; p - print screen
+	bne ?noprtscrn
+	jmp prntscrn
 ?noprtscrn
-	cmp	#'h			; h - hangup
-	bne	?nh
-	jmp	hangup
+	cmp #'h			; h - hangup
+	bne ?nh
+	jmp hangup
 ?nh
 	cmp #27			; esc - send break (shift-ctrl-esc is accepted in addition to ctrl-esc)
 	bne ?nobrk
 	jmp ksendbrk
 ?nobrk
-	cmp	#'s
-	bne	?ok			; s - internal speed test
-	
+	cmp #'s
+	bne ?ok			; s - internal speed test
+
 ; this is an internal speed test, press any key to end.
 
-	jsr	crsifneed	; turn cursor off
-	ldx	#'a
-	lda	#255
-	sta	764
+	jsr crsifneed	; turn cursor off
+	ldx #'a
+	lda #255
+	sta kbd_ch
 ?lp
 	txa
 	pha
-	jsr	dovt100		; output characters a-z repeatedly
+	jsr dovt100		; output characters a-z repeatedly
 	pla
 	tax
 	inx
-	cpx	#'z+1
-	bne	?lp
-	ldx	#'a
-	lda	764
-	cmp	#255		; any key? exit loop
-	beq	?lp
-	lda	#255
-	sta	764
-	jmp	crsifneed	; turn cursor on
-	
+	cpx #'z+1
+	bne ?lp
+	ldx #'a
+	lda kbd_ch
+	cmp #255		; any key? exit loop
+	beq ?lp
+	lda #255
+	sta kbd_ch
+	jmp crsifneed	; turn cursor on
+
 ; other ctrl-shift keys are the numeric keypad
 
 ?ok
-	lda	numlock
-	beq	keyapp
-	jmp	keynum
+	lda numlock
+	beq keyapp
+	jmp keynum
 
 ; Keypad application mode (numlock off)
 
 keyapp
-	lda	#27
-	sta	outdat
-	lda	#'O		; the letter O
-	sta	outdat+1
-	lda	#3
-	sta	outnum
+	lda #27
+	sta outdat
+	lda #'O		; the letter O
+	sta outdat+1
+	lda #3
+	sta outnum
 
-	lda	keytab,x
-	cmp	#44 ; ,
+	lda keytab,x
+	cmp #44 ; ,
 	beq ?add64
-	cmp	#45 ; -
+	cmp #45 ; -
 	beq ?add64
-	cmp	#46 ; .
+	cmp #46 ; .
 	beq ?add64
-	cmp	#'0
-	bcc	?numk1
-	cmp	#'9+1
-	bcs	?numk1
+	cmp #'0
+	bcc ?numk1
+	cmp #'9+1
+	bcs ?numk1
 ?add64
 	clc
-	adc	#('p-'0)	; =64. converts 0 to p, 1 to q, etc.
-	jmp	?numkok
+	adc #('p-'0)	; =64. converts 0 to p, 1 to q, etc.
+	jmp ?numkok
 ?numk1
-	cmp	#kretrn
-	bne	?numk5
-	lda	#77
-	jmp	?numkok
+	cmp #kretrn
+	bne ?numk5
+	lda #77
+	jmp ?numkok
 ?numk5
-	cmp	#'q
-	bne	?numk6
-	lda	#'P
-	jmp	?numkok
+	cmp #'q
+	bne ?numk6
+	lda #'P
+	jmp ?numkok
 ?numk6
-	cmp	#'w
-	bne	?numk7
-	lda	#'Q
-	jmp	?numkok
+	cmp #'w
+	bne ?numk7
+	lda #'Q
+	jmp ?numkok
 ?numk7
-	cmp	#'e
-	bne	?numk8
-	lda	#'R
-	jmp	?numkok
+	cmp #'e
+	bne ?numk8
+	lda #'R
+	jmp ?numkok
 ?numk8
-	cmp	#'r
-	bne	?numk9
-	lda	#'S
-	jmp	?numkok
+	cmp #'r
+	bne ?numk9
+	lda #'S
+	jmp ?numkok
 ?numk9
-	lda	#0
-	sta	outnum
+	lda #0
+	sta outnum
 	rts
 ?numkok
-	sta	outdat+2
-	jmp	outputdat_check_vt52
+	sta outdat+2
+	jmp outputdat_check_vt52
 
 ; Numeric-keypad mode (numlock on)
 
 keynum
-	lda	#1
-	sta	outnum
-	lda	keytab,x
-	cmp	#44 ; ,
-	beq	?numnok
-	cmp	#45 ; -
-	beq	?numnok
-	cmp	#46 ;  .
-	beq	?numnok
-	cmp	#'0
-	bcc	?numk10
-	cmp	#'9+1
-	bcc	?numnok
+	lda #1
+	sta outnum
+	lda keytab,x
+	cmp #44 ; ,
+	beq ?numnok
+	cmp #45 ; -
+	beq ?numnok
+	cmp #46 ;  .
+	beq ?numnok
+	cmp #'0
+	bcc ?numk10
+	cmp #'9+1
+	bcc ?numnok
 ?numk10
-	cmp	#kretrn
-	bne	?numk11
+	cmp #kretrn
+	bne ?numk11
 	jmp kyesret	; act like regular return key
 ?numk11
-	cmp	#'q
-	beq	?numk12
-	cmp	#'w
-	beq	?numk12
-	cmp	#'e
-	beq	?numk12
-	cmp	#'r
-	beq	?numk12
-	lda	#0
-	sta	outnum
+	cmp #'q
+	beq ?numk12
+	cmp #'w
+	beq ?numk12
+	cmp #'e
+	beq ?numk12
+	cmp #'r
+	beq ?numk12
+	lda #0
+	sta outnum
 	rts
 ?numk12
-	jmp	keyapp
+	jmp keyapp
 ?numnok
-	sta	outdat
-	jmp	outputdat
+	sta outdat
+	jmp outputdat
 
 noctshft
-	lda	s764
+	lda s764
 	tax
-	lda	keytab,x
+	lda keytab,x
 	bne ?nozero		; a zero in keytab means ignore me
 	rts
 ?nozero
-	bpl	normal_key
-	jmp	special_key
+	bpl normal_key
+	jmp special_key
 
 ; Basic key pressed.
 
@@ -4516,18 +4516,18 @@ normal_key
 	sta temp		; this is a letter, now converted to upper case. store in temp
 	ldx capslock	; do we need to flip it?
 	beq ?nocaps
-	tya			; recover original character, which is now known to be a letter
+	tya 		; recover original character, which is now known to be a letter
 	eor #$20	; flip case
 	.byte BIT_skip1byte	; skip the next instruction
 ?nocaps
 	tya
 
-	ldx	53279  ;	 Start - Meta (Esc-char) or Macro
-	cpx	#6
-	bne	?nostart
-	sta	outdat+1	; store Esc-char sequence
-	lda	#27
-	sta	outdat
+	ldx consol  ;	 Start - Meta (Esc-char) or Macro
+	cpx #6
+	bne ?nostart
+	sta outdat+1	; store Esc-char sequence
+	lda #27
+	sta outdat
 	; but before outputting, check if this character has a macro assigned to it.
 	; (temp = character converted to upper case)
 	lda temp
@@ -4542,7 +4542,7 @@ normal_key
 ?domacro
 	; Playback macro! We have X = macro number.
 	jsr macro_find_data	; sets cntrl/h to macro data
-	jsr	getkey	; sound a keyclick (we know there's a valid key in the buffer)
+	jsr getkey	; sound a keyclick (we know there's a valid key in the buffer)
 	jsr parse_macro	; copy macro from cntrl/h to macro_parser_output, parsing hex and ctrl characters
 	stx temp	; X contains length of macro to output
 	; output #macrosize bytes from cntrl/h, skipping null bytes. take care of local echo.
@@ -4550,20 +4550,20 @@ normal_key
 ?domacrolp
 	cpy temp
 	bcs ?donemacro
-	lda	macro_parser_output,y
+	lda macro_parser_output,y
 	tax
 	tya
 	pha
-	lda	localecho
-	beq	?ne
+	lda localecho
+	beq ?ne
 	txa
-	jsr	putbufbk
+	jsr putbufbk
 	pla
 	pha
 	tay
 ?ne
-	lda	macro_parser_output,y
-	jsr	rputch
+	lda macro_parser_output,y
+	jsr rputch
 	pla
 	tay
 	iny
@@ -4572,207 +4572,207 @@ normal_key
 	rts
 
 ?nomacro
-	lda	#2
-	sta	outnum
-	jmp	outputdat
+	lda #2
+	sta outnum
+	jmp outputdat
 ?nostart
-	sta	outdat
-	lda	#1
-	sta	outnum
+	sta outdat
+	lda #1
+	sta outnum
 
 outputdat
-	lda	53279  ;	 Select - set 8th bit
-	cmp	#5
-	bne	?no_select
-	lda	outnum
-	cmp	#1
-	bne	?no_select
-	lda	outdat
-	ora	#128
-	sta	outdat
+	lda consol  ;	 Select - set 8th bit
+	cmp #5
+	bne ?no_select
+	lda outnum
+	cmp #1
+	bne ?no_select
+	lda outdat
+	ora #128
+	sta outdat
 ?no_select
-	lda	#1
-	sta	764
-	jsr	getkey	; sound a keyclick
-	ldx	#0
+	lda #1
+	sta kbd_ch
+	jsr getkey	; sound a keyclick
+	ldx #0
 ?lp
 	txa
 	pha
-	lda	localecho
-	beq	?ne
-	lda	outdat,x
-	jsr	putbufbk
+	lda localecho
+	beq ?ne
+	lda outdat,x
+	jsr putbufbk
 	pla
 	pha
 	tax
 ?ne
-	lda	outdat,x
-	jsr	rputch
+	lda outdat,x
+	jsr rputch
 	pla
 	tax
 	inx
-	cpx	outnum
-	bcc	?lp
+	cpx outnum
+	bcc ?lp
 	rts
 
 special_key
-	cmp	#kexit
-	bne	knoexit
-	jsr	getkey
-	lda	finescrol
+	cmp #kexit
+	bne knoexit
+	jsr getkey
+	lda finescrol
 	pha
-	lda	#0
-	sta	finescrol
-	jsr	lookbk
+	lda #0
+	sta finescrol
+	jsr lookbk
 	pla
-	sta	finescrol
-	lda	oldflash
-	beq	txnopc
-	jsr	putcrs
+	sta finescrol
+	lda oldflash
+	beq txnopc
+	jsr putcrs
 txnopc
-	lda	#0
-	sta	y
-	jsr	filline		; for smoother transition to menu, set its pixels to all on before displaying it
-	jsr	setcolors
+	lda #0
+	sta y
+	jsr filline		; for smoother transition to menu, set its pixels to all on before displaying it
+	jsr setcolors
 	pla
 	pla
-	ldx	#>menudta
-	ldy	#<menudta
-	jsr	prmesg
-	jmp	gomenu
+	ldx #>menudta
+	ldy #<menudta
+	jsr prmesg
+	jmp gomenu
 knoexit
-	cmp	#kcaps
-	bne	knocaps
-	lda	capslock
-	eor	#1
-	sta	capslock
-	jsr	getkey
-	jmp	shcaps
+	cmp #kcaps
+	bne knocaps
+	lda capslock
+	eor #1
+	sta capslock
+	jsr getkey
+	jmp shcaps
 knocaps
-	cmp	#kscaps
-	bne	knoscaps
-	lda	#1
-	sta	capslock
-	jsr	getkey
-	jmp	shcaps
+	cmp #kscaps
+	bne knoscaps
+	lda #1
+	sta capslock
+	jsr getkey
+	jmp shcaps
 knoscaps
-	cmp	#kdel
-	bne	knodel
-	ldx	delchr
-	lda	deltab,x
-	sta	outdat
-	lda	#1
-	sta	outnum
-	jmp	outputdat
+	cmp #kdel
+	bne knodel
+	ldx delchr
+	lda deltab,x
+	sta outdat
+	lda #1
+	sta outnum
+	jmp outputdat
 knodel
-	cmp	#ksdel
-	bne	knosdel
-	lda	delchr
-	eor	#1
+	cmp #ksdel
+	bne knosdel
+	lda delchr
+	eor #1
 	tax
-	lda	deltab,x
-	sta	outdat
-	lda	#1
-	sta	outnum
-	jmp	outputdat
+	lda deltab,x
+	sta outdat
+	lda #1
+	sta outnum
+	jmp outputdat
 
 deltab	.byte	127,8
 
 knosdel
-	cmp	#kretrn
-	bne	knoret
+	cmp #kretrn
+	bne knoret
 kyesret
-	lda	#13		; CR
-	sta	outdat
-	lda	#1
-	sta	outnum
+	lda #13		; CR
+	sta outdat
+	lda #1
+	sta outnum
 	lda newlmod
 	beq ?ok
 	lda #10		; LF
 	sta outdat+1
 	inc outnum
 ?ok
-	jmp	outputdat
+	jmp outputdat
 knoret
-	cmp	#kbrk
-	bne	knobrk
+	cmp #kbrk
+	bne knobrk
 ksendbrk
-	lda $D20F	; SKSTAT
+	lda skstat
 	and #$08	; 0 = shift key pressed
 	pha
-	
-	lda	#1
-	sta	764
-	jsr	getkey
-	lda	oldflash
-	beq	?noflash
-	jsr	putcrs
+
+	lda #1
+	sta kbd_ch
+	jsr getkey
+	lda oldflash
+	beq ?noflash
+	jsr putcrs
 ?noflash
 
 ; Send break, with window and XOFF
 
-	jsr	boldoff
-	ldx	#>brkwin
-	ldy	#<brkwin
-	jsr	drawwin
-	lda	#19
-	jsr	rputch
-	jsr	wait10
-	jsr	wait10
-	jsr	buffdo
+	jsr boldoff
+	ldx #>brkwin
+	ldy #<brkwin
+	jsr drawwin
+	lda #19
+	jsr rputch
+	jsr wait10
+	jsr wait10
+	jsr buffdo
 	pla
 	tay
-	jsr	dobreak
-	jsr	wait10
-	lda	#17
-	jsr	rputch
-	jsr	getscrn
-	jsr	boldon
-	jmp	crsifneed
+	jsr dobreak
+	jsr wait10
+	lda #17
+	jsr rputch
+	jsr getscrn
+	jsr boldon
+	jmp crsifneed
 
 knobrk
-	cmp	#kzero
-	bne	knozero
-	ldx	#0
-	stx	outdat
+	cmp #kzero
+	bne knozero
+	ldx #0
+	stx outdat
 	inx
-	stx	outnum
-	jmp	outputdat
+	stx outnum
+	jmp outputdat
 knozero
-	cmp	#kctrl1
-	bne	knoctrl1
-	lda	#1
-	sta	764
-	jsr	getkey
-	lda	ctrl1mod
-	cmp	#2
-	bne	?ok
-	dec	ctrl1mod
-	jmp	shctrl1
+	cmp #kctrl1
+	bne knoctrl1
+	lda #1
+	sta kbd_ch
+	jsr getkey
+	lda ctrl1mod
+	cmp #2
+	bne ?ok
+	dec ctrl1mod
+	jmp shctrl1
 ?ok
-	eor	#1
-	sta	ctrl1mod
+	eor #1
+	sta ctrl1mod
 	rts
 knoctrl1
-	cmp	#kup
-	bcc	knoarrow
-	cmp	#kexit
-	bcs	knoarrow
-	sec				; arrow keys
-	sbc	#(kup-'A)
-	sta	outdat+2
-	lda	#3
-	sta	outnum
-	lda	#27			; Esc
-	sta	outdat
-	lda	#91			; [
-	sta	outdat+1
-	lda	ckeysmod
-	beq	?ok
-	lda	#'O			; letter O
-	sta	outdat+1
+	cmp #kup
+	bcc knoarrow
+	cmp #kexit
+	bcs knoarrow
+	sec 			; arrow keys
+	sbc #(kup-'A)
+	sta outdat+2
+	lda #3
+	sta outnum
+	lda #27			; Esc
+	sta outdat
+	lda #91			; [
+	sta outdat+1
+	lda ckeysmod
+	beq ?ok
+	lda #'O			; letter O
+	sta outdat+1
 ?ok
-	jmp	outputdat_check_vt52
+	jmp outputdat_check_vt52
 knoarrow
 	rts
 
@@ -4792,7 +4792,7 @@ outputdat_check_vt52
 ; else, change second character to '?'
 	lda #'?
 	sta outdat+1
-	
+
 	lda outdat+2
 	cmp #'A
 	bcc ?done
@@ -4809,12 +4809,12 @@ outputdat_check_vt52
 	jmp outputdat
 
 diskdumpscrn
-	lda	#1
-	sta	764
-	jsr	getkey	; sound a keyclick
+	lda #1
+	sta kbd_ch
+	jsr getkey	; sound a keyclick
 	lda #0
 	sta s764	; tell shared code that this is a dump to disk
-	
+
 	; generate filename from menu clock
 	ldx #5
 ?lp
@@ -4828,381 +4828,381 @@ diskdumpscrn
 
 	; generate full path+filename
 diskdumpfullfname = dialmem	; reuse dialer prompt buffer for this
-	
-	ldx	#0
-	ldy	#0
-?a
-	lda	pathnm,x
-	beq	?b
-	sta	diskdumpfullfname,y
-	inx
-	iny
-	cpx	#40
-	bne	?a
-?b
-	ldx	#0
-?c
-	lda	diskdumpfname,x
-	sta	diskdumpfullfname,y
-	inx
-	iny
-	cpx	#12
-	bne	?c
-	lda	#155
-	sta	diskdumpfullfname,y
 
-	ldx	#>diskdumpwin
-	ldy	#<diskdumpwin
+	ldx #0
+	ldy #0
+?a
+	lda pathnm,x
+	beq ?b
+	sta diskdumpfullfname,y
+	inx
+	iny
+	cpx #40
+	bne ?a
+?b
+	ldx #0
+?c
+	lda diskdumpfname,x
+	sta diskdumpfullfname,y
+	inx
+	iny
+	cpx #12
+	bne ?c
+	lda #155
+	sta diskdumpfullfname,y
+
+	ldx #>diskdumpwin
+	ldy #<diskdumpwin
 	jmp prntscrn_after_init
-	
+
 prntscrn
-	lda	#1
-	sta	764
-	jsr	getkey	; sound a keyclick
+	lda #1
+	sta kbd_ch
+	jsr getkey	; sound a keyclick
 	lda #1
 	sta s764	; tell shared code that this is a dump to printer
-	ldx	#>prntwin
-	ldy	#<prntwin
+	ldx #>prntwin
+	ldy #<prntwin
 prntscrn_after_init
-	jsr	drawwin	; draw 'printing' window
-	jsr	buffdo	; empty any incoming data from R: before closing
-	jsr	close2	; close #2
-	ldx	#$20
-	lda	#3
-	sta	iccom+$20
-	lda	#<p_device_name
-	sta	icbal+$20
-	lda	#>p_device_name
-	sta	icbah+$20
-	lda	#8
-	sta	icaux1+$20
-	lda	#0
-	sta	icaux2+$20
+	jsr drawwin	; draw 'printing' window
+	jsr buffdo	; empty any incoming data from R: before closing
+	jsr close2	; close #2
+	ldx #$20
+	lda #3
+	sta iccom+$20
+	lda #<p_device_name
+	sta icbal+$20
+	lda #>p_device_name
+	sta icbah+$20
+	lda #8
+	sta icaux1+$20
+	lda #0
+	sta icaux2+$20
 
 	lda s764
 	bne ?nodisk1
-	lda	#<diskdumpfullfname
-	sta	icbal+$20
-	lda	#>diskdumpfullfname
-	sta	icbah+$20
+	lda #<diskdumpfullfname
+	sta icbal+$20
+	lda #>diskdumpfullfname
+	sta icbah+$20
 ?nodisk1
 
-	jsr	ciov	; open #2,8,0,"P:" or <diskdumpfullfname>
-	cpy	#128
-	bcs	?err
-	
-	lda	#1
-	sta	y
+	jsr ciov	; open #2,8,0,"P:" or <diskdumpfullfname>
+	cpy #128
+	bcs ?err
+
+	lda #1
+	sta y
 ?mlp
-	jsr	calctxln
-	ldy	#0
+	jsr calctxln
+	ldy #0
 ?lp
 	tya
 	pha
-	lda	(ersl),y
-	cpy	#80
-	bne	?n8
-	lda	#155	; add EOL at end of line
+	lda (ersl),y
+	cpy #80
+	bne ?n8
+	lda #155	; add EOL at end of line
 ?n8
 	ldx s764
 	beq ?n2		; skip conversions for disk output
-	
-	cmp	#32		; Some conversion for printers..
-	bcs	?o3
-	lda	#32
+
+	cmp #32		; Some conversion for printers..
+	bcs ?o3
+	lda #32
 ?o3
-	cmp	#127
-	bne	?n1
-	lda	#32
+	cmp #127
+	bne ?n1
+	lda #32
 ?n1
-	cmp	#255
-	bne	?n2
-	lda	#32+128
+	cmp #255
+	bne ?n2
+	lda #32+128
 ?n2
-	ldx	#11
-	stx	iccom+$20
-	ldx	#0
-	stx	icbll+$20
-	stx	icblh+$20
-	ldx	#$20
-	jsr	ciov	; put #2,<a>
+	ldx #11
+	stx iccom+$20
+	ldx #0
+	stx icbll+$20
+	stx icblh+$20
+	ldx #$20
+	jsr ciov	; put #2,<a>
 	tya
 	tax
 	pla
 	tay
-	cpx	#128
-	bcs	?err
+	cpx #128
+	bcs ?err
 	iny
-	cpy	#81
-	bne	?lp
+	cpy #81
+	bne ?lp
 
-	inc	y
-	lda	y
-	cmp	#25
-	bne	?mlp
-	jsr	ropen	; closes #2 and reopens R:
-	jmp	getscrn	; restores screen, removing prompt window
+	inc y
+	lda y
+	cmp #25
+	bne ?mlp
+	jsr ropen	; closes #2 and reopens R:
+	jmp getscrn	; restores screen, removing prompt window
 
 ?err
-	jsr	number
-	lda	numb
-	sta	prnterr3
-	lda	numb+1
-	sta	prnterr3+1
-	lda	numb+2
-	sta	prnterr3+2
-	ldx	#>prnterr1
-	ldy	#<prnterr1
-	
+	jsr number
+	lda numb
+	sta prnterr3
+	lda numb+1
+	sta prnterr3+1
+	lda numb+2
+	sta prnterr3+2
+	ldx #>prnterr1
+	ldy #<prnterr1
+
 	lda s764
 	bne ?nodisk2
-	ldx	#>diskdumperr1
-	ldy	#<diskdumperr1
+	ldx #>diskdumperr1
+	ldy #<diskdumperr1
 ?nodisk2
-	jsr	prmesg
-	ldx	#>prnterr2
-	ldy	#<prnterr2
-	jsr	prmesg
-	jsr	ropen
-	jsr	getkeybuff
-	jmp	getscrn
+	jsr prmesg
+	ldx #>prnterr2
+	ldy #<prnterr2
+	jsr prmesg
+	jsr ropen
+	jsr getkeybuff
+	jmp getscrn
 
 hangup	        ; Hang up
-	lda	#1
-	sta	764
-	jsr	getkey
-	jsr	crsifneed
-	jsr	boldoff
-	ldx	#>hngwin
-	ldy	#<hngwin
-	jsr	drawwin
-	ldx	#0
+	lda #1
+	sta kbd_ch
+	jsr getkey
+	jsr crsifneed
+	jsr boldoff
+	ldx #>hngwin
+	ldy #<hngwin
+	jsr drawwin
+	ldx #0
 ?lp
-	lda	hngdat,x
+	lda hngdat,x
 	tay
-	cmp	#'%
-	bne	?ok
-	lda	#0
-	sta	20
+	cmp #'%
+	bne ?ok
+	lda #0
+	sta rtclock_2
 ?dl
 	txa
 	pha
-	lda	764
-	cmp	#255
-	beq	?nk
-	lda	click
+	lda kbd_ch
+	cmp #255
+	beq ?nk
+	lda click
 	pha
-	lda	#0
-	sta	click
-	jsr	getkey
+	lda #0
+	sta click
+	jsr getkey
 	tax
 	pla
-	sta	click
+	sta click
 	txa
-	cmp	#27
-	bne	?nk
+	cmp #27
+	bne ?nk
 	pla
-	jmp	?qh
+	jmp ?qh
 ?nk
-	jsr	buffdo
+	jsr buffdo
 	pla
 	tax
 	lda vframes_per_sec
 	lsr a
-	cmp 20 ; If vframes/2 >= (20) (time is not up) the Carry will be set
+	cmp rtclock_2 ; If vframes/2 >= (20) (time is not up) the Carry will be set
 	beq ?dk
-	bcs	?dl
-	jmp	?dk
+	bcs ?dl
+	jmp ?dk
 ?ok
 	txa
 	pha
 	tya
-	jsr	rputch
-;	jsr	wait10
+	jsr rputch
+;	jsr wait10
 	pla
 	tax
 ?dk
 	inx
-	cpx	#13	; (size of hngdat)
-	bne	?lp
-	jsr	zrotmr
-	lda	#0
-	sta	online
-	lda	#1
-	sta	timer_1sec
-	sta	timer_10sec
-	jsr	shctrl1
+	cpx #13	; (size of hngdat)
+	bne ?lp
+	jsr zrotmr
+	lda #0
+	sta online
+	lda #1
+	sta timer_1sec
+	sta timer_10sec
+	jsr shctrl1
 ?qh
-	jsr	getscrn
-	jsr	crsifneed
-	jsr	resttrm
-	jmp	boldon
+	jsr getscrn
+	jsr crsifneed
+	jsr resttrm
+	jmp boldon
 
 ; Status line doers
 
 shcaps
-	lda	capslock
-	bne	capson
-	ldx	#>capsoffp
-	ldy	#<capsoffp
-	jmp	prmesgnov
+	lda capslock
+	bne capson
+	ldx #>capsoffp
+	ldy #<capsoffp
+	jmp prmesgnov
 capson
-	ldx	#>capsonp
-	ldy	#<capsonp
-	jmp	prmesgnov
+	ldx #>capsonp
+	ldy #<capsonp
+	jmp prmesgnov
 shnuml
-	lda	numlock
-	bne	numlon
-	ldx	#>numloffp
-	ldy	#<numloffp
-	jmp	prmesgnov
+	lda numlock
+	bne numlon
+	ldx #>numloffp
+	ldy #<numloffp
+	jmp prmesgnov
 numlon
-	ldx	#>numlonp
-	ldy	#<numlonp
-	jmp	prmesgnov
+	ldx #>numlonp
+	ldy #<numlonp
+	jmp prmesgnov
 shctrl1
-	lda	rush
-	beq	ctrl1pok
-	ldx	#>rushpr
-	ldy	#<rushpr
-	jmp	prmesgnov
+	lda rush
+	beq ctrl1pok
+	ldx #>rushpr
+	ldy #<rushpr
+	jmp prmesgnov
 ctrl1pok
-	lda	ctrl1mod
-	cmp	#1
-	beq	ctrl1on
-	lda	online
-	beq	?of
-	ldx	#>ctr1offp
-	ldy	#<ctr1offp
-	jmp	prmesgnov
+	lda ctrl1mod
+	cmp #1
+	beq ctrl1on
+	lda online
+	beq ?of
+	ldx #>ctr1offp
+	ldy #<ctr1offp
+	jmp prmesgnov
 ?of
-	ldx	#>ctr1offm
-	ldy	#<ctr1offm
-	jmp	prmesgnov
+	ldx #>ctr1offm
+	ldy #<ctr1offm
+	jmp prmesgnov
 ctrl1on
-	ldx	#>ctr1onp
-	ldy	#<ctr1onp
-	jmp	prmesgnov
+	ldx #>ctr1onp
+	ldy #<ctr1onp
+	jmp prmesgnov
 
 captbfdo
-	lda	captplc+1
+	lda captplc+1
 	sec
-	sbc	#$40
-	lsr	a
-	lsr	a
-	lsr	a
-	cmp	captold
-	bne	?ok
+	sbc #$40
+	lsr a
+	lsr a
+	lsr a
+	cmp captold
+	bne ?ok
 	rts
 ?ok
-	sta	captold
-	lda	captplc+1
-	cmp	#$80
-	bcc	?no
-	ldx	#>captfull
-	ldy	#<captfull
-	jmp	prmesg
+	sta captold
+	lda captplc+1
+	cmp #$80
+	bcc ?no
+	ldx #>captfull
+	ldy #<captfull
+	jmp prmesg
 ?no
-	lda	#14
-	ldx	#7
+	lda #14
+	ldx #7
 ?lp
-	sta	captdt,x
+	sta captdt,x
 	dex
-	bpl	?lp
-	lda	captold
-	beq	?skip
+	bpl ?lp
+	lda captold
+	beq ?skip
 	tax
-	lda	#27
+	lda #27
 ?lp2
-	sta	captdt-1,x
+	sta captdt-1,x
 	dex
-	bne	?lp2
+	bne ?lp2
 ?skip
-	jsr	mkblkchr
-	ldx	#>captpr
-	ldy	#<captpr
-	jmp	prmesg
+	jsr mkblkchr
+	ldx #>captpr
+	ldy #<captpr
+	jmp prmesg
 
 bufcntdo
-	lda	mybcount+1
+	lda mybcount+1
 	and #$f8	; drop 3 low bits
-	cmp	oldbufc
-	bne	?ok
+	cmp oldbufc
+	bne ?ok
 	rts
 ?ok
 	tay
-	lda	#14
-	ldx	#7
+	lda #14
+	ldx #7
 ?lp1
-	sta	bufcntdt,x
+	sta bufcntdt,x
 	dex
-	bpl	?lp1
+	bpl ?lp1
 	tya
-	sta	oldbufc
-	beq	?dtok
-	lsr	a
-	lsr	a
-	lsr	a
+	sta oldbufc
+	beq ?dtok
+	lsr a
+	lsr a
+	lsr a
 	tax
-	cpx	#9
-	bcc	?notbig
-	ldx	#8
+	cpx #9
+	bcc ?notbig
+	ldx #8
 ?notbig
-	lda	#27
+	lda #27
 ?dtmk
-	sta	bufcntdt-1,x
+	sta bufcntdt-1,x
 	dex
-	bne	?dtmk
+	bne ?dtmk
 ?dtok
-	jsr	mkblkchr
-	ldx	#>bufcntpr
-	ldy	#<bufcntpr
-	jmp	prmesg
+	jsr mkblkchr
+	ldx #>bufcntpr
+	ldy #<bufcntpr
+	jmp prmesg
 
 timrdo
-	lda	timer_1sec	; this is set once a second, indicates it's time to update some stats
-	bne	?ok
+	lda timer_1sec	; this is set once a second, indicates it's time to update some stats
+	bne ?ok
 ?rt
 	rts
 ?ok
-	lda	#0
-	sta	timer_1sec
-	ldx	#>ststmr
-	ldy	#<ststmr
-	jsr	prmesgnov	; print the timer in the status bar
-	lda	timer_10sec	; this is set every 10 seconds, if we're offline change the banner on status bar
-	beq	?rt
-	lda	online
-	bne	?rt
-	ldy	#0
-	sty	timer_10sec
-	lda	ststmr+9
-	and	#1			; toggle between two messages
+	lda #0
+	sta timer_1sec
+	ldx #>ststmr
+	ldy #<ststmr
+	jsr prmesgnov	; print the timer in the status bar
+	lda timer_10sec	; this is set every 10 seconds, if we're offline change the banner on status bar
+	beq ?rt
+	lda online
+	bne ?rt
+	ldy #0
+	sty timer_10sec
+	lda ststmr+9
+	and #1			; toggle between two messages
 	tax
-	beq	?lp
+	beq ?lp
 .if 0
 ; old code: multiply index by 25 (size of message)
 	tya
 ?l1
 	clc
-	adc	#25
+	adc #25
 	dex
-	bne	?l1
+	bne ?l1
 	tax
 .else
 ; since there are only two possible messages, set index to 25
 	ldx #25
 .endif
 ?lp
-	lda	sts21,x
-	sta	sts2+5,y
+	lda sts21,x
+	sta sts2+5,y
 	inx
 	iny
-	cpy	#25
-	bne	?lp
-	ldx	#>sts2
-	ldy	#<sts2
-	jmp	prmesgnov
+	cpy #25
+	bne ?lp
+	ldx #>sts2
+	ldy #<sts2
+	jmp prmesgnov
 
 ; update LEDs status
 ledsdo
@@ -5226,13 +5226,13 @@ ledsdo
 ?no4
 	cpx #8
 	bne ?lp
-	
+
 	; draw character
-	lda	linadr
-	sta	cntrl
-	lda	linadr+1
-	sta	cntrh
-	
+	lda linadr
+	sta cntrl
+	lda linadr+1
+	sta cntrh
+
 	ldy #25 ; horizontal offset of location to draw character
 	ldx #0
 ?drawlp
@@ -5257,44 +5257,44 @@ led_mask_tbl .byte 0, $f0, $0f, $ff
 ; End of status line handlers
 
 vdelayr			; Waits for next VBI to finish
-	lda	20
+	lda rtclock_2
 ?v
-	ldx	fastr	; Checks on buffer, too.
-	beq	?q
+	ldx fastr	; Checks on buffer, too.
+	beq ?q
 	pha
-	jsr	buffdo
+	jsr buffdo
 	pla
 ?q
-	cmp	20
-	beq	?v
+	cmp rtclock_2
+	beq ?v
 	rts
 
 filline ; Fill line with 'on' pixels (value 0)
-	lda	y
-	asl	a
+	lda y
+	asl a
 	tax
-	lda	linadr,x
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	lda	#0
+	lda linadr,x
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	lda #0
 	jmp filline_custom_value
 
 dobreak		    ; Send Break signal. Y reg = 0 for long break, nonzero for short break
 	sty temp
-	jsr	close2
-	ldx	#$20
-	lda	#34
-	sta	iccom+$20
-	lda	#2
-	sta	icaux1+$20
-	lda	#0
-	sta	icaux2+$20
-	lda	#<rname
-	sta	icbal+$20
-	lda	#>rname
-	sta	icbah+$20
-	jsr	ciov    ;	Xio 34,#2,2,0,"R:" - Set XMT line to SPACE (zero state) for a long time
+	jsr close2
+	ldx #$20
+	lda #34
+	sta iccom+$20
+	lda #2
+	sta icaux1+$20
+	lda #0
+	sta icaux2+$20
+	lda #<rname
+	sta icbal+$20
+	lda #>rname
+	sta icbah+$20
+	jsr ciov    ;	Xio 34,#2,2,0,"R:" - Set XMT line to SPACE (zero state) for a long time
 
 ; length of signal should be 0.233 sec (short), or 3.5 sec (long)
 ; ntsc: 14 frames or 210; pal: 12 or 175
@@ -5314,31 +5314,31 @@ dobreak		    ; Send Break signal. Y reg = 0 for long break, nonzero for short br
 	bne ?delayok
 	ldx #210
 ?delayok
-	jsr	wait_x_frames
+	jsr wait_x_frames
 
-	ldx	#$20
-	lda	#34
-	sta	iccom+$20
-	lda	#3
-	sta	icaux1+$20
-	lda	#0
-	sta	icaux2+$20
-	lda	#<rname
-	sta	icbal+$20
-	lda	#>rname
-	sta	icbah+$20
-	jsr	ciov     ;	Xio 34,#2,3,0,"R:" - Set XMT line to MARK
-	jmp	ropen
+	ldx #$20
+	lda #34
+	sta iccom+$20
+	lda #3
+	sta icaux1+$20
+	lda #0
+	sta icaux2+$20
+	lda #<rname
+	sta icbal+$20
+	lda #>rname
+	sta icbah+$20
+	jsr ciov     ;	Xio 34,#2,3,0,"R:" - Set XMT line to MARK
+	jmp ropen
 
 wait10
-	ldx	#10
+	ldx #10
 wait_x_frames
 	txa
 	pha
 ?l
-	jsr	vdelay
+	jsr vdelay
 	dex
-	bne	?l
+	bne ?l
 	pla
 	tax
 	rts
@@ -5397,14 +5397,14 @@ parse_macro
 
 ?hg				; Convert ascii hex digit (0123456789abcdef) to 4-bit value
 	ora #$20	; convert upper to lower case. Has no effect on digits.
-	cmp	#'9+1
-	bcs	?lw
+	cmp #'9+1
+	bcs ?lw
 	sec
-	sbc	#'0
+	sbc #'0
 	rts
 ?lw
 	sec
-	sbc	#('a-$a)
+	sbc #('a-$a)
 	rts
 
 ; END OF VT-100 EMULATION
@@ -5418,372 +5418,372 @@ parse_macro
 ; This part	is resident in bank #1
 
 dialing2		; Dialing Menu
-	lda	#0
-	sta	clock_enable
-;	jsr	getscrn
-	jsr	erslineraw_a
-	ldx	#>diltop
-	ldy	#<diltop
-	jsr	prmesg
-	ldx	#>xmdtop2
-	ldy	#<xmdtop2
-	jsr	prmesg
+	lda #0
+	sta clock_enable
+;	jsr getscrn
+	jsr erslineraw_a
+	ldx #>diltop
+	ldy #<diltop
+	jsr prmesg
+	ldx #>xmdtop2
+	ldy #<xmdtop2
+	jsr prmesg
 restart
-	jsr	clrscrnraw
-	ldx	#>dilmnu
-	ldy	#<dilmnu
-	jsr	prmesg
-	lda	#<dialdat
-	sta	prfrom
-	lda	#>dialdat
-	sta	prfrom+1
-	lda	#2
-	sta	y
-	lda	#0
+	jsr clrscrnraw
+	ldx #>dilmnu
+	ldy #<dilmnu
+	jsr prmesg
+	lda #<dialdat
+	sta prfrom
+	lda #>dialdat
+	sta prfrom+1
+	lda #2
+	sta y
+	lda #0
 	pha
 	tay
-	lda	(prfrom),y
-	bne	?lp
-	ldx	#>nodlmsg	; No entries
-	ldy	#<nodlmsg
-	jsr	prmesg
-	jmp	?en
-	ldy	#0
+	lda (prfrom),y
+	bne ?lp
+	ldx #>nodlmsg	; No entries
+	ldy #<nodlmsg
+	jsr prmesg
+	jmp ?en
+	ldy #0
 ?lp
-	lda	(prfrom),y	; Test for end of list
-	bne	?ok
-	jmp	?en
+	lda (prfrom),y	; Test for end of list
+	bne ?ok
+	jmp ?en
 ?ok
-	sty	x
-	ldy	#38
-	lda	(prfrom),y
-	bne	?nz
-	inc	x	; Indent a bit if possible
-	ldy	#37
-	lda	(prfrom),y
-	bne	?nz
-	inc	x
+	sty x
+	ldy #38
+	lda (prfrom),y
+	bne ?nz
+	inc x	; Indent a bit if possible
+	ldy #37
+	lda (prfrom),y
+	bne ?nz
+	inc x
 ?nz
-	ldy	#0
+	ldy #0
 ?lp3
-	lda	(prfrom),y
-	beq	?el
-	sta	prchar
+	lda (prfrom),y
+	beq ?el
+	sta prchar
 	tya
 	pha
-	jsr	print
+	jsr print
 	pla
 	tay
-	inc	x
+	inc x
 	iny
-	cpy	#40
-	bne	?lp3
+	cpy #40
+	bne ?lp3
 ?el
-	lda	x
-	cmp	#37
-	bcs	?e2
+	lda x
+	cmp #37
+	bcs ?e2
 ?dl
-	inc	x
-	lda	#'.
-	sta	prchar
-	jsr	print
-	lda	x
-	cmp	#38
-	bne	?dl
+	inc x
+	lda #'.
+	sta prchar
+	jsr print
+	lda x
+	cmp #38
+	bne ?dl
 ?e2
-	ldy	#40
-	sty	x
+	ldy #40
+	sty x
 ?l2
-	lda	(prfrom),y
-	beq	?dn
-	sta	prchar
+	lda (prfrom),y
+	beq ?dn
+	sta prchar
 	tya
 	pha
-	jsr	print
+	jsr print
 	pla
 	tay
-	inc	x
+	inc x
 	iny
-	cpy	#80
-	bne	?l2
+	cpy #80
+	bne ?l2
 ?dn
 	clc
-	lda	prfrom
-	adc	#80
-	sta	prfrom
-	lda	prfrom+1
-	adc	#0
-	sta	prfrom+1
-	inc	y
-	ldy	#0
+	lda prfrom
+	adc #80
+	sta prfrom
+	lda prfrom+1
+	adc #0
+	sta prfrom+1
+	inc y
+	ldy #0
 	pla
 	tax
 	inx
 	txa
 	pha
-	cpx	#20
-	bne	?lp
+	cpx #20
+	bne ?lp
 ?en
 	pla
-	sta	diltmp1
-	lda	#2
-	sta	y
-	jsr	invbarmk
+	sta diltmp1
+	lda #2
+	sta y
+	jsr invbarmk
 dialloop		; Main loop
-	jsr	getkeybuff
-	cmp	#27
-	bne	?noesc
-	jmp	enddial
+	jsr getkeybuff
+	cmp #27
+	bne ?noesc
+	jmp enddial
 ?noesc
 	cmp #29		; down arrow
 	beq ?down
-	cmp	#61		; '=' (down arrow w/o ctrl)
-	bne	?nodn
+	cmp #61		; '=' (down arrow w/o ctrl)
+	bne ?nodn
 ?down
-	lda	diltmp1
-	cmp	#2
-	bcc	dialloop
-	jsr	invbarmk
-	inc	y
+	lda diltmp1
+	cmp #2
+	bcc dialloop
+	jsr invbarmk
+	inc y
 	sec
-	lda	y
-	sbc	#2
-	cmp	diltmp1
-	bne	?dk
-	lda	#2
-	sta	y
+	lda y
+	sbc #2
+	cmp diltmp1
+	bne ?dk
+	lda #2
+	sta y
 ?dk
-	jsr	invbarmk
-	jmp	dialloop
+	jsr invbarmk
+	jmp dialloop
 ?nodn
 	cmp #28		; up arrow
 	beq ?up
-	cmp	#45		; '-' (up arrow w/o ctrl)
-	bne	?noup
+	cmp #45		; '-' (up arrow w/o ctrl)
+	bne ?noup
 ?up
-	lda	diltmp1
-	cmp	#2
-	bcc	dialloop
-	jsr	invbarmk
-	dec	y
-	lda	y
-	cmp	#1
-	bne	?uk
-	ldx	diltmp1
+	lda diltmp1
+	cmp #2
+	bcc dialloop
+	jsr invbarmk
+	dec y
+	lda y
+	cmp #1
+	bne ?uk
+	ldx diltmp1
 	inx
-	stx	y
+	stx y
 ?uk
-	jsr	invbarmk
-	jmp	dialloop
+	jsr invbarmk
+	jmp dialloop
 ?noup
-	cmp	#155
-	beq	?ok
-	jmp	noret
+	cmp #155
+	beq ?ok
+	jmp noret
 ?ok
-	lda	diltmp1
-	beq	dialloop
-	lda	#0
-	sta	diltmp2
+	lda diltmp1
+	beq dialloop
+	lda #0
+	sta diltmp2
 dodial
-	jsr	resttrm		; reset terminal attributes so anything from old session not affect new
+	jsr resttrm		; reset terminal attributes so anything from old session not affect new
 	lda online		; are we online? hang up.
 	beq ?nohangup
-	ldx	#>hangupmsg	; "hanging up..."
-	ldy	#<hangupmsg
-	jsr	prmesgy
-	ldx	#0
+	ldx #>hangupmsg	; "hanging up..."
+	ldy #<hangupmsg
+	jsr prmesgy
+	ldx #0
 ?hangup_lp
-	lda	hngdat,x
-	cmp	#'%
-	bne	?hangup_regular_char
+	lda hngdat,x
+	cmp #'%
+	bne ?hangup_regular_char
 ; pause 0.5 seconds
-	lda	#0
-	sta	20
+	lda #0
+	sta rtclock_2
 ?hangup_pause_lp
-	lda	764
-	cmp	#255
-	beq	?nk
+	lda kbd_ch
+	cmp #255
+	beq ?nk
 	txa
 	pha
-	jsr	getkey
+	jsr getkey
 	tay
 	pla
 	tax
 	tya
-	cmp	#27
-	bne	?nk
+	cmp #27
+	bne ?nk
 	jmp ?abort_dial
 ?nk
 	lda vframes_per_sec
 	lsr a
-	cmp 20 ; If vframes/2 >= (20) (time is not up) the Carry will be set
+	cmp rtclock_2 ; If vframes/2 >= (20) (time is not up) the Carry will be set
 	beq ?dk
-	bcs	?hangup_pause_lp
-	jmp	?dk
+	bcs ?hangup_pause_lp
+	jmp ?dk
 ?hangup_regular_char
 	tay
 	txa
 	pha
 	tya
-	jsr	rputch
+	jsr rputch
 	pla
 	tax
 ?dk
 	inx
-	cpx	#13	; (size of hngdat)
-	bne	?hangup_lp
+	cpx #13	; (size of hngdat)
+	bne ?hangup_lp
 
-	lda	#0
-	sta	online
-	jsr	zrotmr
+	lda #0
+	sta online
+	jsr zrotmr
 
 ?nohangup
 
 ; end hang up code
 
-	lda	#13			; CR
-	jsr	rputch
+	lda #13			; CR
+	jsr rputch
 
-	ldx	#>dilmsg	; "dialing..."
-	ldy	#<dilmsg
-	jsr	prmesgy
+	ldx #>dilmsg	; "dialing..."
+	ldy #<dilmsg
+	jsr prmesgy
 
-	ldx	#0
+	ldx #0
 ?d1					; wait a little bit to allow modem to echo everything we've sent
-	jsr	vdelay		; (especially if we hung up)
+	jsr vdelay		; (especially if we hung up)
 	inx
-	cpx	#30
-	bne	?d1
+	cpx #30
+	bne ?d1
 ?empty_buff			; flush input buffer
-	jsr	buffpl
-	cpx	#1
-	bne	?empty_buff
+	jsr buffpl
+	cpx #1
+	bne ?empty_buff
 
 	ldx #>atd_string
 	ldy #<atd_string
 	lda #3
 	jsr rputstring	; send 'ATD'
-	jsr	finddld
-	ldx	#0
-	lda	#32
+	jsr finddld
+	ldx #0
+	lda #32
 ?l3
-	sta	sts2+5,x
+	sta sts2+5,x
 	inx
-	cpx	#25
-	bne	?l3
-	ldy	#0
-	ldx	#0
+	cpx #25
+	bne ?l3
+	ldy #0
+	ldx #0
 ?l1
-	lda	(prfrom),y
-	beq	?l2
-	cpx	#25
-	bcs	?l2
-	sta	sts2+5,x
+	lda (prfrom),y
+	beq ?l2
+	cpx #25
+	bcs ?l2
+	sta sts2+5,x
 	inx
 ?l2
 	iny
-	cpy	#40
-	bne	?l1
+	cpy #40
+	bne ?l1
 ?lp					; send dial string
 	tya
 	pha
-	lda	(prfrom),y
-	beq	?z
-	jsr	rputch
+	lda (prfrom),y
+	beq ?z
+	jsr rputch
 ?z
 	pla
 	tay
 	iny
-	cpy	#80
-	bne	?lp
-	lda	#13			; CR
-	jsr	rputch
-	ldx	#0
+	cpy #80
+	bne ?lp
+	lda #13			; CR
+	jsr rputch
+	ldx #0
 ?d					; wait a little bit to allow modem to echo our dial string
-	jsr	vdelay
+	jsr vdelay
 	inx
-	cpx	#30
-	bne	?d
+	cpx #30
+	bne ?d
 ?lp2
-	jsr	buffpl		; empty buffer to ignore echoed dial string
-	cpx	#1			; buffer empty? exit this loop
+	jsr buffpl		; empty buffer to ignore echoed dial string
+	cpx #1			; buffer empty? exit this loop
 	beq ?end_lp2
 	cmp #13			; did we get our echoed CR? we're done
 	bne ?lp2
 ?end_lp2
 
 	lda #24
-	jsr	erslineraw_a
+	jsr erslineraw_a
 
 ?wtbuflp				; wait for response from modem
-	lda	764
-	cmp	#255
-	beq	?nokey
-	jsr	getkey		; handle keyboard in case user hit a key
-	cmp	#27			; user hit Esc?
-	bne	?wtbuflp
-	lda	#13			; send an extra CR to abort
-	jsr	rputch
-	lda	#0
-	sta	diltmp2
-	jmp	?pr			; get out of this loop, wait for modem's message (prob. NO CARRIER since we aborted).
+	lda kbd_ch
+	cmp #255
+	beq ?nokey
+	jsr getkey		; handle keyboard in case user hit a key
+	cmp #27			; user hit Esc?
+	bne ?wtbuflp
+	lda #13			; send an extra CR to abort
+	jsr rputch
+	lda #0
+	sta diltmp2
+	jmp ?pr			; get out of this loop, wait for modem's message (prob. NO CARRIER since we aborted).
 ?nokey
-	jsr	buffdo
-	cpx	#1		; buffer empty?
-	beq	?wtbuflp
+	jsr buffdo
+	cpx #1		; buffer empty?
+	beq ?wtbuflp
 ?pr
-	ldx	#0
-	stx	temp
-	lda	#32
+	ldx #0
+	stx temp
+	lda #32
 ?lp3
-	sta	modstr_copy+3,x
+	sta modstr_copy+3,x
 	inx
-	cpx	#modstr_max_length
-	bne	?lp3
-	ldx	#0
+	cpx #modstr_max_length
+	bne ?lp3
+	ldx #0
 	txa
 	pha
 ?wt
-	jsr	buffpl
-	cpx	#1
-	bne	?wtok
-	ldy	#0
+	jsr buffpl
+	cpx #1
+	bne ?wtok
+	ldy #0
 ?wtlp			; Small loop if no
-	jsr	vdelay	; response from modem
+	jsr vdelay	; response from modem
 	tya
 	pha
-	jsr	buffdo
+	jsr buffdo
 	pla
 	tay
-	cpx	#0
-	beq	?wt
+	cpx #0
+	beq ?wt
 	iny
-	cpy	vframes_per_sec ; 1 sec
-	bne	?wtlp
+	cpy vframes_per_sec ; 1 sec
+	bne ?wtlp
 	pla
-	jmp	?en
+	jmp ?en
 ?wtok
 	tay
 	pla
 	tax
 	tya
-	cmp	#10
-	beq	?lf
-	cmp	#13
-	bne	?ncr
-	lda	temp
-	bne	?en
-	inc	temp
-	jmp	?lf
+	cmp #10
+	beq ?lf
+	cmp #13
+	bne ?ncr
+	lda temp
+	bne ?en
+	inc temp
+	jmp ?lf
 ?ncr
-	sta	modstr_copy+3,x
+	sta modstr_copy+3,x
 	inx
 ?lf
-	cpx	#modstr_max_length
-	beq	?en
+	cpx #modstr_max_length
+	beq ?en
 	txa
 	pha
-	jmp	?wt
+	jmp ?wt
 ?en
 	ldx #2
 ?enlp
@@ -5791,451 +5791,451 @@ dodial
 	sta modstr_copy,x
 	dex
 	bpl ?enlp
-	ldx	#>modstr_copy
-	ldy	#<modstr_copy
-	jsr	prmesgy
-	lda	modstr_copy+3
-	cmp	#'C			; Did reply start with 'C'?
-	bne	?noc		; no - we failed to connect
-	lda	#1			; yes - we're online!
-	sta	online
-	jsr	zrotmr
-	ldx	#0
+	ldx #>modstr_copy
+	ldy #<modstr_copy
+	jsr prmesgy
+	lda modstr_copy+3
+	cmp #'C			; Did reply start with 'C'?
+	bne ?noc		; no - we failed to connect
+	lda #1			; yes - we're online!
+	sta online
+	jsr zrotmr
+	ldx #0
 ?dl2
-	jsr	vdelay
+	jsr vdelay
 	inx
-	cpx	#120
-	bne	?dl2
-	jsr	clrscrnraw
-	jsr	screenget
-	jmp	goterm
+	cpx #120
+	bne ?dl2
+	jsr clrscrnraw
+	jsr screenget
+	jmp goterm
 ?noc
-	lda	diltmp2
-	cmp	#10
-	beq	?retry
-	jmp	dialloop
+	lda diltmp2
+	cmp #10
+	beq ?retry
+	jmp dialloop
 ?retry
-	ldx	#>retrmsg
-	ldy	#<retrmsg
-	jsr	prmesgy
-	ldx	#0
+	ldx #>retrmsg
+	ldy #<retrmsg
+	jsr prmesgy
+	ldx #0
 ?del
-	lda	764
-	cmp	#255
-	beq	?nky
-	jsr	getkey
-	cmp	#27
-	bne	?nky
+	lda kbd_ch
+	cmp #255
+	beq ?nky
+	jsr getkey
+	cmp #27
+	bne ?nky
 ?abort_dial
-	lda	#0
-	sta	diltmp2
-	lda	#24
-	jsr	erslineraw_a
-	jmp	dialloop
+	lda #0
+	sta diltmp2
+	lda #24
+	jsr erslineraw_a
+	jmp dialloop
 ?nky
-	jsr	vdelay
+	jsr vdelay
 	inx
-	cpx	#120
-	bne	?del
-	jmp	dodial
+	cpx #120
+	bne ?del
+	jmp dodial
 noret
-	cmp	#32
-	bne	?nospc
-	lda	diltmp1
-	beq	?nospc
-	lda	#10
-	sta	diltmp2
-	jmp	dodial
+	cmp #32
+	bne ?nospc
+	lda diltmp1
+	beq ?nospc
+	lda #10
+	sta diltmp2
+	jmp dodial
 ?nospc
-	cmp	#101	; [e]dit entry
-	beq	dledit
-	jmp	noedit
+	cmp #101	; [e]dit entry
+	beq dledit
+	jmp noedit
 dledit
-	jsr	clrscrnraw
-	ldx	#>dledtnm
-	ldy	#<dledtnm
-	jsr	prmesgy
-	ldx	#>dledtnb
-	ldy	#<dledtnb
-	jsr	prmesgy
-	ldx	#>dledtms
-	ldy	#<dledtms
-	jsr	prmesgy
-	jsr	finddld
-	lda	y
+	jsr clrscrnraw
+	ldx #>dledtnm
+	ldy #<dledtnm
+	jsr prmesgy
+	ldx #>dledtnb
+	ldy #<dledtnb
+	jsr prmesgy
+	ldx #>dledtms
+	ldy #<dledtms
+	jsr prmesgy
+	jsr finddld
+	lda y
 	pha
-	lda	#64
-	sta	x
-	lda	#2
-	sta	y
-	lda	#93
-	sta	prchar
-	jsr	print
-	inc	y
-	lda	#93
-	sta	prchar
-	jsr	print
-	ldx	#0
-	ldy	#0
+	lda #64
+	sta x
+	lda #2
+	sta y
+	lda #93
+	sta prchar
+	jsr print
+	inc y
+	lda #93
+	sta prchar
+	jsr print
+	ldx #0
+	ldy #0
 ?lp
-	lda	dleddat,y	; prepare prompts..
-	sta	dialmem,x
+	lda dleddat,y	; prepare prompts..
+	sta dialmem,x
 	inx
 	iny
-	cpy	#4
-	bne	?ok
-	ldx	#44
+	cpy #4
+	bne ?ok
+	ldx #44
 ?ok
-	cpy	#8
-	bne	?lp
-	ldx	#0
-	ldy	#0
-	lda	#24
-	sta	x
-	lda	#2
-	sta	y
+	cpy #8
+	bne ?lp
+	ldx #0
+	ldy #0
+	lda #24
+	sta x
+	lda #2
+	sta y
 ?lp2
-	lda	(prfrom),y	; display current entry
-	sta	dialmem+4,x
-	bne	?ok1
-	lda	#32
+	lda (prfrom),y	; display current entry
+	sta dialmem+4,x
+	bne ?ok1
+	lda #32
 ?ok1
-	sta	prchar
+	sta prchar
 
 	tya
 	pha
 	txa
 	pha
-	jsr	print
+	jsr print
 	pla
 	tax
 	pla
 	tay
 
-	inc	x
+	inc x
 	iny
 	inx
-	cpy	#40
-	bne	?ok2
-	ldx	#44
-	inc	y
-	lda	#24
-	sta	x
+	cpy #40
+	bne ?ok2
+	ldx #44
+	inc y
+	lda #24
+	sta x
 ?ok2
-	cpy	#80
-	bne	?lp2
+	cpy #80
+	bne ?lp2
 ?mlp
 	lda #5
-	jsr	erslineraw_a
+	jsr erslineraw_a
 
-	ldx	#>(dialmem+4)
-	ldy	#<(dialmem+4)
-	jsr	doprompt	; Change name
-	lda	prpdat
-	cmp	#255
-	beq	?en
-	ldx	#>(dialmem+48)
-	ldy	#<(dialmem+48)
-	jsr	doprompt	; Change number
-	lda	prpdat
-	cmp	#255
-	beq	?en
-	lda	dialmem+4	; Don't allow empty entries
-	beq	?mlp
-	lda	dialmem+48
-	beq	?mlp
+	ldx #>(dialmem+4)
+	ldy #<(dialmem+4)
+	jsr doprompt	; Change name
+	lda prpdat
+	cmp #255
+	beq ?en
+	ldx #>(dialmem+48)
+	ldy #<(dialmem+48)
+	jsr doprompt	; Change number
+	lda prpdat
+	cmp #255
+	beq ?en
+	lda dialmem+4	; Don't allow empty entries
+	beq ?mlp
+	lda dialmem+48
+	beq ?mlp
 
-	ldx	#>dialokm	; Ok <Y/N>?
-	ldy	#<dialokm
-	jsr	prmesg
+	ldx #>dialokm	; Ok <Y/N>?
+	ldy #<dialokm
+	jsr prmesg
 ?kl
-	jsr	getkeybuff
-	cmp	#27
-	beq	?en
-	cmp	#110	; n
-	beq	?mlp
-	cmp	#121	; y
-	bne	?kl
+	jsr getkeybuff
+	cmp #27
+	beq ?en
+	cmp #110	; n
+	beq ?mlp
+	cmp #121	; y
+	bne ?kl
 	pla
-	sta	y
-	jsr	finddld
-	ldx	#0
-	ldy	#0
+	sta y
+	jsr finddld
+	ldx #0
+	ldy #0
 ?elp
-	lda	dialmem+4,x
-	sta	(prfrom),y
+	lda dialmem+4,x
+	sta (prfrom),y
 	inx
 	iny
-	cpy	#40
-	bne	?eo
-	ldx	#44
+	cpy #40
+	bne ?eo
+	ldx #44
 ?eo
-	cpy	#80
-	bne	?elp
-	jmp	restart
+	cpy #80
+	bne ?elp
+	jmp restart
 ?en
 	pla
-	sta	y
-	jmp	restart
+	sta y
+	jmp restart
 
 noedit
-	cmp	#97	; [a]dd entry
-	beq	?ad
-	jmp	?nadd
+	cmp #97	; [a]dd entry
+	beq ?ad
+	jmp ?nadd
 ?ad
-	lda	diltmp1
-	cmp	#20
-	bne	?nof
-	ldx	#>dilful	; List full.
-	ldy	#<dilful
-	jsr	prmesgy
-	jmp	dialloop
+	lda diltmp1
+	cmp #20
+	bne ?nof
+	ldx #>dilful	; List full.
+	ldy #<dilful
+	jsr prmesgy
+	jmp dialloop
 ?nof
-	cmp	#0
-	beq	?bt
-	ldx	#>dladdmsg	; Prompt
-	ldy	#<dladdmsg
-	jsr	prmesgy
+	cmp #0
+	beq ?bt
+	ldx #>dladdmsg	; Prompt
+	ldy #<dladdmsg
+	jsr prmesgy
 ?kl
-	jsr	getkeybuff
-	cmp	#27
-	beq	?en
-	cmp	#98	; b
-	beq	?bt
-	cmp	#104	; h
-	bne	?kl
-	lda	y
+	jsr getkeybuff
+	cmp #27
+	beq ?en
+	cmp #98	; b
+	beq ?bt
+	cmp #104	; h
+	bne ?kl
+	lda y
 	pha
-	dec	y
-	cmp	#2
-	bne	?yk
-	lda	#<(dialdat-80)
-	sta	cntrl
-	lda	#>(dialdat-80)
-	sta	cntrh
-	jmp	?yo
+	dec y
+	cmp #2
+	bne ?yk
+	lda #<(dialdat-80)
+	sta cntrl
+	lda #>(dialdat-80)
+	sta cntrh
+	jmp ?yo
 ?yk
-	jsr	finddld
-	lda	prfrom
-	sta	cntrl
-	lda	prfrom+1
-	sta	cntrh
+	jsr finddld
+	lda prfrom
+	sta cntrl
+	lda prfrom+1
+	sta cntrh
 ?yo
-	lda	#20
-	sta	y
-	jsr	finddld
+	lda #20
+	sta y
+	jsr finddld
 
-	ldy	#79	; Insert blank location
+	ldy #79	; Insert blank location
 ?lp
-	lda	(prfrom),y
+	lda (prfrom),y
 	tax
-	lda	#0
-	cpy	#13
-	bcs	?ny
-	lda	dlblnk,y
+	lda #0
+	cpy #13
+	bcs ?ny
+	lda dlblnk,y
 ?ny
-	sta	(prfrom),y
+	sta (prfrom),y
 	tya
 	pha
 	clc
-	adc	#80
+	adc #80
 	tay
 	txa
-	sta	(prfrom),y
+	sta (prfrom),y
 	pla
 	tay
 	dey
-	bpl	?lp
-	ldy	#79
+	bpl ?lp
+	ldy #79
 	sec
-	lda	prfrom
-	sbc	#80
-	sta	prfrom
-	lda	prfrom+1
-	sbc	#0
-	sta	prfrom+1
-	lda	prfrom
-	cmp	cntrl
-	bne	?lp
-	lda	prfrom+1
-	cmp	cntrh
-	bne	?lp
+	lda prfrom
+	sbc #80
+	sta prfrom
+	lda prfrom+1
+	sbc #0
+	sta prfrom+1
+	lda prfrom
+	cmp cntrl
+	bne ?lp
+	lda prfrom+1
+	cmp cntrh
+	bne ?lp
 	pla
-	sta	y
-	jmp	dledit
+	sta y
+	jmp dledit
 ?bt
-	lda	diltmp1
+	lda diltmp1
 	clc
-	adc	#2
-	sta	y
-	jmp	dledit
+	adc #2
+	sta y
+	jmp dledit
 ?en
-	lda	#24
-	jsr	erslineraw_a
-	jmp	dialloop
-?nadd
-	cmp	#114	; [r]emove entry
-	bne	?en
-	lda	diltmp1
-	beq	?en
-	ldx	#>dldelmsg
-	ldy	#<dldelmsg
-	jsr	prmesgy
-	jsr	getkeybuff
-	cmp	#121	; y
-	bne	?en
 	lda #24
-	jsr	erslineraw_a
-	lda	scrltop
+	jsr erslineraw_a
+	jmp dialloop
+?nadd
+	cmp #114	; [r]emove entry
+	bne ?en
+	lda diltmp1
+	beq ?en
+	ldx #>dldelmsg
+	ldy #<dldelmsg
+	jsr prmesgy
+	jsr getkeybuff
+	cmp #121	; y
+	bne ?en
+	lda #24
+	jsr erslineraw_a
+	lda scrltop
 	pha
-	lda	scrlbot
+	lda scrlbot
 	pha
-	lda	finescrol
+	lda finescrol
 	pha
-	lda	#1
-	sta	finescrol
-	lda	#255
-	sta	outnum
-	lda	y
-	sta	scrltop
-	lda	#21
-	sta	scrlbot
-	jsr	invbarmk
-	jsr	scrldown
+	lda #1
+	sta finescrol
+	lda #255
+	sta outnum
+	lda y
+	sta scrltop
+	lda #21
+	sta scrlbot
+	jsr invbarmk
+	jsr scrldown
 ?w
-	lda	fscroldn
-	ora	fscrolup
-	bne	?w
+	lda fscroldn
+	ora fscrolup
+	bne ?w
 
-	lda	#0
-	sta	outnum
+	lda #0
+	sta outnum
 	pla
-	sta	finescrol
+	sta finescrol
 	pla
-	sta	scrlbot
+	sta scrlbot
 	pla
-	sta	scrltop
-	dec	diltmp1
-	bne	?nz
-	ldx	#>nodlmsg	; No entries
-	ldy	#<nodlmsg
-	jsr	prmesgy
+	sta scrltop
+	dec diltmp1
+	bne ?nz
+	ldx #>nodlmsg	; No entries
+	ldy #<nodlmsg
+	jsr prmesgy
 ?nz
-	jsr	finddld
-	lda	y
-	cmp	#2
-	beq	?dk
-	sbc	#2
-	cmp	diltmp1
-	bne	?dk
-	dec	y
+	jsr finddld
+	lda y
+	cmp #2
+	beq ?dk
+	sbc #2
+	cmp diltmp1
+	bne ?dk
+	dec y
 ?dk
-	jsr	invbarmk
-;	jsr	finddld
-	ldy	#79
+	jsr invbarmk
+;	jsr finddld
+	ldy #79
 ?ml
 	tya
 	pha
 	clc
-	adc	#80
+	adc #80
 	tay
-	lda	(prfrom),y
+	lda (prfrom),y
 	tax
 	pla
 	tay
 	txa
-	sta	(prfrom),y
+	sta (prfrom),y
 	dey
-	bpl	?ml
-	ldy	#79
+	bpl ?ml
+	ldy #79
 	clc
-	lda	prfrom
-	adc	#80
-	sta	prfrom
-	lda	prfrom+1
-	adc	#0
-	sta	prfrom+1
-	lda	prfrom
-	cmp	#<(dialmem-80)
-	bne	?ml
-	lda	prfrom+1
-	cmp	#>(dialmem-80)
-	bne	?ml
-	lda	#0
+	lda prfrom
+	adc #80
+	sta prfrom
+	lda prfrom+1
+	adc #0
+	sta prfrom+1
+	lda prfrom
+	cmp #<(dialmem-80)
+	bne ?ml
+	lda prfrom+1
+	cmp #>(dialmem-80)
+	bne ?ml
+	lda #0
 ?el
-	sta	(prfrom),y
+	sta (prfrom),y
 	dey
-	bpl	?el
-	jmp	dialloop
+	bpl ?el
+	jmp dialloop
 
 enddial
-	ldx	#>menudta
-	ldy	#<menudta
-	jsr	prmesg
-	lda	#0
-	sta	mnmnucnt
-	jsr	clrscrnraw
-	jsr	screenget
-	lda	#1
-	sta	clock_enable
-	jmp	gomenu2
+	ldx #>menudta
+	ldy #<menudta
+	jsr prmesg
+	lda #0
+	sta mnmnucnt
+	jsr clrscrnraw
+	jsr screenget
+	lda #1
+	sta clock_enable
+	jmp gomenu2
 
 prmesgy
-	lda	y
+	lda y
 	pha
-	jsr	prmesg
+	jsr prmesg
 	pla
-	sta	y
+	sta y
 	rts
 
 invbarmk		; Put an inverse bar
-	lda	y
-	asl	a
+	lda y
+	asl a
 	tax
-	lda	linadr,x
-	sta	cntrl
-	lda	linadr+1,x
-	sta	cntrh
-	ldy	#0
+	lda linadr,x
+	sta cntrl
+	lda linadr+1,x
+	sta cntrh
+	ldy #0
 ?lp
-	lda	(cntrl),y
-	eor	#255
-	sta	(cntrl),y
+	lda (cntrl),y
+	eor #255
+	sta (cntrl),y
 	iny
-	bne	?lp
-	inc	cntrh
+	bne ?lp
+	inc cntrh
 ?lp2
-	lda	(cntrl),y
-	eor	#255
-	sta	(cntrl),y
+	lda (cntrl),y
+	eor #255
+	sta (cntrl),y
 	iny
-	cpy	#64
-	bne	?lp2
+	cpy #64
+	bne ?lp2
 	rts
 
 finddld			; Find entry in table
-	lda	#0
-	sta	prfrom+1
-	dec	y
-	dec	y
-	lda	y
-	asl	a
-	asl	a
-	adc	y
-	inc	y
-	inc	y
-	asl	a
-	asl	a
-	rol	prfrom+1
-	asl	a
-	rol	prfrom+1
-	asl	a
-	rol	prfrom+1
-	adc	#<dialdat
-	sta	prfrom
-	lda	prfrom+1
-	adc	#>dialdat
-	sta	prfrom+1
+	lda #0
+	sta prfrom+1
+	dec y
+	dec y
+	lda y
+	asl a
+	asl a
+	adc y
+	inc y
+	inc y
+	asl a
+	asl a
+	rol prfrom+1
+	asl a
+	rol prfrom+1
+	asl a
+	rol prfrom+1
+	adc #<dialdat
+	sta prfrom
+	lda prfrom+1
+	adc #>dialdat
+	sta prfrom+1
 	rts
 
 ; Dialing -	messages
@@ -6320,235 +6320,235 @@ prpdat = numstk+$100 - (64+3) ; 43	; Prompt routine's data. Size is 3 + largest 
 
 ?prplen = botx
 
-	sty	topx
+	sty topx
 	dex
-	stx	topx+1
-	lda	#0
-	sta	ersl
-	sta	ersl+1
-	ldy	#252	; 256-4
-	lda	(topx),y
-	lsr	a
-	bcc	?i
-	inc	ersl
+	stx topx+1
+	lda #0
+	sta ersl
+	sta ersl+1
+	ldy #252	; 256-4
+	lda (topx),y
+	lsr a
+	bcc ?i
+	inc ersl
 ?i
-	lsr	a
-	bcc	?l
-	inc	ersl+1
+	lsr a
+	bcc ?l
+	inc ersl+1
 ?l
 	iny
-	lda	(topx),y
-	sta	prpdat
+	lda (topx),y
+	sta prpdat
 	iny
-	lda	(topx),y
-	sta	prpdat+1
+	lda (topx),y
+	sta prpdat+1
 	iny
-	lda	(topx),y
-	sta	prpdat+2
-	sta	?prplen
+	lda (topx),y
+	sta prpdat+2
+	sta ?prplen
 	iny
-	inc	topx+1
+	inc topx+1
 ?lp
-	lda	(topx),y
-	jsr	prtrans
-	sta	prpdat+3,y
+	lda (topx),y
+	jsr prtrans
+	sta prpdat+3,y
 	iny
-	cpy	?prplen
-	bne	?lp
-	lda	#0
-	sta	numb
-	lda	#1
-	sta	numb+1
+	cpy ?prplen
+	bne ?lp
+	lda #0
+	sta numb
+	lda #1
+	sta numb+1
 ?prlp
-	ldx	numb
-	lda	prpdat+3,x
-	eor	#128
-	sta	prpdat+3,x
-	ldx	#>prpdat
-	ldy	#<prpdat
-	jsr	prmesg
-	ldx	numb
-	lda	prpdat+3,x
-	eor	#128
-	sta	prpdat+3,x
+	ldx numb
+	lda prpdat+3,x
+	eor #128
+	sta prpdat+3,x
+	ldx #>prpdat
+	ldy #<prpdat
+	jsr prmesg
+	ldx numb
+	lda prpdat+3,x
+	eor #128
+	sta prpdat+3,x
 ?k
-	jsr	getkeybuff
-	cmp	#27
-	bne	?ne
+	jsr getkeybuff
+	cmp #27
+	bne ?ne
 
 ; escape
 
-	lda	#255
-	sta	prpdat
+	lda #255
+	sta prpdat
 	rts
 
 ?ne
-	cmp	#31
-	bne	?nr
+	cmp #31
+	bne ?nr
 
 ; right
-	lda	#0
-	sta	numb+1
+	lda #0
+	sta numb+1
 ?or
-	inc	numb
-	lda	numb
-	cmp	?prplen
-	bne	?ok
-	dec	numb
+	inc numb
+	lda numb
+	cmp ?prplen
+	bne ?ok
+	dec numb
 ?ok
-	jmp	?prlp
+	jmp ?prlp
 ?nr
-	cmp	#30
-	bne	?nl
+	cmp #30
+	bne ?nl
 
 ; left
-	lda	#0
-	sta	numb+1
+	lda #0
+	sta numb+1
 
-	dec	numb
-	lda	numb
-	cmp	#255
-	bne	?k1
-	inc	numb
+	dec numb
+	lda numb
+	cmp #255
+	bne ?k1
+	inc numb
 ?k1
-	jmp	?prlp
+	jmp ?prlp
 ?nl
-	cmp	#126
-	bne	?nod
+	cmp #126
+	bne ?nod
 
 ; delete
-	lda	#0
-	sta	numb+1
+	lda #0
+	sta numb+1
 
-	lda	numb
-	bne	?k2
-	jmp	?prlp
+	lda numb
+	bne ?k2
+	jmp ?prlp
 ?k2
-	dec	numb
-	jmp	?dod
+	dec numb
+	jmp ?dod
 
 ?nod
-	cmp	#254
-	bne	?nop
+	cmp #254
+	bne ?nop
 
 ; ctrl-delete
 
-	lda	#0
-	sta	numb+1
+	lda #0
+	sta numb+1
 
 ?dod
-	ldy	numb
+	ldy numb
 ?dlp
-	lda	prpdat+3+1,y
-	sta	prpdat+3,y
+	lda prpdat+3+1,y
+	sta prpdat+3,y
 	iny
-	cpy	?prplen
-	bne	?dlp
-	lda	#32
-	jsr	prtrans
-	sta	prpdat+3-1,y
-	jmp	?prlp
+	cpy ?prplen
+	bne ?dlp
+	lda #32
+	jsr prtrans
+	sta prpdat+3-1,y
+	jmp ?prlp
 ?nop
-	cmp	#155
-	bne	?noe
+	cmp #155
+	bne ?noe
 
 ; enter
 
-	ldx	#>prpdat
-	ldy	#<prpdat
-	jsr	prmesg
+	ldx #>prpdat
+	ldy #<prpdat
+	jsr prmesg
 
-	ldx	?prplen
+	ldx ?prplen
 	dex
 ?elp
-	lda	prpdat+3,x
-	and	#127
-	cmp	#32
-	bne	?eno
-	lda	#0
-	sta	prpdat+3,x
+	lda prpdat+3,x
+	and #127
+	cmp #32
+	bne ?eno
+	lda #0
+	sta prpdat+3,x
 	dex
-	bpl	?elp
+	bpl ?elp
 ?eno
-	ldy	#0
+	ldy #0
 ?el2
-	lda	prpdat+3,y
-	ldx	ersl
-	beq	?ni
-	and	#127
+	lda prpdat+3,y
+	ldx ersl
+	beq ?ni
+	and #127
 ?ni
-	ldx	ersl+1
-	beq	?o
-	cmp	#97
-	bcc	?o
-	cmp	#123
-	bcs	?o
+	ldx ersl+1
+	beq ?o
+	cmp #97
+	bcc ?o
+	cmp #123
+	bcs ?o
 	sec
-	sbc	#32
+	sbc #32
 ?o
-	sta	(topx),y
+	sta (topx),y
 	iny
-	cpy	?prplen
-	bne	?el2
+	cpy ?prplen
+	bne ?el2
 	rts
 
 ?noe
-	cmp	#32
-	bcc	?noc
-	cmp	#128
-	bcs	?noc
+	cmp #32
+	bcc ?noc
+	cmp #128
+	bcs ?noc
 
 ; any char
 
-	sta	temp
-	lda	numb+1
-	beq	?ncl
-	ldy	#0
-	sty	numb+1
+	sta temp
+	lda numb+1
+	beq ?ncl
+	ldy #0
+	sty numb+1
 ?kl					; Clear previous name if first
-	lda	#32			; key hit is a letter (that is, the
-	jsr	prtrans		; user doesn't wish to edit the
-	sta	prpdat+3,y	; older name).
+	lda #32			; key hit is a letter (that is, the
+	jsr prtrans		; user doesn't wish to edit the
+	sta prpdat+3,y	; older name).
 	iny
-	cpy	?prplen
-	bne	?kl
+	cpy ?prplen
+	bne ?kl
 ?ncl
-	ldx	?prplen
+	ldx ?prplen
 	dex
-	cpx	numb
-	beq	?noi
+	cpx numb
+	beq ?noi
 ?clp
-	lda	prpdat+3-1,x
-	sta	prpdat+3,x
+	lda prpdat+3-1,x
+	sta prpdat+3,x
 	dex
-	cpx	numb
-	bne	?clp
+	cpx numb
+	bne ?clp
 ?noi
-	ldy	numb
-	lda	temp
-	jsr	prtrans
-	sta	prpdat+3,y
-	jmp	?or
+	ldy numb
+	lda temp
+	jsr prtrans
+	sta prpdat+3,y
+	jmp ?or
 ?noc
-	jmp	?prlp
+	jmp ?prlp
 
 prtrans
-	cmp	#0
-	bne	?z
-	lda	#32
+	cmp #0
+	bne ?z
+	lda #32
 ?z
-	ldx	ersl+1
-	beq	?c
-	cmp	#65
-	bcc	?c
-	cmp	#91
-	bcs	?c
+	ldx ersl+1
+	beq ?c
+	cmp #65
+	bcc ?c
+	cmp #91
+	bcs ?c
 	clc
-	adc	#32
+	adc #32
 ?c
-	ldx	ersl
-	beq	?v
-	eor	#128
+	ldx ersl
+	beq ?v
+	eor #128
 ?v
 	rts
 
@@ -6564,7 +6564,7 @@ rputstring
 	tya
 	pha
 	lda (cntrl),y
-	beq	?skip	; skip null characters
+	beq ?skip	; skip null characters
 	jsr rputch
 ?skip
 	pla
@@ -6602,7 +6602,7 @@ parse_jumptable
 	lda (cntrl),y
 	sta ?jumpaddr+2
 ?jumpaddr
-	jmp $ffff
+	jmp undefined_addr
 
 ; Bold - Fixed tables
 boldcolrtables_lo	.byte <colortbl_0, <colortbl_1, <colortbl_2, <colortbl_3, <colortbl_4
@@ -6646,45 +6646,45 @@ mini1
 	.bank
 	*=	$600
 inittrm
-	ldy	#0
-	sty	cntrl
-	lda	#$40
-	sta	cntrh
+	ldy #0
+	sty cntrl
+	lda #$40
+	sta cntrh
 intrmlp
-	ldx	bank0
-	stx	banksw
-	lda	(cntrl),y
-chbnk1  ldx	bank1	; this value is modified to bank2 for second iteration
-	stx	banksw
-	sta	(cntrl),y
+	ldx bank0
+	stx banksw
+	lda (cntrl),y
+chbnk1  ldx bank1	; this value is modified to bank2 for second iteration
+	stx banksw
+	sta (cntrl),y
 	iny
-	cpy	#0
-	bne	intrmlp
-	inc	cntrh
-	lda	cntrh
-chbnk2  cmp	#>mini1
-	bcc	intrmlp
-	beq	intrmlp
-	
+	cpy #0
+	bne intrmlp
+	inc cntrh
+	lda cntrh
+chbnk2  cmp #>mini1
+	bcc intrmlp
+	beq intrmlp
+
 	; store special string at $4000 to mark this bank as properly loaded.
 	; in subsequent loads (e.g. after reboot), if this magic marker is found then loading this bank
 	; is skipped.
-	ldx	#0
+	ldx #0
 ?lp
-	lda	svscrlms,x
-	sta	$4000,x
+	lda svscrlms,x
+	sta banked_memory_bottom,x
 	inx
-	cpx	#$10
-	bne	?lp
+	cpx #$10
+	bne ?lp
 
-	lda	bank0
-	sta	banksw
-	
+	lda bank0
+	sta banksw
+
 ; self-modify code so next time it does bank 2 rather than 1
-	lda	#bank2	; This changes "ldx bank1" to "ldx bank2"
-	sta	chbnk1+1
-	lda	#>mini2	; Changes "cmp #>mini1" to "cmp #>mini2"
-	sta	chbnk2+1
+	lda #bank2	; This changes "ldx bank1" to "ldx bank2"
+	sta chbnk1+1
+	lda #>mini2	; Changes "cmp #>mini1" to "cmp #>mini2"
+	sta chbnk2+1
 	rts
 
 	.bank

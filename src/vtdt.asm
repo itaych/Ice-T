@@ -53,7 +53,7 @@ icesoft		     ; IceSoft logo for title screen
 	.byte	255,255,255,255,128
 
 ; End of title screen data
-	
+
 escdat	.byte	"<Esc>",0			; used by text file viewer to display non-printable characters
 ctldat	.byte	"<Ctrl-F>",0
 vewdat	= numstk+$80

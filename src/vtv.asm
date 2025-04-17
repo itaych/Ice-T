@@ -2,7 +2,7 @@
 ;  A VT-100 terminal emulator
 ;      by Itay Chamiel
 
-; - Program variables and data -- VTV.ASM -  
+; - Program variables and data -- VTV.ASM -
 
 ; note: unused memory locations are indicated by the word "spare" in a comment
 
@@ -143,7 +143,7 @@ bank4		.ds 1
 
 ; spare
 	.ds 2
-	
+
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
 	.endif
@@ -192,7 +192,7 @@ zmd_type_ZEOF		= $0b	; end of file reached (s->r)
 zmd_type_ZFERR		= $0c	; fatal read or write error detected (?)
 zmd_type_ZCRC		= $0d	; request for file CRC and response (?)
 zmd_type_ZCHALLENGE	= $0e	; security challenge (r->s)
-zmd_type_ZCOMPL		= $0f	; request is complete (?)	
+zmd_type_ZCOMPL		= $0f	; request is complete (?)
 zmd_type_ZCAN		= $10	; pseudo frame; other end cancelled session with 5* CAN
 zmd_type_ZFREECNT	= $11	; request free bytes on file system (s->r)
 zmd_type_ZCOMMAND	= $12	; issue command (s->r)
@@ -223,8 +223,8 @@ macrosize =	64 ; size of each macro
 
 ; Bank 0 - Cyclic data buffer, X/Y/Zmodem buffer
 
-buffer	=	$4000
-buftop	=	$8000
+buffer	=	banked_memory_bottom
+buftop	=	banked_memory_top
 
 ; Bank 1 - Terminal and dialing menu (vt2.asm)
 
@@ -251,7 +251,7 @@ xmdblock	.ds 3
 xmdsave		.ds 5
 xm128		.ds 1
 ymodem		.ds 1	; 0 in xmodem, 1 in ymodem, 255 in zmodem
-ymdbk1		.ds 1	; 0 in xmodem or (ymodem and invalid file size), 
+ymdbk1		.ds 1	; 0 in xmodem or (ymodem and invalid file size),
 					; 1 in ymodem before getting file info,
 					; 2 when ymodem got batch packet with valid file size
 ymdpl		.ds 3	; offset in ymodem file, 3-byte integer
@@ -396,7 +396,7 @@ macro_key_assign
 dlist	.ds $103	; display list
 ; spare
 	.ds 13
-	
+
 	.if	* <> $c000
 	.error "not using top of memory!!"
 	.endif
@@ -415,17 +415,47 @@ colortbl_4	.ds 24
 
 ; spare (page 6)
 	.ds 134
-	
+
 	.if	* <> $700
 	.error "not using page 6 fully!!"
 	.endif
 
 ; System equates
+casini	=	$02
+bootflag	=	$09
+dosvec	=	$0a
+dosini	=	$0c
+brkkey	=	$11		; BREAK key flag
+rtclock_0	=	$12
+rtclock_1	=	$13
+rtclock_2	=	$14	; Increments by 1 each vblank
+icax1z	=	$2a
+atract	=	$4d		; Attract mode timer and flag
+lmargn	=	$52		; Text mode left margin
+keydef	=	$79		; Points to keyboard code conversion table (from keyboard code to ASCII)
+vdslst	=	$200	; DLI vector
+vvblki	=	$222	; Immediate VBI vector
+vvblkd	=	$224	; Deferred VBI vector
+sdmctl	=	$22f	; ANTIC DMA control
+sdlstl	=	$230	; Display list pointer
+brkky	=	$236	; BREAK key vector
+coldst	=	$244	; Coldstart flag
+gprior	=	$26f	; Priority selection register
+pcolr0	=	$2c0	; Player 0 color
+pcolr1	=	$2c1	; Player 1 color
+pcolr2	=	$2c2	; Player 2 color
+pcolr3	=	$2c3	; Player 3 color
+color1	=	$2c5	; ANTIC mode 15: luminance of lit pixels
+color2	=	$2c6	; ANTIC mode 15: playfield color
+color3	=	$2c7	; Color of fifth player
+color4	=	$2c8	; ANTIC mode 15: border color
+bcount	=	$2eb	; DVSTAT+1. When serial port is open in concurrent mode, after a STATUS command this word holds the amount of data in the input buffer 
+memlo	=	$2e7	; Pointer to bottom of free memory
+kbd_ch	=	$2fc	; Internal hardware value for the last key pressed, $FF means nothing was pressed. Use keydef to convert code to ASCII.
+ctrl1flag	=	$2ff	; ctrl-1 (pause) flag
+hatabs	=	$31a	; Device handler table
 
-brkkey	=	$11
-keydef	=	$79
-lomem	=	743
-bcount	=	747
+; I/O control block 0, add $10 for each subsequent block (up to $70)
 iccom	=	$342
 icbal	=	$344
 icbah	=	$345
@@ -435,24 +465,61 @@ icbll	=	$348
 icblh	=	$349
 icaux1	=	$34a
 icaux2	=	$34b
+
+; XE banked memory region
+banked_memory_bottom	=	$4000
+banked_memory_top		=	$8000
+
+; Hardware registers
+; GTIA
+hposp0	=	$d000	; Player 0 horizontal position
+hposm0	=	$d004	; Missile 0 horizontal position
+sizep0	=	$d008	; Size of player 0
+sizem	=	$d00c	; Missile sizes
+colpm0	=	$d012	; Player 0 color
+colpm1	=	$d013	; Player 1 color
+colpm2	=	$d014	; Player 2 color
+pal_flag	=	colpm2	; PAL/NTSC indicator
+colpm3	=	$d015	; Player 3 color
+colpf1	=	$d017	; ANTIC mode 15: luminance of lit pixels
+colpf2	=	$d018	; ANTIC mode 15: playfield color
+colpf3	=	$d019	; Color of fifth player
+colbk	=	$d01a	; ANTIC mode 15: border color
+gractl	=	$d01d	; Enable P/Ms
+consol	=	$d01f	; console buttons (read)/internal speaker (write)
+; POKEY
+kbcode	=	$d209
+random	=	$d20a
+skstat	=	$d20f
+; PIA
+portb	=	$d301	; PORTB, used for bank switching
+banksw	=	portb
+; ANTIC
+dmactl	=	$d400	; DMA control
+dlistl	=	$d402	; Display list pointer
+pmbase	=	$d407	; P/M base address
+nmien	=	$d40e	; NMI enable
+
+nmien_DLI_ENABLE	=	$c0
+nmien_DLI_DISABLE	=	$40
+
+; OS vectors
+os_charset	=	$e000	; OS built-in character set
+k_device_get	=	$e424 ; K: device get character vector
 ciov	=	$e456
 setvbv	=	$e45c
 sysvbv	=	$e45f
 xitvbv	=	$e462
-kbcode	=	$d209
-banksw	=	$d301	; PORTB
 
-nmien	=	$d40e
+undefined_addr	=	$ffff	; placeholder value for self-modified code
 
-DLI_ENABLE	=	$c0
-DLI_DISABLE	=	$40
 
 ; Program data
 
 	.bank
-	*=	$2651	; Lomem with R: and Hyp-E:
+	*=	$2651	; MEMLO with R: and Hyp-E:
 
-;	*=	$23FA	; Lomem with Bob-verter + Hyp-E:
+;	*=	$23FA	; MEMLO with Bob-verter + Hyp-E:
 ;	*=	$294a	; Overwrite Mydos's menu
 
 menudta
@@ -512,7 +579,7 @@ ascprc
 
 cfgdat
 
-baudrate	.byte 15	; baud rate, 8=300 baud, 15=19.2k 
+baudrate	.byte 15	; baud rate, 8=300 baud, 15=19.2k
 stopbits	.byte 0
 localecho	.byte 0
 click		.byte 2
@@ -525,7 +592,7 @@ bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
 bckcolr		.byte 0
 eoltrns		.byte 0		; EOL translation for incoming files
 ansiflt		.byte 0
-ueltrns		.byte 3		; upload EOL translation. 
+ueltrns		.byte 3		; upload EOL translation.
 ansibbs		.byte 0		; VT-102 (0), ANSI-BBS (1), VT-52 (2)
 eitbit		.byte 1
 fastr		.byte 2
@@ -536,7 +603,7 @@ ascdelay	.byte 2		; Delay (or prompt) between lines during ASCII upload
 	.if	*-cfgdat <> cfgnum
 	.error "cfgnum is wrong!!"
 	.endif
-	
+
 ; Translation table for graphical character set, ASCII 95-126 when enabled.
 graftabl
 	.byte	32,6,0,128,129,130,131,7,8
@@ -564,7 +631,7 @@ szlen	.byte	80,40,40,40
 ; Note that the screen is actually set up such that the background is color 1 (set bits) and
 ; text is color 0 (0 bits) so that the boldface PMs "shine" through. So, the foreground and
 ; background colors are reversed.
-; Values are stored in color registers 709 (bitmap set bits), 710 (bitmap 0 bits), 711 (PMs), 712 (border) 
+; Values are stored in color registers 709 (bitmap set bits), 710 (bitmap 0 bits), 711 (PMs), 712 (border)
 sccolors
 	.byte	0,10,14,2	; Light text on dark background
 	.byte	14,4,0,12	; Dark text on light background
@@ -697,7 +764,7 @@ captdt		.byte "        "
 captfull
 	.byte	71,0,8
 	.byte	"--Full--"
-	
+
 ; Title screen messages are in end of vtdt.asm (bank 2) except for version string
 tilmesg1
 	.byte	"Ice-T __"
@@ -716,7 +783,7 @@ tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms
 version_strlen = version_str_end-version_str
-	
+
 pstbl	.byte	0, 16, 1
 
 crtb	.byte	155

@@ -12,7 +12,7 @@ bnkmem	=	$4000
 
 	.bank
 	*=	$3000
-	
+
 system_checkup
 
 ; determine bank select values which will be used by Ice-T. We don't want to touch bit 0 of PORTB.
@@ -25,16 +25,16 @@ system_checkup
 	dex
 	bpl ?lp
 
-	lda	82
+	lda lmargn
 	pha
-	lda	#0
-	sta	82			; set margin to 0
-	lda	#255
-	sta	764			; clear keyboard buffer
+	lda #0
+	sta lmargn			; set margin to 0
+	lda #255
+	sta kbd_ch			; clear keyboard buffer
 
-	ldx	#>okmsg2	; Print a blank line
-	ldy	#<okmsg2
-	jsr	prnt_line
+	ldx #>okmsg2	; Print a blank line
+	ldy #<okmsg2
+	jsr prnt_line
 
 ; Check for free 48K by writing to top of memory and checking for same value when read
 
@@ -45,12 +45,12 @@ system_checkup
 	cmp topmem
 	bne membad
 	stx topmem
-	jmp	memok
+	jmp memok
 membad
-	jsr	prntbad		; Error - base 48k not free
-	ldx	#>bd48
-	ldy	#<bd48
-	jsr	prnt_line
+	jsr prntbad		; Error - base 48k not free
+	ldx #>bd48
+	ldy #<bd48
+	jsr prnt_line
 
 ; Test if SpartaDOS X is running - if so, tell user to run Ice-T with "X" command (which frees lower 48K).
 
@@ -62,27 +62,27 @@ membad
 	cmp #$40
 	bne memok
 	ldx #>sdx_usex
-	ldy	#<sdx_usex
-	jsr	prnt_line
+	ldy #<sdx_usex
+	jsr prnt_line
 
 memok
-	lda	bank0		; Test for 128K banked memory
-	sta	banksw
-	lda	#12
-	sta	bnkmem
-	lda	bank4
-	sta	banksw
-	lda	#27
-	sta	bnkmem
-	lda	bank0
-	sta	banksw
-	lda	bnkmem
-	cmp	#12
-	beq	bankok
-	jsr	prntbad
-	ldx	#>bnkbd
-	ldy	#<bnkbd
-	jsr	prnt_line
+	lda bank0		; Test for 128K banked memory
+	sta banksw
+	lda #12
+	sta bnkmem
+	lda bank4
+	sta banksw
+	lda #27
+	sta bnkmem
+	lda bank0
+	sta banksw
+	lda bnkmem
+	cmp #12
+	beq bankok
+	jsr prntbad
+	ldx #>bnkbd
+	ldy #<bnkbd
+	jsr prnt_line
 bankok
 
 ; This code checks for the presence of an R: device in HATABS. If it doesn't exist it attempts to load
@@ -90,88 +90,88 @@ bankok
 
 ; The following section may run twice, counter ?rr1 remembers which iteration we are.
 
-	ldx	#0
-	stx $8002		; flag that R: handler was NOT loaded by Ice-T.
+	ldx #0
+	stx banked_memory_top+2		; flag that R: handler was NOT loaded by Ice-T.
 
 ?lp1
-	lda	$31a,x
-	cmp	#'R
-	beq	?ok1		; found R: - we're done here.
+	lda hatabs,x
+	cmp #'R
+	beq ?ok1		; found R: - we're done here.
 	inx
 	inx
 	inx
-	cpx	#38
-	bcc	?lp1
-	inc	?rr1		; didn't find it, increment a counter
-	lda	?rr1
-	cmp	#2
-	beq	?rb			; second iteration? indicate failure
+	cpx #38
+	bcc ?lp1
+	inc ?rr1		; didn't find it, increment a counter
+	lda ?rr1
+	cmp #2
+	beq ?rb			; second iteration? indicate failure
 
 	lda $700		; Try loading RS232.COM if we are in MyDOS
 	cmp #'M
 	bne ?rb
 
-	lda	lomem		; remember lomem value
-	sta	$8001
-	lda	lomem+1
-	sta	$8002
-	ldx	#$30
-	lda	#12			; Close channel #3
-	sta	iccom+$30
-	jsr	ciov
-	ldx	#$30
-	lda	#40			; XIO command to load and execute file (39 also works in MyDOS)
-	sta	iccom+$30
-	lda	#>fnme
-	sta	icbah+$30
-	lda	#<fnme
-	sta	icbal+$30
-	lda	#4			; AUX1=4 - both the INIT and the RUN entries will be executed
-	sta	icaux1+$30
-	jsr	ciov
-	sty	?rr2		; save error code
-	jmp	bankok
+	lda memlo		; remember memlo value
+	sta banked_memory_top+1
+	lda memlo+1
+	sta banked_memory_top+2
+	ldx #$30
+	lda #12			; Close channel #3
+	sta iccom+$30
+	jsr ciov
+	ldx #$30
+	lda #40			; XIO command to load and execute file (39 also works in MyDOS)
+	sta iccom+$30
+	lda #>fnme
+	sta icbah+$30
+	lda #<fnme
+	sta icbal+$30
+	lda #4			; AUX1=4 - both the INIT and the RUN entries will be executed
+	sta icaux1+$30
+	jsr ciov
+	sty ?rr2		; save error code
+	jmp bankok
 
 ?rr1	.byte	0	; iteration counter
 ?rr2	.byte	0	; error code
 
 ?rb
-	jsr	prntbad
-	lda	?rr2
-	bpl	?nrd		; was there an error loading the R: handler file?
-	ldx	#>rhndbd1	; yes - indicate that we couldn't load the file
-	ldy	#<rhndbd1
-	jsr	prnt_null_terminated
-	jmp	?ok1
+	jsr prntbad
+	lda ?rr2
+	bpl ?nrd		; was there an error loading the R: handler file?
+	ldx #>rhndbd1	; yes - indicate that we couldn't load the file
+	ldy #<rhndbd1
+	jsr prnt_null_terminated
+	jmp ?ok1
 ?nrd
-	ldx	#>rhndbd	; no - indicate that hardware is probably not ready
-	ldy	#<rhndbd
-	jsr	prnt_line
+	ldx #>rhndbd	; no - indicate that hardware is probably not ready
+	ldy #<rhndbd
+	jsr prnt_line
 ?ok1
-	stx	$8000		; remember offset to R: handler (if it wasn't found, this just writes a junk value)
+	stx banked_memory_top	; remember offset to R: handler (if it wasn't found, this just writes a junk value)
 
-	lda	badtext
-	bne	?ok			; Done diagnostics. Did they all pass?
-	
+	lda badtext
+	bne ?ok			; Done diagnostics. Did they all pass?
+
 ; No, display failure and quit.
 
-	ldx	#>okmsg2	; Print a blank line
-	ldy	#<okmsg2
-	jsr	prnt_line
-	ldx	#>retdsmsg	; display "hit any key to return to DOS"
-	ldy	#<retdsmsg
-	jsr	prnt_line
+	ldx #>okmsg2	; Print a blank line
+	ldy #<okmsg2
+	jsr prnt_line
+	ldx #>retdsmsg	; display "hit any key to return to DOS"
+	ldy #<retdsmsg
+	jsr prnt_line
 ?lp
-	lda	764			; wait for keypress
-	cmp	#255
-	beq	?lp
-	lda	#255
-	sta	764
-	pla				; restore margin setting
-	sta	82
-	pla				; remove return address from stack (so rest of program won't load)
+	lda kbd_ch			; wait for keypress
+	cmp #255
+	beq ?lp
+	lda #255
+	sta kbd_ch
+	pla 			; restore margin setting
+	sta lmargn
+	pla 			; remove return address from stack (so rest of program won't load)
 	pla
-	jmp	($a)		; bail out to DOSVEC
+	jmp (dosvec)		; bail out to DOSVEC
 ?ok
 
 ; All tests passed; in case of SpartaDOS, disable TDLINE (time/date bar at top of screen)
@@ -181,8 +181,8 @@ bankok
 ; $0702 : $02 = Revision 2 (Sparta-Dos X only)
 
 	lda #0
-	sta $8003		; flag that remembers to re-enable TDLINE (SDX 4.4+ only)
-	
+	sta banked_memory_top+3		; flag that remembers to re-enable TDLINE (SDX 4.4+ only)
+
 	lda $700 		; DOS type detection
 	cmp #'S
 	bne ?nosparta
@@ -205,13 +205,13 @@ jfsymbol = $07eb
 	tya
 	jsr jext_on
 	ldy #$00        ;$00 - off, $01 - on
-?ptr	jsr $0000	; self modified
+?ptr	jsr undefined_addr	; self modified
 	jsr jext_off
-	inc $8003
+	inc banked_memory_top+3
 	jmp ?nosparta
 ; symbol name, space-padded to 8 characters
 ?sym	.byte "I_TDON  "
-	
+
 ?nosparta44
 	and #$f0
 	cmp #$40
@@ -232,59 +232,59 @@ jfsymbol = $07eb
 
 ; Display success and let rest of program load
 
-	ldx	#>okmsg
-	ldy	#<okmsg
-	jsr	prnt_line	; output "loading ice-t..." and exit
+	ldx #>okmsg
+	ldy #<okmsg
+	jsr prnt_line	; output "loading ice-t..." and exit
 	pla
-	sta	82			; restore margin setting
+	sta lmargn		; restore margin setting
 	rts
-	
+
 ; display initial error message, taking care not to show it more than once
 
 prntbad
-	ldx	#>badtext
-	ldy	#<badtext
-	jsr	prnt_null_terminated
-	lda	#0
-	sta	badtext		; change to null string so this message is not displayed again
+	ldx #>badtext
+	ldy #<badtext
+	jsr prnt_null_terminated
+	lda #0
+	sta badtext		; change to null string so this message is not displayed again
 	rts
-	
+
 ; print a line ending with EOL
 
 prnt_line
-	stx	icbah		; x/y contain address of line
-	sty	icbal
-	ldx	#0
-	lda	#9			; "print" command
-	sta	iccom
-	lda	#255		; max length 255 bytes
-	sta	icbll
-	stx	icblh
-	jmp	ciov
+	stx icbah		; x/y contain address of line
+	sty icbal
+	ldx #0
+	lda #9			; "print" command
+	sta iccom
+	lda #255		; max length 255 bytes
+	sta icbll
+	stx icblh
+	jmp ciov
 
 ; print a null-terminated string
 
 prnt_null_terminated
-	sty $80
-	stx $81
+	sty cntrl
+	stx cntrh
 	ldy #0
 ?lp
-	lda	($80),y
+	lda (cntrl),y
 	beq ?end
 	tax
 	tya
-	pha				; save loop index
+	pha 			; save loop index
 	txa
-	ldx	#11			; output single character
-	stx	iccom
-	ldx	#0			; chan #0
-	stx	icbll		; length 0
-	stx	icblh
-	jsr	ciov
+	ldx #11			; output single character
+	stx iccom
+	ldx #0			; chan #0
+	stx icbll		; length 0
+	stx icblh
+	jsr ciov
 	pla
-	tay				; recover loop index
+	tay 			; recover loop index
 	iny
-	bne	?lp	
+	bne ?lp
 ?end
 	rts
 
@@ -317,7 +317,7 @@ fnme
 ; Values for bank selecting, with bit 0 reset. Bit 0 is taken from PORTB value at startup.
 bankselect_vals
 	.byte	$fe, $e2, $e6, $ea, $ee
-	
+
 ; cause this code to run immediately after loading
 
 	.bank

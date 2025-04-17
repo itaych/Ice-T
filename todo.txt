@@ -66,13 +66,17 @@ Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show o
 
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 
+colors: use direct writes to GTIA using GRAFP0-3/GRAFM in DLI? save PM memory and DMA cycles!
+
+text compression? save lots of memory!
+
 convert doc to ATASCII for ATR.
 
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
 		however space should always bold/unbold if overwriting an existing char!
 		that should fix emacs tetris.
-	colors are ugly if screen is inverse. perhaps have dual color table, one for regular one for inverse.
+	colors are ugly if screen is inverse. use different colors if screen is inverse. Clear colors if switching.
 	maybe do black text by enabling inverse video. Then background color takes priority.
 	Fill new (cleared) lines with background color?
 
