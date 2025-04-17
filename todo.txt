@@ -30,6 +30,7 @@ Flow control can cause visual bugs or crashes, especially when entering dial men
 	buffifnd (and buffdo) may use the following if xoff flow control acts: x, y, prchar/+1, cntrl/h. change to preserve them (except prchar) (done)
 read time in spartados 4.x at startup (done)
 restore TDLINE at exit (done)
+charsets: just load direct to destination (done)
 
 Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen? 3. What prevents "Rush" from being displayed during menus? 4. At chkrsh?ok there are calls that also call buffdo - could cause infinite recursion? 5. Cursor glitches.
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
@@ -80,7 +81,7 @@ private extensions:
 	- cmd=20: set(1)/unset(0 or blank) scroll lock for color background.
 	- cmd=21: set/unset rotate for vertical scroll (if set new line will get colors of scrolled out line)
 	- cmd=22: set/unset rotate for horizontal scroll
-	- cmd=30: vdelay
+	- cmd=30: vdelay * arg1
 
 don't forget to generate new icet.dat for release!
 

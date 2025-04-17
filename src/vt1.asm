@@ -1275,8 +1275,7 @@ gropen
 	lda	#192
 	sta	icaux1+$20
 	jsr	ciov
-	cpy	#128
-	bcc	?a
+	bpl	?a
 	rts
 ?a
 
@@ -1287,8 +1286,7 @@ gropen
 	lda	#32
 	sta	icaux1+$20
 	jsr	ciov
-	cpy	#128
-	bcc	?b
+	bpl	?b
 	rts
 ?b
 
@@ -1303,8 +1301,7 @@ gropen
 	adc	stopbits
 	sta	icaux1,x
 	jsr	ciov
-	cpy	#128
-	bcc	?c
+	bpl	?c
 	rts
 ?c
 
@@ -1315,12 +1312,13 @@ gropen
 	lda	#13
 	sta	icaux1+$20
 	jsr	ciov
-	cpy	#128
-	bcc	?d
+	bpl	?d
 	rts
 ?d
 
 ; Enable concurrent mode I/O, set R: buffer
+; (required for Atari 850, which otherwise uses a 32-byte buffer! other devices
+;  probably ignore this information)
 
 	lda	#40
 	sta	iccom+$20
@@ -1328,17 +1326,16 @@ gropen
 	sta	icbal+$20
 	lda	#>minibuf
 	sta	icbah+$20
-	lda	#<(chrtbll-minibuf-1)
+	lda	#<(minibuf_end-minibuf-1)
 	sta	icbll+$20
-	lda	#>(chrtbll-minibuf-1)
+	lda	#>(minibuf_end-minibuf-1)
 	sta	icblh+$20
 ; ldx fastr
 ; lda xiotb,x
-	lda	#13
+	lda	#13			; PRC says 0
 	sta	icaux1+$20
 	lda	#0
 	sta	icaux2+$20
-; ldx #$20
 	jmp	ciov
 
 ; xiotb .by 13,0
@@ -3159,50 +3156,28 @@ endinit
 	.bank
 	*=	$8004
 
-chsetinit
-	ldx	#0
-chsetinlp
-	lda	tmppcset,x		; Move chsets to
-	sta	pcset,x			; a safe place
-	lda	tmppcset+$100,x
-	sta	pcset+$100,x
-	lda	tmppcset+$200,x
-	sta	pcset+$200,x
-	lda	tmppcset+$300,x
-	sta	pcset+$300,x
-	
-	lda	tmpchset,x
-	sta	charset,x
-	lda	tmpchset+$100,x
-	sta	charset+$100,x
-	lda	tmpchset+$200,x
-	sta	charset+$200,x
-	lda	tmpchset+$300,x
-	sta	charset+$300,x
-	inx
-	bne	chsetinlp
-
-.if 0					; '0' to disable partial load feature
+partial_load_check
 	ldx #0
 ?lp
 	lda	#bank1
 	sta	banksw
 	lda	$4000,x			; Do I need to load
 	cmp	svscrlms,x		; in the rest?
-	bne	?ok
+	bne	?fail
 	lda	#bank2
 	sta	banksw
 	lda	$4000,x
 	cmp	svscrlms,x
-	bne	?ok
+	bne	?fail
 	inx
 	cpx	#$10
 	bne	?lp
 	pla
 	pla
 	jmp	init			; No, jump straight to init
-?ok
-.endif
+
+; Test failed, program has not been loaded previously
+?fail
 	lda	#bank0
 	sta	banksw
 	rts
@@ -3698,7 +3673,7 @@ nofefe
 ?tb_hi	.byte	$00,$00,$01,$01,$02
 ?tb_lo	.byte	$00,$80,$00,$80,$00
 
-; temp charsets will be loaded here, they need $800 bytes and can't conflict with chrtbll
-	.if	* >= chrtbll-$800
+; Make sure we're not conflicting with data tables created by this routine, or fonts
+	.if	* >= chrtbll
 	.error "font conflict!!"
 	.endif

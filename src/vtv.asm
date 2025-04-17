@@ -2,7 +2,9 @@
 ;  A VT-100 terminal emulator
 ;      by Itay Chamiel
 
-; - Program data -- VTV.ASM -  
+; - Program variables and data -- VTV.ASM -  
+
+; note: unused memory locations are indicated by the word "spare" in a comment
 
 	.bank
 	*=	$2e0
@@ -278,14 +280,18 @@ boldpm	=	$8180	; P/M underlay for bold/blink/color text.
 ;boldp2	=	$8300
 ;boldp3	=	$8380
 
-minibuf	=	$8400	; used as R: input buffer. possibly a waste as it is ignored by most handlers...
+minibuf	=	$8400	; used as R: input buffer (probably only by Atari 850)
+minibuf_end = $8500
+
+; spare space at $8500-$8c00
+
 chrtbll	=	$8c00	; lookup table to find character in character set
 chrtblh	=	$8c80
-charset	=	$8d00	; main character set
-txscrn	=	$9100	; text mirror
-txlinadr =	$9880	; line addresses within text mirror
-tabs	=	$98b0	; tab stops, 80 bytes
-pcset	=	$9900	; secondary (>128) character set
+; charset =	$8d00	; main character set (defined in icet.asm)
+; pcset =	$9100	; secondary (>128) character set (defined in icet.asm)
+txscrn	=	$9500	; text mirror
+txlinadr =	$9c80	; line addresses within text mirror
+tabs	=	$9cb0	; tab stops, 80 bytes
 
 	.bank
 	*=	$9d00
