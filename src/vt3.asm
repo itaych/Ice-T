@@ -63,19 +63,19 @@ mnquit
 	cmp	#0
 	beq	mnodoquit
 	pha
-	jsr	buffdo ; ?
+	jsr	buffdo		; one last time, probably not necessary
 	jsr	close2
 	pla
-	cmp	#2 ; remove R: handler?
+	cmp	#2 			; remove R: handler?
 	bne	?g
+	lda remrhan+2
+	beq ?g			; if this value is 0 then we didn't load R: and can't remove it
+	sta	lomem+1
 	lda	remrhan+1
 	sta	lomem
-	lda	remrhan+2
-	sta	lomem+1
-;	jsr	close2
 	ldx	remrhan
 	lda	#0
-	sta	$31a,x		; HATABS
+	sta	$31a,x		; remove R: entry from HATABS
 	sta	$31a+1,x
 	sta	$31a+2,x
 ?g

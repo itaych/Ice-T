@@ -1348,6 +1348,7 @@ close2			; Close #2
 	.byte BIT_skip2bytes
 close3			; Close #3
 	ldx	#$30
+close_anychan
 	lda	#12
 	sta	iccom,x
 	jmp	ciov
@@ -2734,8 +2735,6 @@ doquit			; Quit program
 	sta	$7fff
 	lda	#2
 	sta	82
-;	jsr	buffdo
-;	jsr	close2
 	jsr	close3
 	jsr	vdelay
 	lda	rsttbl
@@ -2744,7 +2743,7 @@ doquit			; Quit program
 	sta	2
 	lda	rsttbl+2
 	sta	3
-	ldx	sysvbi+2
+	ldx	sysvbi+2	; remove VBIs
 	ldy	sysvbi+1
 	lda	#6
 	jsr	setvbv
@@ -2752,7 +2751,9 @@ doquit			; Quit program
 	ldy	endvvv+1
 	lda	#7
 	jsr	setvbv
-	ldx	#$60
+	ldx #$60		; close #6 to make sure it isn't open
+	jsr close_anychan
+	ldx	#$60		; open screen ("S:") to switch to regular text mode
 	lda	#12
 	sta	iccom+$60
 	jsr	ciov
@@ -2768,8 +2769,28 @@ doquit			; Quit program
 	lda	#0
 	sta	icaux2+$60
 	jsr	ciov
+	ldx #$60		; close #6, we don't need it open any more
+	jsr close_anychan
+	
 	lda	#0
-	sta	767
+	sta	767			; disable ctrl-1 pause just in case
+	
+	; restore SpartaDOS TDLINE if we removed it when loading (see vtin.asm)
+	lda remrhan+3
+	beq ?nosparta
+	lda #<sparta_tdline_sym
+	ldx #>sparta_tdline_sym
+	jsr jfsymbol
+	beq ?nosparta	; nothing to do if no symbol found (= no TD loaded)
+	sta ?ptr+1
+	stx ?ptr+2
+	tya
+	jsr jext_on
+	ldy #$01        ;$00 - off, $01 - on
+?ptr	jsr $0000	; self modified
+	jsr jext_off
+?nosparta
+
 	lda	#bank0
 	sta	banksw
 	jmp	($a)
@@ -3136,7 +3157,7 @@ endinit
 
 ; Initialization routines (run once, then get overwritten)
 	.bank
-	*=	$8003
+	*=	$8004
 
 chsetinit
 	ldx	#0
@@ -3201,6 +3222,8 @@ init
 	sta	remrhan+1
 	lda	$8002
 	sta	remrhan+2
+	lda $8003
+	sta remrhan+3
 	lda	#bank0
 	sta	banksw
 	sta	banksv

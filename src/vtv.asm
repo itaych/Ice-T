@@ -305,12 +305,12 @@ savg1		.ds 1
 savchs		.ds 1
 online		.ds 1
 mnplace		.ds 1
-remrhan		.ds 3
+remrhan		.ds 4
 crcchek		.ds 1
 isbold		.ds 1
 
 ; spare
-			.ds 5
+			.ds 4
 
 ; we use area starting from screen-640 = $9D30
 
@@ -683,9 +683,9 @@ svscrlms
 
 	.byte	"Version "
 version_str
-	.byte 	"2.8.0(alpha5)"
+	.byte 	"2.8.0(alpha6)"
 version_str_end
-	.byte	" Nov 27 2013. Contact: itaych@gmail.com"
+	.byte	" Nov 28 2013. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms
@@ -700,5 +700,8 @@ lftb	.byte	0, 155, 155
 xmdtop2
 	.byte	72,0,7
 	.byte	"| Ice-T"
+
+; SpartaDOS TDLINE symbol name, space-padded to 8 characters
+sparta_tdline_sym	.byte "I_TDON  "
 
 ;  End of data (For menu data see VTDT, VT23)

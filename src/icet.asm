@@ -29,7 +29,7 @@ tmppcset
 ; 	accelerator installed. This file contains variable declarations and data tables.
 ; vt1.asm continues loading where vtv.asm finished. This is the main program code.
 ; 	Note that vt1.asm code does not cross $4000 (into bank-selected RAM), this is verified at assembly time.
-; 	A routine "chsetinit" is loaded at $8003. Also the main program entry code "init" is loaded after that.
+; 	A routine "chsetinit" is loaded at $8004. Also the main program entry code "init" is loaded after that.
 ; 	Note that this code will get overwritten after it is run.
 ; Two font files are loaded at current counter, after init routines. (Two files are needed because a standard font contains
 ; 	128 characters, while the terminal needs 255.)

@@ -24,58 +24,6 @@ check
 	ldy	#<okmsg2
 	jsr	prnt_line
 
-; $0700 : "S" = SpartaDOS (any), "R" = RealDOS, "M" = MyDOS
-; $0701 : $32 = SpartaDOS 3.2, $40 = SpartaDOS X 4.0, $10 = RealDOS 1.0
-; $0702 : $02 = Revision 2 (Sparta-Dos X only)
-
-; SpartaDOS: Disable TDLINE (time/date at top of screen)
-
-	lda $700 		; DOS type detection
-	cmp #'S
-	bne ?nosparta
-	lda $701
-	cmp #$44		; SDX 4.4 or above?
-	bcc ?nosparta44
-
-; Code for SDX 4.4 and up (thanks drac030)
-
-jext_on  = $07f1
-jext_off = $07f4
-jfsymbol = $07eb
-
-	lda #<?sym
-	ldx #>?sym
-	jsr jfsymbol
-	beq ?nosparta	; nothing to do if no symbol found (= no TD loaded)
-	sta ?ptr+1
-	stx ?ptr+2
-	tya
-	jsr jext_on
-	ldy #$00        ;$00 - off, $01 - on
-?ptr	jsr $0000	; self modified
-	jsr jext_off
-	jmp ?nosparta
-; symbol name, space-padded to 8 characters
-?sym	.byte "I_TDON  "
-	
-?nosparta44
-	and #$f0
-	cmp #$40
-	bcs ?nosparta	; skip versions 4.x below 4.4 (can't disable TDLINE)
-
-; Code for SpartaDOS 2/3 (thanks Fox-1)
-
-	lda banksw
-	pha
-	and #$fe
-	sta banksw
-	ldy #$00 ; $00/$01 to turn Off/On TD Line display
-	jsr $ffc6 ; TDLINE Vector
-	pla
-	sta banksw
-
-?nosparta
-
 ; Check for free 48K by writing to top of memory and checking for same value when read
 
 	lda topmem
@@ -131,6 +79,8 @@ bankok
 ; The following section may run twice, counter ?rr1 remembers which iteration we are.
 
 	ldx	#0
+	stx $8002		; flag that R: handler was NOT loaded by Ice-T.
+
 ?lp1
 	lda	$31a,x
 	cmp	#'R
@@ -212,7 +162,63 @@ bankok
 	jmp	($a)		; bail out to DOSVEC
 ?ok
 
-; Passed, display success and let rest of program load
+; All tests passed; in case of SpartaDOS, disable TDLINE (time/date bar at top of screen)
+
+; $0700 : "S" = SpartaDOS (any), "R" = RealDOS, "M" = MyDOS
+; $0701 : $32 = SpartaDOS 3.2, $40 = SpartaDOS X 4.0, $10 = RealDOS 1.0
+; $0702 : $02 = Revision 2 (Sparta-Dos X only)
+
+	lda #0
+	sta $8003		; flag that remembers to re-enable TDLINE (SDX 4.4+ only)
+	
+	lda $700 		; DOS type detection
+	cmp #'S
+	bne ?nosparta
+	lda $701
+	cmp #$44		; SDX 4.4 or above?
+	bcc ?nosparta44
+
+; Code for SDX 4.4 and up (thanks drac030)
+
+jext_on  = $07f1
+jext_off = $07f4
+jfsymbol = $07eb
+
+	lda #<?sym
+	ldx #>?sym
+	jsr jfsymbol
+	beq ?nosparta	; nothing to do if no symbol found (= no TD loaded)
+	sta ?ptr+1
+	stx ?ptr+2
+	tya
+	jsr jext_on
+	ldy #$00        ;$00 - off, $01 - on
+?ptr	jsr $0000	; self modified
+	jsr jext_off
+	inc $8003
+	jmp ?nosparta
+; symbol name, space-padded to 8 characters
+?sym	.byte "I_TDON  "
+	
+?nosparta44
+	and #$f0
+	cmp #$40
+	bcs ?nosparta	; skip versions 4.x below 4.4 (can't disable TDLINE)
+
+; Code for SpartaDOS 2/3 (thanks Fox-1)
+
+	lda banksw
+	pha
+	and #$fe
+	sta banksw
+	ldy #$00 ; $00/$01 to turn Off/On TD Line display
+	jsr $ffc6 ; TDLINE Vector
+	pla
+	sta banksw
+
+?nosparta
+
+; Display success and let rest of program load
 
 	ldx	#>okmsg
 	ldy	#<okmsg
