@@ -20,9 +20,6 @@ tilmesg4
 tilmesg5
 	.byte	(80-25)/2,14,25
 	.byte	"using the address above)."
-;tilmesg6
-;	.byte	(80-77)/2,24,77
-;	.byte	34,"Terminal je t'aime, I love you terminal, bella mia!",34," -Meir Ariel (1942-1999)"
 .else
 tilmesg4
 	.byte	2,12,76

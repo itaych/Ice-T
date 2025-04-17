@@ -3492,8 +3492,7 @@ fildomsg
 	sta	xmdmsg+3,y
 	iny
 	txa
-	and	#128
-	beq	?lp2
+	bpl	?lp2	; end of string flagged with high bit set
 	ldx	#>xmdmsg
 	ldy	#<xmdmsg
 	jmp	prmesg
@@ -4134,80 +4133,117 @@ zmddnl			; Zmodem download
 	sta	trfile
 	sta	attnst
 	sta	bcount
-	sta	bcount+1
+;	sta zchalflag
+;	sta	bcount+1
 	lda	#1
 	sta	crcchek
-	jmp	zrinit
-
-mnloop
-	jsr	getzm
-	cmp	#'*
-	bne	mnloop
+	
+.if 1
+	jmp zrinit				; assume we got a ZRQINIT, jump to ZRINIT.
+.else
+	jmp frameok?sendchal	; send a ZCHALLENGE, then proceed to main loop (zmd_mnloop)
+.endif
+	
+zmd_mnloop
+	jsr	getzm	; get a byte from serial port
+	cmp	#zmd_ZPAD
+	bne	zmd_mnloop	; waiting for a frame header at this point
 
 ;	Get	frame header
 
 ?s
 	jsr	getzm
-	cmp	#42	; '*'
+	cmp	#zmd_ZPAD	; frame headers can start with two ZPADs
 	beq	?s
-	cmp	#24        ; ctrl-X - ZDLE
-	bne	mnloop
+	cmp	#zmd_ZDLE	; ZPAD must be followed by ZDLE
+	bne	zmd_mnloop
 	jsr	getzm
 	ldx	#0
-	stx	hexg
-	cmp	#'A
+	stx	hexg		; flag that this is a binary header (unless we get a ZHEX next)
+	cmp	#zmd_frametype_ZBIN
 	beq	?binh
-	cmp	#'B
+	cmp	#zmd_frametype_ZHEX
 	beq	?hexh
-	cmp	#'A+32
+	cmp	#zmd_frametype_ZVBIN
 	beq	?binh
-	cmp	#'B+32
+	cmp	#zmd_frametype_ZVHEX
 	beq	?hexh
-	jmp	mnloop
+	jmp	zmd_mnloop
 ?hexh
-	lda	#1
-	sta	hexg
-?binh			; Get a bin/hex frame header
-	lda	#0
-	sta	crcl
-	sta	crch
+	inc	hexg		; got ZHEX, so this is a hex ascii header
+?binh
+	ldx	#0
+	stx	crcl
+	stx	crch
+	; get type, 4 data bytes and 2 CRC bytes
+?lp
+	txa
+	pha
 	jsr	getbt
-	sta	type
+	tay
+	pla
+	tax
+	pha
+	tya
+	sta	type,x
+	cpx #5
+	bcs ?nocrc		; CRC shouldn't be calculated on the CRC bytes...
 	jsr	calccrc2
-
-	jsr	getbt
-	sta	zf3
-	jsr	calccrc2
-	jsr	getbt
-	sta	zf2
-	jsr	calccrc2
-	jsr	getbt
-	sta	zf1
-	jsr	calccrc2
-	jsr	getbt
-	sta	zf0
-	jsr	calccrc2
-	jsr	getbt
-	sta	gcrc
-	jsr	getbt
-	sta	gcrc+1
-	cmp	crcl
-	bne	?bd
+?nocrc
+	pla
+	tax
+	inx
+	cpx #7
+	bne ?lp
+	; check CRC
 	lda	gcrc
 	cmp	crch
 	bne	?bd
+	lda	gcrc+1
+	cmp	crcl
+	bne	?bd
+	; Hex packets end with CR LF and (usually) XON.
+	lda	hexg
+	beq ?nohexend
+	jsr getzm
+	cmp #xmd_CR
+	bne ?bd
+	jsr getzm
+	; sometimes CR is followed by a null
+	cmp #0
+	bne ?nonul
+	jsr getzm
+?nonul
+	; some implementations send LF with bit 7 set for some reason
+	and #$7F
+	cmp #xmd_LF
+	bne ?bd
+?lfok
+	; ZACK and ZFIN do not end with a XON. For others we wait for one.
+	lda type
+	cmp #zmd_type_ZACK
+	beq ?nohexend
+	cmp #zmd_type_ZFIN
+	beq ?nohexend
+	jsr getzm
+	cmp #xmd_XON
+	bne ?bd
+?nohexend
 	jmp	frameok
 ?bd
 	ldx	#>?bf
 	ldy	#<?bf
 	jsr	fildomsg
-	jmp	mnloop
+	jsr	sendnak
+	jmp	zmd_mnloop
 
 ?bf	.cbyte	"Bad CRC for frame"
 
-getbt			; Get a hex/binary byte
+getbt			; Get a ascii-hex/binary byte
 	lda	hexg
-	beq	?ok
+	bne	?ok
+	jmp	zdleget	; binary byte - get regular (ZDLE-encoded) byte
+?ok
 	jsr	getzm
 	jsr	?hg
 	asl	a
@@ -4219,18 +4255,16 @@ getbt			; Get a hex/binary byte
 	jsr	?hg
 	ora	temp
 	rts
-?ok
-	jmp	zdleget
 
-?hg			; Get hex digit (0123456789abcdef)
-	cmp	#58
+?hg			; Convert ascii hex digit (0123456789abcdef) to 4-bit value
+	cmp	#'9+1
 	bcs	?lw
 	sec
-	sbc	#48
+	sbc	#'0
 	rts
 ?lw
 	sec
-	sbc	#87
+	sbc	#('a-$a)
 	rts
 
 frameok			; Frame passes check
@@ -4238,50 +4272,67 @@ frameok			; Frame passes check
 	ldy	#<?fok
 	jsr	fildomsg
 	lda	type	; Jump to appropriate routine
-	cmp	#18
-	beq	?zcm
-	cmp	#0
-	bne	?noinit
+;	cmp #zmd_type_ZRQINIT	; commented out because it's 0
+	bne ?noinit
 
 ; ZRQINIT
 
-	lda	zf0
-	beq	?ncm
+; Protocol says we should send ZCHALLENGE here, but this did not behave properly
+; against any implementation I tested. So it is disabled and we skip straight to ZRINIT.
 
-; ZCOMMAND
-
-?zcm
-	ldx	#>?cp
-	ldy	#<?cp
-	jsr	fildomsg
-	lda	#15	; send ZCOMPL
-	sta	type
-	jsr	sendxfrm
-	jmp	mnloop
-
-?cp	.cbyte	"Command (ignored)"
-
-?ncm
-	lda	#14	; send ZCHALLENGE
+.if 1
+	jmp zrinit
+.else
+	lda zchalflag
+	beq ?sendchal
+	jmp zrinit
+?sendchal
+	lda	#zmd_type_ZCHALLENGE	; send ZCHALLENGE
 	sta	type
 	ldx	#>?cpr
 	ldy	#<?cpr
 	jsr	fildomsg
 	ldx	#3
 ?cl
-	lda	53770
+	lda	53770	; random
 	sta	zp0,x
 	sta	filesav,x
 	dex
 	bpl	?cl
-	jsr	sendxfrm
-	jmp	mnloop
+	jsr	send_hex_frame_hdr
+	jmp	zmd_mnloop
+.endif
 
-?cpr	.cbyte	"ZCHALLENGE"
+?noinit	
+	cmp	#zmd_type_ZCOMMAND
+	bne	?znocmd
+
+; ZCOMMAND
+
+?zcmd
+	ldx	#>?cp
+	ldy	#<?cp
+	jsr	fildomsg
+	jsr	zeropos
+	jsr	getpack
+	jsr	zeropos
+	lda	#zmd_type_ZCOMPL	; send ZCOMPL with 0 return code.
+	sta	type
+	ldx	#3
+	lda	#0
+?lp
+	sta	zp0,x
+	dex
+	bpl	?lp
+	jsr	send_hex_frame_hdr
+	jmp	zmd_mnloop
+
+?cp		.cbyte	"Command (ignored)"
 ?fok	.cbyte	"Frame CRC ok"
+; ?cpr	.cbyte	"ZCHALLENGE"
 
-?noinit
-	cmp	#2
+?znocmd
+	cmp	#zmd_type_ZSINIT
 	bne	?nosinit
 
 ; ZSINIT
@@ -4303,20 +4354,24 @@ frameok			; Frame passes check
 	iny
 	cmp	#0
 	bne	?zs
-	sta	outdat
-	lda	#$40
-	sta	outdat+1
+	jsr	zeropos
 	jsr	sendack
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ?atp	.cbyte	"Getting Attn string"
 
 ?nosinit
-	cmp	#3
+	cmp	#zmd_type_ZACK
 	bne	noack
 
 ; ZACK
 
+; we only expect a ZACK in response to a ZCHALLENGE, so send a ZRINIT.
+
+; (zchallenge is disabled.)
+.if 0
+	lda zchalflag
+	bne zrinit
 	ldx	#3	; Check challenge reply
 ?cc
 	lda	zp0,x
@@ -4324,11 +4379,14 @@ frameok			; Frame passes check
 	bne	chlbad
 	dex
 	bpl	?cc
+	lda #1
+	sta zchalflag
+.endif
 zrinit
 	ldx	#>?snp
 	ldy	#<?snp
 	jsr	fildomsg
-	lda	#1	; send ZRINIT frame
+	lda	#zmd_type_ZRINIT	; send ZRINIT frame
 	sta	type
 	lda	#$00
 	sta	zp0
@@ -4346,22 +4404,24 @@ zrinit
 ;	lda	#7
 ;	sta	zf0
 
-	jsr	sendxfrm
-	jmp	mnloop
+	jsr	send_hex_frame_hdr
+	jmp	zmd_mnloop
 
 ?snp	.cbyte	"Sending ZRINIT"
 
+.if 0
 chlbad
 	ldx	#>?cbd
 	ldy	#<?cbd
 	jsr	fildomsg
 	jsr	sendnak
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ?cbd	.cbyte	"Challenge fail!"
+.endif
 
 noack
-	cmp	#4
+	cmp	#zmd_type_ZFILE
 	bne	?nofile
 
 ; ZFILE
@@ -4379,10 +4439,10 @@ noack
 	sta	botx+1
 	jsr	zmgetnm	; Get name, open file, recover
 
-	lda	#176
+	lda	#'0+128	; clear out packet and KB counters
 	sta	xpknum+3
 	sta	xkbnum+3
-	lda	#160
+	lda	#32+128
 	ldx	#5
 ?znl
 	sta	xpknum+4,x
@@ -4392,19 +4452,16 @@ noack
 
 	lda	#1
 	sta	trfile
-	jsr	sendrpos
-	lda	#16
-	sta	block
-	lda	#0
-	sta	outdat
-	lda	#$40
-	sta	outdat+1
-	jmp	mnloop
+	jsr	zeropos
+	jsr	sendrpos	; send reposition request
+	lda	#4
+	sta	block		; in Zmodem, "block" is next value of "filepos+1" at which we know we got another 1K.
+	jmp	zmd_mnloop
 
 ?fgp	.cbyte	"Getting filename"
 
 ?nofile
-	cmp	#6
+	cmp	#zmd_type_ZNAK
 	bne	?nonck
 
 ; ZNAK
@@ -4413,12 +4470,12 @@ noack
 	ldy	#<?gnk
 	jsr	fildomsg
 	jsr	sendpck	; Resend last pack
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ?gnk	.cbyte	"Received ZNAK"
 
 ?nonck
-	cmp	#10
+	cmp	#zmd_type_ZDATA
 	beq	?zdata
 	jmp	?nodata
 ; ZDATA
@@ -4437,17 +4494,17 @@ noack
 	dex
 	bpl	?ck
 	jsr	getpack
-	cmp	#'H+32
-	beq	?nsv
-	ldx	#>?svp
-	ldy	#<?svp
-	jsr	fildomsg
+	cmp	#zmd_zdle_ZCRCE
+	beq	?nsv	; in case of ZCRCE more data is about to arrive so no time to write to disk
 	lda	outdat
 	bne	?ysv
 	lda	outdat+1
 	cmp	#$40
 	beq	?nsv2
 ?ysv
+	ldx	#>?svp
+	ldy	#<?svp
+	jsr	fildomsg
 	jsr	close2
 	jsr	xdsavdat
 	jsr	ropen
@@ -4460,7 +4517,7 @@ noack
 	sta	xmdsave+1
 	jsr	sendack
 ?nsv
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ; ZDATA	arrives when not expecting data (no file open)..
 
@@ -4468,10 +4525,10 @@ noack
 	ldx	#>?bdp
 	ldy	#<?bdp
 	jsr	fildomsg
-	lda	#5	; Request to skip this file
+	lda	#zmd_type_ZSKIP	; Request to skip this file
 	sta	type
-	jsr	sendxfrm
-	jmp	mnloop
+	jsr	send_hex_frame_hdr
+	jmp	zmd_mnloop
 
 ; Data arrives - at wrong file position
 
@@ -4488,7 +4545,7 @@ noack
 	bcc	?jl
 	cmp	#'K+32+1
 	bcs	?jl
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ?bdp	.cbyte	"Unexpected data!"
 ?svp	.cbyte	"Saving data"
@@ -4496,7 +4553,7 @@ noack
 ?jp	.cbyte	"Synchronizing.."
 
 ?nodata
-	cmp	#11
+	cmp	#zmd_type_ZEOF
 	bne	?neof
 ; ZEOF
 	ldx	#3	; Check EOF position
@@ -4520,13 +4577,13 @@ noack
 	ldx	#>?ebp
 	ldy	#<?ebp
 	jsr	fildomsg
-	jmp	mnloop
+	jmp	zmd_mnloop
 
-?ep	.cbyte	"Closing file"
+?ep		.cbyte	"Closing file"
 ?ebp	.cbyte	"Unexpected EOF!"
 
 ?neof
-	cmp	#8
+	cmp	#zmd_type_ZFIN
 	bne	?nofin
 
 ; ZFIN
@@ -4534,24 +4591,24 @@ noack
 	ldx	#>?enp
 	ldy	#<?enp
 	jsr	fildomsg
-	lda	#8
+	lda	#zmd_type_ZFIN
 	sta	type
-	jsr	sendxfrm
+	jsr	send_hex_frame_hdr
 	jmp	ovrnout
 
 ?enp	.cbyte	"End of transfer"
 
 ?nofin
-	cmp	#7
+	cmp	#zmd_type_ZABORT
 	beq	?en
-	cmp	#12
+	cmp	#zmd_type_ZFERR
 	beq	?en
-	cmp	#15
+	cmp	#zmd_type_ZCOMPL
 	beq	?en
 	ldx	#>?unk
 	ldy	#<?unk
 	jsr	fildomsg
-	jmp	mnloop
+	jmp	zmd_mnloop
 ?unk	.cbyte	"Unknown command"
 
 ?en
@@ -4582,12 +4639,13 @@ zabrtfile
 
 ?en	.cbyte	"Session cancel!"
 
-ovrnout			; Over-and-out routine
+; Over-and-out routine. Waits a couple of seconds for "OO" from remote, and quits.
+ovrnout
 	lda	#0
 	sta	20
 ?l
 	jsr	buffpl
-	cpx	#1
+	cpx	#1		; empty?
 	beq	?l2
 	ldx	#0
 	stx	20
@@ -4605,11 +4663,11 @@ ovrnout			; Over-and-out routine
 	sta	20
 	beq	?l2
 ?l4	lda	20
-	cmp	vframes_per_sec
+	cmp	#150	; 3 seconds on PAL, a little less on NTSC
 	bne	?l3
 ?l2
 	lda	20
-	cmp	vframes_per_sec
+	cmp	#150
 	bne	?l
 ?l5
 	lda	#0
@@ -4617,7 +4675,7 @@ ovrnout			; Over-and-out routine
 ?l6
 	jsr	buffdo
 	lda	20
-	cmp	vframes_per_sec
+	cmp	vframes_per_sec		; wait 1 more second and exit
 	bne	?l6
 	jsr	getscrn
 	jmp	goterm
@@ -4627,8 +4685,8 @@ zmderr			; Disk error
 	jsr	ropen
 	lda	#5	; Request to skip this file
 	sta	type
-	jsr	sendxfrm
-	jmp	mnloop
+	jsr	send_hex_frame_hdr
+	jmp	zmd_mnloop
 
 zeropos			; Zero file-position
 	lda	#$40
@@ -4648,7 +4706,7 @@ getpack			; Get data packet
 	sta	crch
 	ldx	#3
 ?f
-	lda	filepos,x
+	lda	filepos,x	; remember current position in file and buffer
 	sta	filesav,x
 	dex
 	bpl	?f
@@ -4660,7 +4718,7 @@ getpack			; Get data packet
 	jsr	zdleget
 	jsr	calccrc2
 	ldx	temp
-	cpx	#255
+	cpx	#255	; temp=255 for all characters except end of frame indicator
 	bne	?el
 	ldy	#1
 	ldx	eoltrns	; eol translation?
@@ -4681,9 +4739,9 @@ getpack			; Get data packet
 	lda	crtb,x
 	tay
 ?ek
-	cpy	#0	; Don't save this byte?
+	cpy	#0			; Don't save this byte (due to translation)?
 	beq	?nv
-	ldx	outdat+1
+	ldx	outdat+1	; buffer overflow?
 	cpx	#$80
 	bne	?nov
 	jmp	zbufovr
@@ -4703,7 +4761,7 @@ getpack			; Get data packet
 	bne	?lp
 	inc	filepos+3
 	jmp	?lp
-?el
+?el					; end of packet
 	pha
 	jsr	zdleget
 	sta	gcrc
@@ -4720,32 +4778,33 @@ getpack			; Get data packet
 	ldx	#>xpknum	; Update packet nos.
 	ldy	#<xpknum
 	jsr	incnumb
-	lda	outdat+1
-	lsr	a
-	lsr	a
+	lda	filepos+1
 	cmp	block
-	beq	?nu
+	bne	?nu
 	ldx	#>xkbnum	; Update Kbytes
 	ldy	#<xkbnum
 	jsr	incnumb
-	inc	block
+	lda	block
+	clc
+	adc #4
+	sta block
 ?nu
 	pla
 	sta	temp
-	cmp	#'H+32
+	cmp	#zmd_zdle_ZCRCE
 	bne	?nh
 	rts
 ?nh
-	cmp	#'I+32
+	cmp	#zmd_zdle_ZCRCG
 	bne	?ni
 	jmp	getpack
 ?ni
-	cmp	#'J+32
+	cmp	#zmd_zdle_ZCRCQ
 	bne	?nj
 	jsr	sendack
 	jmp	getpack
 ?nj
-	cmp	#'K+32
+	cmp	#zmd_zdle_ZCRCW
 	bne	?nk
 	rts
 ?bd
@@ -4769,11 +4828,11 @@ getpack			; Get data packet
 	sta	outdat+1
 	jsr	sendattn
 	jsr	sendrpos
-	jmp	mnloop
+	jmp	zmd_mnloop
 ?nt
 	jsr	sendattn
 	jsr	sendnak
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ?pkb	.cbyte	"Packet CRC bad"
 
@@ -4806,7 +4865,7 @@ zbufovr	; Buffer overflow? - no problem.. This is Zmodem!!
 	sta	outdat
 	pla
 	pla
-	jmp	mnloop
+	jmp	zmd_mnloop
 
 ?ovr	.cbyte	"Buffer overflow!"
 
@@ -4879,7 +4938,7 @@ rposok
 	sta	zp0,x
 	dex
 	bpl	?lp
-	jmp	sendxfrm
+	jmp	send_hex_frame_hdr
 zapr	.cbyte	"ZACK"
 
 sendnak			; Send a ZNAK
@@ -4894,23 +4953,23 @@ sendnak			; Send a ZNAK
 	sta	zp0,x
 	dex
 	bpl	?lp
-	jmp	sendxfrm
+	jmp	send_hex_frame_hdr
 
 ?nk	.cbyte	"Sending ZNAK"
 
-zdleget			; Get ZDLE-encoded data
+zdleget				; Get ZDLE-encoded data
 	lda	#255
 	sta	temp
 	lda	#0
 	sta	?cnct
 	jsr	getzm
-	cmp	#24	; ZDLE?
-	bne	?ok
+	cmp	#zmd_ZDLE
+	bne	?ok			; if first byte is not ZDLE, return it as-is
 ?cl
 	inc	?cnct
 	lda	?cnct
 	cmp	#5
-	bne	?nb
+	bne	?nb			; got 5 ZDLEs (same as CAN character)? cancel transfer
 	pla
 	pla
 	pla
@@ -4918,9 +4977,10 @@ zdleget			; Get ZDLE-encoded data
 	jmp	zabrtfile
 ?nb
 	jsr	getzm
-	cmp	#24
+	cmp	#zmd_ZDLE
 	beq	?cl
 	tax
+	; if bit 6 is set and bit 5 is reset, invert bit 6 and return.
 	and	#~01100000
 	cmp	#$40
 	bne	?nc
@@ -4929,22 +4989,22 @@ zdleget			; Get ZDLE-encoded data
 	rts
 ?nc
 	txa
-	cmp	#'L+32
+	cmp	#zmd_zdle_ZRUB0
 	bne	?nl
-	lda	#127
+	lda	#$7f
 	rts
 ?nl
-	cmp	#'M+32
+	cmp	#zmd_zdle_ZRUB1
 	bne	?nm
-	lda	#255
+	lda	#$ff
 	rts
 ?nm
 	sta	temp	; other codes indicate end-of-pak
 ?ok
 	rts
+?cnct	.byte	0		; cancel-count
 
-?cnct	.byte	0
-sendxfrm		; Send hex frame header
+send_hex_frame_hdr		; Send hex frame header
 	ldx	#0
 	stx	crcl
 	stx	crch
@@ -4983,27 +5043,27 @@ puthexn			; Send number in hex
 	and	#$0f
 	iny
 ?rt
-	clc
-	adc	#48
-	cmp	#58
+	clc				; convert 4-bit value to ascii hex digit
+	adc	#'0
+	cmp	#'9+1
 	bcc	?ok
 	clc
-	adc	#39
+	adc	#'a-('9+1)
 ?ok
-	sta	outpck+4,y
+	sta	zmd_header+4,y
 	rts
 
-outpck	.byte	"**",24,"B1122334455chcl",13,10,17
-?en
+zmd_header	.byte	zmd_ZPAD,zmd_ZPAD,zmd_ZDLE,zmd_frametype_ZHEX,"1122334455chcl",xmd_CR,xmd_LF,xmd_XON
+?end
 
 sendpck
-	lda #outpck?en-outpck
+	lda #zmd_header?end-zmd_header
 	sta ?len+1
 ; if this is a ZACK(3) or ZFIN(8), don't send the XON (last byte).
-	lda outpck+4
+	lda zmd_header+4
 	cmp #'0
 	bne ?ok
-	lda outpck+5
+	lda zmd_header+5
 	cmp #'3
 	beq ?no_xon
 	cmp #'8
@@ -5015,18 +5075,19 @@ sendpck
 ?lp
 	txa
 	pha
-	lda	outpck,x
+	lda	zmd_header,x
 	jsr	rputch
 	pla
 	tax
 	inx
 ?len
-	cpx	#21
+	cpx	#21		; self modified
 	bne	?lp
 	rts
 
+; Wait for a byte from serial port; poll for keyboard and time out if nothing is received.
 getzm
-	jsr	zmdkey
+	jsr	zmdkey	; check for keyboard (user may press Esc to abort)
 	lda	bcount
 	beq	?ok1
 ?ok2
@@ -5042,26 +5103,27 @@ getzm
 	jsr	zmdkey
 	lda	20
 	cmp	vframes_per_sec
-	bcc	?lp
+	bcc	?lp			; wait 1 second
 	lda	#0
 	sta	20
 	inc	ztime
 	lda	ztime
-	and	#15
+	and	#$f			; every 16 seconds, resend last packet header
 	bne	?d
-	jsr	sendpck	; Resend last pack
+	jsr	sendpck
 ?d
 	lda	ztime
-	cmp	vframes_per_sec
-	bne	?lp
+	cmp	#63
+	bne	?lp			; timeout and fail after 63 seconds (just before the retry at #64)
 	pla
 	pla
 	jmp	zabrtfile
-?ok
-	lda	#255
-	sta	bcount
-	jmp	rgetch
+;?ok
+;	lda	#255
+;	sta	bcount
+;	jmp	rgetch
 
+; zmodem poll keyboard routine
 zmdkey
 	lda	764
 	cmp	#255
@@ -5075,7 +5137,7 @@ zmdkey
 	pla
 	sta	click
 	txa
-	cmp	#27
+	cmp	#27		; Did the user press Escape? abort.
 	bne	?k
 	pla
 	pla

@@ -1436,8 +1436,9 @@ winchng2
 	sta	banksw
 	rts
 
-buffpl			; Pull one byte from buffer
-	lda	bufget	; into A
+; Pull one byte from serial input buffer into A. Returns X=1 if empty, 0 if valid data.
+buffpl
+	lda	bufget
 	cmp	bufput
 	bne	bufpok1
 	lda	bufget+1

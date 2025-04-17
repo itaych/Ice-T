@@ -141,7 +141,8 @@ time_correct_cnt .ds 2 ; counter to correct slight time drift
 	.error "page zero equates don't end at $100!!"
 	.endif
 
-; Other	program equates
+; Xmodem constants
+
 xmd_SOH  =	$01
 xmd_STX  =	$02
 xmd_EOT  =	$04
@@ -153,6 +154,50 @@ xmd_XON  =	$11
 xmd_XOFF =	$13
 xmd_NAK  =	$15
 xmd_CAN  =	$18
+
+; Zmodem constants
+
+zmd_ZPAD	=	$2a		; pad (*) character; begins frames
+zmd_ZDLE	=	$18		; ctrl-x zmodem escape
+
+zmd_frametype_ZBIN	= $41	; binary frame indicator (CRC16)
+zmd_frametype_ZHEX	= $42	; hex frame indicator
+zmd_frametype_ZVBIN	= $61	; binary frame indicator (CRC16)
+zmd_frametype_ZVHEX	= $62	; hex frame indicator
+
+; zmodem frame types
+
+zmd_type_ZRQINIT	= $00	; request receive init (s->r)
+zmd_type_ZRINIT		= $01	; receive init (r->s)
+zmd_type_ZSINIT		= $02	; send init sequence (optional) (s->r)
+zmd_type_ZACK		= $03	; ack to ZRQINIT ZRINIT or ZSINIT (s<->r)
+zmd_type_ZFILE		= $04	; file name (s->r)
+zmd_type_ZSKIP		= $05	; skip this file (r->s)
+zmd_type_ZNAK		= $06	; last packet was corrupted (?)
+zmd_type_ZABORT		= $07	; abort batch transfers (?)
+zmd_type_ZFIN		= $08	; finish session (s<->r)
+zmd_type_ZRPOS		= $09	; resume data transmission here (r->s)
+zmd_type_ZDATA		= $0a	; data packet(s) follow (s->r)
+zmd_type_ZEOF		= $0b	; end of file reached (s->r)
+zmd_type_ZFERR		= $0c	; fatal read or write error detected (?)
+zmd_type_ZCRC		= $0d	; request for file CRC and response (?)
+zmd_type_ZCHALLENGE	= $0e	; security challenge (r->s)
+zmd_type_ZCOMPL		= $0f	; request is complete (?)	
+zmd_type_ZCAN		= $10	; pseudo frame; other end cancelled session with 5* CAN
+zmd_type_ZFREECNT	= $11	; request free bytes on file system (s->r)
+zmd_type_ZCOMMAND	= $12	; issue command (s->r)
+zmd_type_ZSTDERR	= $13	; output data to stderr (??)
+
+; ZDLE sequences
+
+zmd_zdle_ZCRCE	= $68	; CRC next, frame ends, header packet follows
+zmd_zdle_ZCRCG	= $69	; CRC next, frame continues nonstop
+zmd_zdle_ZCRCQ	= $6a	; CRC next, frame continuous, ZACK expected
+zmd_zdle_ZCRCW	= $6b	; CRC next, frame ends,       ZACK expected
+zmd_zdle_ZRUB0	= $6c	; translate to rubout 0x7f
+zmd_zdle_ZRUB1	= $6d	; translate to rubout 0xff
+
+; Other	program equates
 
 ; skips next 1-byte or 2-byte instruction, see http://www.6502.org/tutorials/6502opcodes.html#BIT
 ; (note: this is a BIT opcode, so affects flags N V Z)
@@ -200,6 +245,7 @@ zmauto		.ds 1	; indicates receiving ^X B00 sequence (in Terminal mode) to automa
 
 ; Zmodem equates
 
+; 5 bytes for Zmodem header data (incoming and outgoing) + 2 CRC bytes
 type	.ds	1
 zf3
 zp0		.ds	1
@@ -209,12 +255,15 @@ zf1
 zp2		.ds	1
 zf0
 zp3		.ds	1
-hexg	.ds	1
 gcrc	.ds	2
+; (note: the above struct must remain intact.)
+
+hexg	.ds	1	; flag whether we're receiving a binary or hex header
 filepos	.ds	4
 filesav	.ds	4
-trfile	.ds	1
+trfile	.ds	1	; flag whether we're currently receiving file data
 ztime	.ds	1
+;zchalflag	.ds 1	; have we challenged this sender yet?
 
 ; spare
 		.ds	26

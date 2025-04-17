@@ -605,40 +605,6 @@ notgrph
 	sta	x
 	lda	ty
 	sta	y
-	tax
-	dex
-	lda	lnsizdat,x		; check line size
-	beq	nospch			; = 0 (normal)? nothing to do
-;	cmp	#4
-;	bcs	nospch
-	lda	dblgrph
-	bne	nospch
-	lda	#0				; perform a few translations necessary in 40-column mode
-	sta	useset
-	lda	prchar
-	cmp	#96				; grave accent
-	bne	bgno96
-	lda	#30
-	jmp	ysspch
-bgno96
-	cmp	#123			; open curly brace
-	bne	bgno123
-	lda	#28
-	jmp	ysspch
-bgno123
-	cmp	#125			; close curly brace
-	bne	bgno125
-	lda	#29
-	jmp	ysspch
-bgno125
-	cmp	#126			; tilde
-	bne	nospch
-	lda	#31
-ysspch
-	sta	prchar
-	lda	#1
-	sta	useset
-nospch
 	jsr	printerm
 	lda	#0
 	sta	useset
@@ -2641,7 +2607,7 @@ printerm
 	ldx	#32
 ?noinv
 	tya
-	beq	notxprn	; if y=0 no need to handle text mirror
+	beq	?notxprn_jmp	; if y=0 no need to handle text mirror
 	lda	lnsizdat-1,y
 	beq	ptxreg
 
@@ -2662,16 +2628,38 @@ printerm
 	lda	#32
 	sta	(ersl),y
 	lda	revvid
-	beq	notxprn
+	beq	?no_inverse
 	lda	eitbit
-	bne	notxprn		; reverse video and in 7-bit mode? use bit 7 to indicate inverse
+	bne	?no_inverse	; reverse video and in 7-bit mode? use bit 7 to indicate inverse
 	lda	#128+32
 	sta	(ersl),y	; also, store an inverse space in the adjacent location
 	dey
 	txa
 	ora	#$80		
 	sta	(ersl),y
-	bmi	notxprn		; always branches
+?no_inverse
+	
+	; after storing in text mirror, perform a few translations needed for double-width
+	cpx	#96				; grave accent
+	bne	?no96
+	ldx	#30
+?notxprn_jmp
+	jmp	notxprn
+?no96
+	cpx	#123			; open curly brace
+	bne	?no123
+	ldx	#28
+	bne	notxprn
+?no123
+	cpx	#125			; close curly brace
+	bne	?no125
+	ldx	#29
+	bne	notxprn
+?no125
+	cpx	#126			; tilde
+	bne	notxprn
+	ldx	#31
+	bne notxprn			; always branches
 
 ; Text mirror - normal-size text
 ; bold/unbold is also handled here (todo: why is this different from dbl size logic?)

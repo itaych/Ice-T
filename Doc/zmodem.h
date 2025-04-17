@@ -16,13 +16,13 @@
 #define	STX			0x02
 #define	EOT			0x04
 #define	ENQ			0x05
-#define	ACK			0x06
+#define	ACK			0x06	// ctrl-F
 #define	LF			0x0a
 #define	CR			0x0d
 #define	XON			0x11
 #define	XOFF		0x13
-#define	NAK			0x15
-#define	CAN			0x18
+#define	NAK			0x15	// ctrl-U
+#define	CAN			0x18	// ctrl-X
 
 /*
  * zmodem constants

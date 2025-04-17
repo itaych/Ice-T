@@ -1,8 +1,5 @@
 ice-t
 -----
-1. proper detection of online status?
-2. Flow control can cause visual bugs or crashes, especially when entering dial menu.
-
 move DLI code into VBI1 and disable DLI. (done)
 read RT8 less often (after 59 frames, read every frame until change seen) (done)
 move non essential (clock) code from VBI1 to VBI2. maybe use clock_update as flag. increment it rather than set to 1. (done)
@@ -22,6 +19,8 @@ VT102 and ANSI-BBS emulation (done)
 handle_insert_delete_char (done)
 checkerboard character (^X) is broken in dbl width mode. (done)
 graphics chars screw up when switching line to double width. (done)
+some characters (tilde/grave accent/curly brackets) misbehave when switching line width. (done)
+dump local file to terminal. jsr to dovt100?nocapture for each char.
 
 file xfers:
 	x/ymodem failed due to close3 (done)
@@ -29,16 +28,18 @@ file xfers:
 	zmodem sent redundant XON (done)
 	x/ymodem: is only 15K of 16K buffer being used? (done)
 	ymodem-g: doesn't work on real atari (probably wontfix)
-	vt3: see "todo" and figure it out. (done)
-	zmodem: why do we request buffer size 3fff and not 4000? (prob. done but check deeper when reviewing code)
-	zmodem: why don't we send a challenge?
-	zmodem: (linux) why does linux version overflow? maybe need to be changed to not send break (mode 1). do we send a break today?
+	zmpdem: initial ZRQINIT is not processed. (whatever, just send a ZRQINIT, zchallenge just causes trouble)
+	zmodem: why do we request buffer size 3fff and not 4000? (done)
+	zmodem: (linux) why does it overflow? (waiting for response from uwe)
+	zmodem: (linux) breaks with -e option, hex packets ending with 0d 00 8a 11 instead of 0d 0a 11. (done)
+	zmodem: implement 8K packets?
 	xmodem upload: consider uncommenting. (altirra will break it though - can't send 0xff!)
-	NOTES: in Altirra "raw" mode, emulated Atari can receive any character, but cannot send 0xFF.
-			Altirra "telnet" can't do any file transfer except Zmodem of plain text files.
+	Altirra has broken printer driver. (fixed in 2.40)
+	Altirra in "raw" mode, emulated Atari can receive any character, but cannot send 0xFF.
+	Altirra "telnet" doesn't handle escape sequences properly so can't do any file transfer except Zmodem of plain text files.
 	Altirra telnet doesn't identify as any terminal type.
-	Altirra also has broken printer driver. (fixed in 2.40)
-
+	Altirra won't create a file if opening for append (aux1=9). DOS does create a blank file.
+	Altirra R: breaks if you make outbound connection then coldstart while still connected.
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
 		however space should always bold/unbold if overwriting an existing char!
@@ -56,9 +57,11 @@ gen new icet.dat for release
 
 known issues:
 double width does not support 8-bit chars.
-some characters (tilde/grave accent/curly brackets) misbehave when switching line width.
+digraph characters are not correctly stored in text mirror, so may change when redrawing.
 areas containing nothing but the checkerboard character may be considered blank by insert/delete char routines.
-	
+Flow control can cause visual bugs or crashes, especially when entering dial menu.
+no proper detection of online status.
+
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
 e address byte
 ? expr
@@ -69,8 +72,8 @@ dt:12345:respawn:/sbin/agetty -L ttyS0 9600 vt100
 or just: sudo /sbin/agetty -L ttyS0 9600 vt100
 
 ;tilmesg6
-;	.byte	(80-75)/2,24,75
-;	.byte	"''Terminal je t'aime, I love you terminal, bella mia!'' --Meir Ariel (1942-1999)"
+;	.byte	(80-77)/2,24,77
+;	.byte	34,"Terminal je t'aime, I love you terminal, bella mia!",34," -Meir Ariel (1942-1999)"
 
 col80:
 ------
@@ -123,3 +126,24 @@ Ubuntu:  ff fb 01
 	Will use Echo.
 APE:     ff fd 01                                         
 	Start use Echo.
+
+With MS Telnet:
+
+Ubuntu:  ff fd 18  ff fd 20  ff fd 23  ff fd 27
+	Start use: term type, term speed, X location, env.option
+MSTelnet:  ff fb 18 ff fb 1f  ff fc 20  ff fc 23  ff fb 27
+	Will use term type, window size, env. option, not others.
+Ubuntu:  ff fd 1f ff fa 27 01 ff f0 ff fa 18 01 ff f0
+	Start using window size, subneg environment, term type. 
+MSTelnet:  ff fa 1f 00 8c 00 32 ff f0
+	Subnegotiate window size.
+MSTelnet:  ff fa 27 00 ff f0 
+    Subnegotiate environment option: 00.
+           ff fa 18 00 41 4e 53 49 ff f0 (ANSI)
+    Terminal type, 0, ANSI.		
+Ubuntu:  ff fb 03 ff fd 01 ff fb 05 ff fd 21
+MSTelnet:  ff fd 03 ff fb 01 ff fe 05 ff fc 21
+Ubuntu:  ff fe 01 ff fb 01
+MSTelnet:  ff fc 01
+Ubuntu:  Ubuntu 13.10
+MSTelnet:  ff fd 01
