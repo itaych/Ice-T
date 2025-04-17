@@ -893,8 +893,8 @@ getkey			; Get key pressed
 	cmp	#255
 	beq	getkey	; wait for key press if there wasn't one already
 	tay
-	lda #1
-	sta brkkey	; clear BREAK key flag
+	lda #$ff	; clear BREAK key flag (or else it will be caught
+	sta brkkey	; by OS keyboard handler in standard keyclick mode)
 	lda	($79),y ; get translated value and keep it in A until return
 	ldx	click	; check keyclick type
 	beq ?done_click
@@ -1193,6 +1193,7 @@ ropen			; Sub to open R: (uses config)
 	jsr	gropen
 	cpy	#128
 	bcc	ropok
+	jsr	boldclr	; clear boldface display becuase it interferes with error window
 	ldx	#>norhw
 	ldy	#<norhw
 	jsr	drawwin
@@ -2558,11 +2559,11 @@ erslineraw		; Erase line in screen (at cntrl)
 	iny
 	bne	?a
 	inc	cntrh
+	ldy #63
 ?b
 	sta	(cntrl),y
-	iny
-	cpy	#64
-	bne	?b
+	dey
+	bpl	?b
 	rts
 
 rslnsize		; Reset line-size table

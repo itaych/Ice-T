@@ -413,9 +413,14 @@ szlen	.byte	80,40,40,40
 dsrdata
 	.byte	27, "[0n"
 
+; These are the luminance values for the color scheme (the hue is user selectable).
+; Note that the screen is actually set up such that the background is color 1 (set bits) and
+; text is color 0 (0 bits) so that the boldface PMs "shine" through. So, the foreground and
+; background colors are reversed.
+; Values are stored in color registers 709 (bitmap set bits), 710 (bitmap 0 bits), 711 (PMs), 712 (border) 
 sccolors
-	.byte	0,10,14,2	; Black
-	.byte	14,4,0,12	; White
+	.byte	0,10,14,2	; Light text on dark background
+	.byte	14,4,0,12	; Dark text on light background
 
 deciddata
 	.byte	27
@@ -556,10 +561,9 @@ tilmesg2
 	.byte	(80-75)/2,8,75
 	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2013 Itay Chamiel."
 tilmesg3
-	.byte	(80-59)/2,10,59
+	.byte	(80-56)/2,10,56
 svscrlms
-	.byte	"Version 2.74, September 25, 2013. Contact: itaych@gmail.com"
-;	.byte	"Version 2.74b5              Contact: itaych@gmail.com"
+	.byte	"Version 2.75, October 1, 2013. Contact: itaych@gmail.com"
 .if 1
 tilmesg4
 	.byte	(80-75)/2,13,71

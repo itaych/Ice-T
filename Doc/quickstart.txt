@@ -1,6 +1,6 @@
 Ice-T Quickstart guide
 ----------------------
-Real men and real women use real hardware. Most of you however probably just
+Real men and real women use real hardware. Many of you however probably just
 want to get this running on your emulator with minimal hassle, so here is a
 quick start guide for users of the Altirra emulator under Windows.
 
@@ -11,6 +11,7 @@ Hardware > 65XE / 130XE.
 Firmware > 600XL / 800XL.
 Firmware > BASIC *not* checked.
 Memory Size > 128K (130XE).
+Video > No Artifacting.
 R-Time8 > checked.
 Serial Ports > Enable serial port emulation. Select 850 Interface Module.
      Emulate Telnet Protocol. Allow outbound connections.
@@ -34,6 +35,7 @@ You can close a connection with Ctrl-Shift-H (Hangup).
 Access the main menu with Shift-Esc.
 
 Note that since you've booted Ice-T without DOS, disk functionality will be
-unavailable so you can't save your settings or do any file operations.
+unavailable so you can't save your settings or do any file operations. Boot
+from the disk image instead if you need that.
 
 Enjoy :)

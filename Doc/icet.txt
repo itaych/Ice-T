@@ -3,7 +3,7 @@
 
  by Itay Chamiel - (c)1993-2013
 
- Version 2.74 - September 25, 2013
+ Version 2.75 - October 1, 2013
 
  Email: itaych@gmail.com
 
@@ -17,7 +17,7 @@ Features:
 * Xmodem-CRC, Xmodem-1K, Ymodem-batch, Ymodem-G, Zmodem download protocols.
 * ASCII upload, 16K capture buffer
 * 16K scrollback buffer
-* Auto-dialer, with a directory of up to 20 numbers
+* Auto-dialer, with a directory of up to 20 entries
 * Built in text file viewer
 * Fine scroll
 * Print screen and screen dump to file.
@@ -29,6 +29,15 @@ version). That version has a number of bugs, and I abandoned it when I moved
 on to a new version for the more capable 128K machines.
 
 Version history:
+
+2.75 - October 1, 2013
+----
+Fixed a major regression from version 2.73 which broke compatibility with the
+P:R:Connection, MIO, and possibly other interfaces, due to incorrect reset of
+the BREAK key status. Thanks to Russ Gilbert for reporting and assistance in
+solving the bug.
+VT100: Fixed some visual errors when changing the width of existing text.
+Title screen: Fixed minor visual glitch if serial port failed to open.
 
 2.74 - September 25, 2013
 ----
@@ -43,7 +52,7 @@ sorry but I couldn't get this to work.)
 SpartaDOS 3.x: The configuration file ICET.DAT will now be correctly loaded
 from the current path. Also the default current path in the Mini-DOS will
 also point to the current path.
-SpartaDOS X: Ice-T must be loaded with the "X" command. A reminder is shown if
+SpartaDOS X: Ice-T must be loaded with the 'X' command. A reminder is shown if
 you did not.
 Mini-DOS: Path will now accept any single-letter (or letter and number) device
 type, so you can use files on things like H:. Also '\' is now allowed as a
@@ -142,13 +151,14 @@ in the speed department - applications like Kermit-65 and Omnicom, while doing
 a fair job of rendering a VT-100-like display, were very slow and unable to
 keep up with even a 2400 bps modem. Thinking about it I realized that the
 major bottleneck was the 80-column display, which needed to be rendered
-graphically. Especially interesting was that these programs failed to take
+graphically. Especially surprising was that these programs failed to take
 advantage of ANTIC's display capabilities, and actually performed extremely
 slow memory-move operations in order to scroll the screen, rather than
 manipulate the display list. I started with a text file reader named Col80 as
-a proof of concept, and being happy with the result I started work on Ice-T
-(IC are my initials; T is for Terminal), which took up most of my spare time
-for the next 5 years.
+a proof of concept, and being happy with the result I started work on a
+terminal emulator, which was briefly named MegaTerm but soon renamed to Ice-T
+(IC are my initials; T is for Terminal), a project that took up most of my
+spare time for the next 5 years.
 
 In 1997 the project was pretty much done; the program had established itself
 among the standard telecommunications packages for the platform, people seemed
@@ -207,8 +217,10 @@ software to install them. The 850, P:R: connection, and anything else that
 hooks up through the SIO or joystick ports, definitely needs such a file.
 
 Included with this disk are a number of such handlers. ATARI850.HND is for the
-850 interface. The other .HND files were taken from the Bobterm archive, and
-are included for your convenience - I credit Bob Puff for collecting these.
+850 interface. PRCONN2.HND is an alternative handler for the P:R: Connection
+(known as PRC.SYS from the PRC's original disk). The rest of the .HND files
+were taken from the Bobterm archive, and are included for your convenience - I
+credit Bob Puff for collecting these.
 
 For MyDOS users, Ice-T is capable of loading the R: handler automatically if
 it is needed. Rename the appropriate file to RS232.COM and make sure it is
@@ -809,7 +821,8 @@ optimizations;
 Bill Kendrick, for testing, ideas and moral support;
 John Harris, author of the MAE assembler/editor used for the majority of
 development;
-Russ Gilbert, for help with the CRC error checking;
+Russ Gilbert, for help with the CRC error checking and beta testing across a
+wide variety of hardware configurations;
 Tom Drake, for help and feedback;
 Mark Schmelzenbach, for the ATasm assembler, and even adding an option at my
 request;

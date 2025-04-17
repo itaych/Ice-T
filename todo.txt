@@ -1,12 +1,9 @@
 ice-t
 -----
 1. proper detection of online status?
-2. Flow control can cause cosmetic bugs or crashes, especially when entering dial menu.
+2. Flow control can cause visual bugs or crashes, especially when entering dial menu.
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
-
-Esc [ __ ; __ r (defaults: 1,24) Set top and bottom scrolling margins.
-Esc [0m - reset, [1m - bold
 
 col80:
 ------

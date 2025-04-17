@@ -963,7 +963,7 @@ nmbrpro
 ; 7 - normal size
 ; 8 - Fill screen with E's
 
-	cmp	#56	; 8 - see above
+	cmp	#56			; 8 - go fill screen
 	bne	nofle
 	jmp	fille
 nofle
@@ -974,48 +974,48 @@ nofle
 	stx	y
 	dex
 	sec
-	sbc	#51
+	sbc	#51			; ASCII value of digit 3
 	cmp	#5
-	bcc	stszokay	; 3/4/5/6/7 - see above
-	jmp	fincmnd
-stszokay
+	bcc	?ok			; 3/4/5/6/7 - change size
+	jmp	fincmnd		; some other value, quit
+?ok
 	tay
-	lda	sizes,y
+	lda	sizes,y		; translate command to internal size value
 	cmp	lnsizdat,x
-	bne	nosmsz
-	jmp	fincmnd
-nosmsz
-	pha
-	lda	lnsizdat,x
+	bne	?not_same
+	jmp	fincmnd		; line is already this size, quit
+?not_same
+	tay
+	lda	lnsizdat,x	; remember old value
 	sta	scvar1
-	pla
-	sta	lnsizdat,x
-	tax
-	lda	szlen,x
-	sta	szprchng+1
-	jsr	noerstx	; Recent addition..
-	jsr	calctxln
+	tya
+	sta	lnsizdat,x	; and set new value
+	lda	szlen,y		; get size of new line (80 or 40 columns)
+	sta	szprchng+1	; self modified code defining size of redrawn line
+	jsr	noerstx		; clear line marked by variable y
+	jsr	calctxln	; calculate position of line in ascii mirror and put in ersl
 	lda	#32
-	ldx	#0
-szloop1
+	ldx	#79
+?szloop1
 	sta	numstk+$80,x
-	inx
-	cpx	#80
-	bne	szloop1
+	dex
+	bpl	?szloop1
 	ldx	#0
 	ldy	#0
-szloop2
-	lda	(ersl),y
+?szloop2
+	lda	(ersl),y		; copy old text line to a temp buffer
 	sta	numstk+$80,x
+	lda #32
+	sta (ersl),y		; blank old text line
 	iny
 	inx
-	lda	scvar1
-	beq	szlp2v
-	iny
-szlp2v
+	lda	scvar1			; previously 80 columns?
+	beq	?szlp2v			; yes, don't do anything special
+	iny					; no - we're switching from 40 to 80, so skip 1 byte when reading because in 40-col
+?szlp2v					; characters are spaced 1 byte apart in ascii mirror.
 	cpy	#80
-	bne	szloop2
-	lda	invsbl
+	bne	?szloop2
+	lda	invsbl			; before redrawing line in new size, turn off all attributes
 	pha
 	lda	boldface
 	pha
@@ -1030,13 +1030,13 @@ szlp2v
 	sta	boldface
 	sta	x
 	tax
-szprloop
+szprloop				; redraw line
 	lda	numstk+$80,x
 	cmp	#32
-	beq	?s
+	beq	?s				; skip spaces
 	cmp	#128
 	bcc	?i
-	and	#127
+	and	#127			; 128 and over is in inverse
 	ldx	#1
 	stx	revvid
 ?i
@@ -1051,7 +1051,7 @@ szprloop
 szprchng
 	cmp	#80
 	bne	szprloop
-	pla
+	pla					; restore attributes
 	sta	undrln
 	pla
 	sta	revvid
@@ -1059,7 +1059,7 @@ szprchng
 	sta	boldface
 	pla
 	sta	invsbl
-	jmp	fincmnd
+	jmp	fincmnd			; done
 
 fille			; Fill screen with E's
 	jsr	boldclr
@@ -2410,8 +2410,9 @@ prbiglp
 	bne	prbiglp
 	rts
 
+; sanity check to make sure lnsizdat table is not corrupt
 chklnsiz
-	ldx	#0
+	ldx	#23
 chklnslp
 	lda	lnsizdat,x
 	cmp	#4
@@ -2419,9 +2420,8 @@ chklnslp
 	lda	#0
 	sta	lnsizdat,x
 ?ok
-	inx
-	cpx	#24
-	bne	chklnslp
+	dex
+	bpl	chklnslp
 	rts
 
 dblchar
@@ -3265,13 +3265,12 @@ ersline
 	sta	ersl
 	lda	txlinadr+1,x
 	sta	ersl+1
-	ldy	#0
+	ldy	#79
 	lda	#32
 erstxlnlp
 	sta	(ersl),y
-	iny
-	cpy	#80
-	bne	erstxlnlp
+	dey
+	bpl	erstxlnlp
 noerstx				; this is NOT a local!!
 	lda	y
 	asl	a
