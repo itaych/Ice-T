@@ -8,6 +8,8 @@
 
 ; Zero-page variables
 
+; Note: perhaps we can also use 50-7f (except 79-7a, 7c), but save their contents at startup and restore when quitting.
+
 	.bank
 	*=	$80
 
@@ -476,10 +478,11 @@ banked_memory_top		=	$8000
 
 ; Hardware registers
 ; GTIA
-hposp0	=	$d000	; Player 0 horizontal position
-hposm0	=	$d004	; Missile 0 horizontal position
-sizep0	=	$d008	; Size of player 0
-sizem	=	$d00c	; Missile sizes
+hposp0	=	$d000	; Player horizontal positions (4 registers)
+hposm0	=	$d004	; Missile  horizontal positions (4 registers)
+sizep0	=	$d008	; Player sizes (4 registers)
+sizem	=	$d00c	; Missile sizes (4 registers)
+grafp0	=	$d00d	; PM display data, used when Antic DMA is disabled (5 registers)
 colpm0	=	$d012	; Player 0 color
 colpm1	=	$d013	; Player 1 color
 colpm2	=	$d014	; Player 2 color

@@ -177,7 +177,26 @@ init_continued
 	pla
 	sta fastr
 
-	jsr rslnsize	; reset set all line sizes
+	; setup PMs
+	jsr boldoff	; ensures nothing is displayed even when we move players onto the screen
+	lda #$ff
+	sta sizem
+	lda #$80
+	sta pmbase
+	ldx #3
+?pm_lp
+	lda #3
+	sta sizep0,x
+	lda pmhoztbl_players,x
+	sta hposp0,x
+	lda pmhoztbl_missiles,x
+	sta hposm0,x
+	dex
+	bpl ?pm_lp
+	lda #$11	; Players in front of playfield; group missiles into fifth player
+	sta gprior
+
+	jsr rslnsize	; reset all line sizes
 
 	lda #<buffer	; Initialize serial port input buffer
 	sta bufget
@@ -445,7 +464,7 @@ init_continued
 	jsr setcolors	; Set screen colors
 	lda #nmien_DLI_ENABLE
 	sta nmien
-	lda #$2e
+	lda #$2e	; normal playfield, PM DMA, double line resolution, DMA enable 
 	sta sdmctl	; Show screen
 	jsr ropen	; Open serial port
 	lda #1
@@ -1235,7 +1254,7 @@ ropen			; Sub to open R: (uses config)
 	jsr getscrn
 	jmp ropen
 ?ok
-	pla
+	pla		; we're not returning from here
 	pla
 	jmp doquit
 ropok
@@ -1858,11 +1877,11 @@ vbi2
 
 ; handle flashing cursor/blinking characters
 	lda vframes_per_sec
-	lsr a
-	cmp flashcnt ; If flashcnt >= vframes_per_sec/2 then time to flash
-	beq ?flash
-	bcs ?noflash
-	; flashcnt -= vframes_per_sec/2 (because at this point flashcnt > vframes_per_sec/2)
+	lsr a			; flash every half second
+	cmp flashcnt	; If flashcnt >= vframes_per_sec/2 then time to flash
+	beq ?flash		; if flashcnt == vframes_per_sec/2 go to ?flash
+	bcs ?noflash	; if vframes_per_sec/2 > flashcnt go to ?noflash (not >= as equal has been handled)
+	; if we're here flashcnt > vframes_per_sec/2 so perform: flashcnt -= vframes_per_sec/2
 	; Accumulator contains vframes_per_sec/2 so negate its polarity (flip bits and add 1)
 	eor #$ff
 	sec 	; to add 1
@@ -1880,32 +1899,27 @@ vbi2
 	bne ?noflash
 	ldx isbold
 	beq ?noflash
-	cmp #0
+	tax		; instead of cmp #0
 	beq ?bn
-	ldx #3
+	; hide PMs for blink
+	lda #$22		; normal playfield, DMA enable
+	sta sdmctl
+	sta dmactl
+	lda #0
+	sta gractl		; Tells GTIA to take PM data from grafp* registers rather than Antic's DMA
+	ldx #4
 ?bf
-	sta hposp0,x
-	sta hposm0,x
+	sta grafp0,x	; Display blank PM data
 	dex
 	bpl ?bf
-
-	lda sdmctl
-	and #~11110011	; Disable PM DMA
-	sta sdmctl
-	sta dmactl
-	jmp ?noflash
+	bmi ?noflash	; always branches
+	; show PMs for blink
 ?bn
-	lda #46
+	lda #$2e		; normal playfield, PM DMA, double line resolution, DMA enable 
 	sta sdmctl
 	sta dmactl
-	ldx #3
-?bl
-	lda pmhoztbl_players,x
-	sta hposp0,x
-	lda pmhoztbl_missiles,x
-	sta hposm0,x
-	dex
-	bpl ?bl
+	lda #3
+	sta gractl		; Tells GTIA to take PM data from Antic's DMA rather than grafp* registers
 ?noflash
 	lda xoff			; Flow-control timer
 	beq ?ok				; (Don't sent XOFF more than
@@ -2687,6 +2701,16 @@ doquit			; Quit program
 	lda #0
 	sta fastr
 	jsr clrscrn
+
+	; move PMs offscreen
+	lda #0
+	ldx #3
+?pm_lp
+	sta hposp0,x
+	sta hposm0,x
+	dex
+	bpl ?pm_lp
+
 	lda bank3
 	sta banksw
 	ldx #41
@@ -2829,7 +2853,7 @@ boldon			; Enable PMs. return value of boldallw in Y.
 	sta isbold
 	lda sdmctl
 	beq ?o
-	lda #46
+	lda #$2e	; normal playfield, PM DMA, double line resolution, DMA enable
 	sta sdmctl
 	sta dmactl
 	cpy #1		; color enabled? turn on DLI
@@ -2839,24 +2863,25 @@ boldon			; Enable PMs. return value of boldallw in Y.
 	sta nmien
 ?o
 	lda #3
-	sta gractl
-	lda #255
-	sta sizem
-	lda #$80
-	sta pmbase
-	ldx #3
+	sta gractl	; Tells GTIA to take PM data from Antic's DMA rather than grafp* registers
+?done
+	rts
+
+boldoff			; Disable PMs
+	lda #nmien_DLI_DISABLE	; Disable DLI if it was on (in case of color display)
+	sta nmien
+	lda #0
+	sta isbold
+	sta gractl		; Tells GTIA to take PM data from grafp* registers rather than Antic's DMA
+	ldx #4
 ?lp
-	lda #3
-	sta sizep0,x
-	lda pmhoztbl_players,x
-	sta hposp0,x
-	lda pmhoztbl_missiles,x
-	sta hposm0,x
+	sta grafp0,x	; Display blank PM data
 	dex
 	bpl ?lp
-	lda #$11	; Players in front of playfield; group missiles into fifth player
-	sta gprior
-?done
+
+	lda sdmctl
+	and #~11110011	; Disable PM DMA
+	sta sdmctl
 	rts
 
 pmhoztbl_players	.byte 80,112,144,176
@@ -2908,24 +2933,6 @@ boldclr			; Clear boldface PMs
 
 	lda banksv
 	sta banksw
-
-boldoff			; Disable PMs
-	lda #0
-	sta isbold
-	sta gractl
-	ldx #3
-?lp
-	sta hposp0,x
-	sta hposm0,x
-	dex
-	bpl ?lp
-
-	lda sdmctl
-	and #~11110011	; Disable PM DMA
-	sta sdmctl
-	lda #nmien_DLI_DISABLE	; Disable DLI if it was on (in case of color display)
-	sta nmien
-	rts
 
 ; Various routines for accessing banked memory from
 ; code also within a bank

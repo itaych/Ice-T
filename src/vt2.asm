@@ -86,19 +86,19 @@ do_term_main_display
 	pla
 	sta bckgrnd
 	jsr boldon
-	cpy #3		; y contains value of boldallw, 3 means blink
-	bne ?nbl	; If blink - turn blinking characters on by disabling PMs
-	lda #0
-	; y happens to contain 3 which is exactly what's needed for this loop
-?bf
-	sta hposp0,y
-	sta hposm0,y
-	dey
-	bpl ?bf
+	cpy #3			; y contains value of boldallw, 3 means blink
+	bne ?nbl		; If blink - turn blinking characters on by disabling PMs
 	lda sdmctl
 	and #~11110011	; Disable PM DMA
 	sta sdmctl
 	sta dmactl
+	lda #0
+	sta gractl		; Tells GTIA to take PM data from grafp* registers rather than Antic's DMA
+	ldx #4
+?bf
+	sta grafp0,x	; Display blank PM data
+	dex
+	bpl ?bf
 ?nbl
 	rts
 
