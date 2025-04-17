@@ -10,20 +10,20 @@ improve code efficiency. jump tables (done)
 colors not blanked when redrawing line during resize (done)
 colors not blanked when erasing lines or partial screen clears (done)
 use "H:" if no "D:" (done)
-seol stuff in vt2.asm (done)
 reset term when hanging up and dialing (done)
 VT52 emulation plus keypad and arrows, not including graphics characters (done)
 VT102 and ANSI-BBS emulation (done)
 	- sources: http://www.vt100.net/docs/vt102-ug/chapter5.html
 				http://bjh21.me.uk/all-escapes/all-escapes.txt
 handle_insert_delete_char (done)
-checkerboard character (^X) is broken in dbl width mode. (done)
-graphics chars screw up when switching line to double width. (done)
-some characters (tilde/grave accent/curly brackets) misbehave when switching line width. (done)
+various glitches related to double-width lines (done):
+	checkerboard character (^X) is broken in dbl width mode.
+	graphics chars screw up when switching line to double width.
+	some characters (tilde/grave accent/curly brackets) misbehave when switching line width.
 dump local file to terminal. jsr to dovt100?nocapture for each char. (done)
 	- Any key to quit. Start: freeze. Select: slow to 9600 baud. Option: very slow.
 settings>end of line: change "cr or lf" option to "lf alone" (unix compatible), "cr alone". (done)
-Ascii upload bug? maybe review the code..
+Ascii upload bug? (done)
 
 file xfers:
 	x/ymodem failed due to close3 (done)
@@ -37,9 +37,9 @@ file xfers:
 	zmodem: (linux) breaks with -e option, hex packets ending with 0d 00 8a 11 instead of 0d 0a 11. (done)
 		(the 00 is because of Altirra's broken Telnet, not accepting it.)
 	zmodem: implement 8K packets?
-	xmodem upload: consider uncommenting. (altirra will break it though - can't send 0xff! also I don't think I have enough memory.)
+	xmodem upload: consider uncommenting and completing. (altirra will break it though - can't send 0xff! also I don't think I have enough memory.)
 
-	Altirra has broken printer driver. (fixed in 2.40)
+	Altirra has broken printer driver. (fixed in 2.4)
 	Altirra R: breaks if you make outbound connection then coldstart while still connected. (fixed in 2.5)
 	Altirra won't create a file if opening for append (aux1=9). (fixed in 2.5)
 
@@ -48,19 +48,30 @@ file xfers:
 	Altirra Telnet doesn't identify as any terminal type.
 	Altirra H: does not return an error if trying to delete/lock/unlock a nonexistent file (io commands 33/35/36 respectively). Rename (command 32) doesn't work.
 
+check file xfers on real atari! null-modem to linux + APE telnet.
+
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
 		however space should always bold/unbold if overwriting an existing char!
 		that should fix emacs tetris.
 	colors are ugly if screen is inverse. perhaps have dual color table, one for regular one for inverse.
 	maybe do black text by enabling inverse video. Then background color takes priority.
+	Fill new (cleared) lines with background color?
+
 private extensions:
-	NOTE: Esc Q or Esc R are 'private' unused codes.
-	- Esc Qi M   enable bold without setting color. Any use of Esc [ _ m disables.
-	- Esc Qi n1;c1;c2;c3;c4;c5 [;n2;c1;c2;c3;c4;c5].. C   set all 5 colors for horizontal lines. 255/absent = no change.
-	- Esc Qi _ L   set(1)/unset(0 or blank) scroll lock for color background.
-	- Esq Qi _ S/T    force scroll down/up color table by _ lines.
-	
+	Esc [ 99 ; cmd ; arg1 ; .. ; argn {
+
+	- cmd=1: enable coloring without setting color. arg=0 (default) foreground, 1=background (spaces/new lines too).  Esc [ 0 m (reset) or setting any other color/bold disables.
+	- cmd=2: n1;c1;c2;c3;c4;c5 [;n2;c1;c2;c3;c4;c5].. set all 5 colors for horizontal lines. row=0 means all rows. colors are even values, or: 255/absent = no change; 1=repeat prev valid value (will be 0 if there was none).
+	- cmd=10: force scroll down color table by arg1 lines (1-24).
+	- cmd=11: force scroll up color table by arg1 lines (1-24).
+	- cmd=12: horizontal move colors left (for lines within scroll region)
+	- cmd=13: horizontal move colors right (for lines within scroll region)
+	- cmd=20: set(1)/unset(0 or blank) scroll lock for color background.
+	- cmd=21: set/unset rotate for vertical scroll (if set new line will get colors of old line)
+	- cmd=22: set/unset rotate for horizontal scroll
+	- cmd=30: vdelay
+
 don't forget to generate new icet.dat for release!
 
 known issues:

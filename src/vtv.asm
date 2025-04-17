@@ -132,7 +132,7 @@ dli_counter	.ds 1
 rt8_detected	.ds 1
 vframes_per_sec	.ds 1	; 50/60 depending on video system
 clock_cnt		.ds 1	; count increases each video frame
-time_correct_cnt .ds 2 ; counter to correct slight time drift
+time_correct_cnt .ds 2	; counter to correct slight time drift
 
 ; spare
 	.ds 3
@@ -504,13 +504,13 @@ bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
 bckcolr		.byte 0
 eoltrns		.byte 0		; EOL translation for incoming files
 ansiflt		.byte 0
-ueltrns		.byte 0
+ueltrns		.byte 1		; upload EOL translation. 
 ansibbs		.byte 0		; VT-102 (0), ANSI-BBS (1), VT-52 (2)
 eitbit		.byte 1
 fastr		.byte 2
 flowctrl	.byte 1
 eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII
-ascdelay	.byte 2
+ascdelay	.byte 2		; Delay (or prompt) between lines during ASCII upload
 
 ; Translation table for graphical character set, ASCII 95-126 when enabled.
 graftabl

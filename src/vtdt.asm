@@ -455,8 +455,8 @@ svcwin
 	.byte	"Save capture:   "
 svcfil	.byte	"123456789012    "
 	.byte	"Return - Save   "
-	.byte	"F- Change name  "
-	.byte	"E- Clear buffer "
+	.byte	"F - Change name "
+	.byte	"E - Clear buffer"
 	.byte	"Esc - Abort     "
 
 ascwin
@@ -476,7 +476,9 @@ ascprw
 setasdw
 	.byte	54,10,77,16
 	.byte	"Wait between lines: "
-	.byte	" No delay  1/60 sec "
+	.byte	" No delay  1/"
+setasdw_change
+	.byte	"60 sec "
 	.byte	" 1/10 sec   1/5 sec "
 	.byte	"  1/2 sec     1 sec "
 	.byte	"  1.5 sec     2 sec "
@@ -484,8 +486,10 @@ setasdd
 	.byte	2,4,10
 	.byte	56, 12, 66, 12, 56, 13, 66, 13
 	.byte	56, 14, 66, 14, 56, 15, 66, 15
-ascdltb
+ascdltb_ntsc
 	.byte	0,1,6,12,30,60,90,120
+ascdltb_pal
+	.byte	0,1,5,10,25,50,75,100
 
 ascpr
 	.byte	1,0,20

@@ -593,37 +593,43 @@ File operations. Type in a file name and Return.
 Transfer menu
 -------------
 Toggle capture: Enable or disable saving all incoming data into the capture
-buffer, marked by the "C:" indicator in the terminal. Data will be saved
-in this buffer when it is displayed (which can occur after it is received).
-All EOL translation and ANSI stripping, if requested, will occur at that
-point, and not when saving; Make sure you have the proper settings for these
-before enabling the capture buffer.
+buffer, marked by the "C:" indicator in the terminal status bar. Data will be
+saved in this buffer when it is displayed in the terminal (which can occur
+after it is received). All EOL translation and ANSI stripping, if desired,
+will occur at that point, and not when saving; Make sure you have the proper
+settings for these before receiving the data.
 
 Save capture: This will allow you to save the current capture buffer into
 a disk file, or to discard it. Note that this *appends* the buffer's
-contents after the end of the currently existing file. This can be used
-to capture lots of data into one file, with a save being done once in
-a while to make room in the buffer.
+contents to the end of the currently existing file. This can be used to
+capture lots of data into one file, with a save being done once in a while to
+make room for more data.
 Any data coming in *during* the disk operation will be lost, however, so make
 sure nothing does.
+Once the file is saved, capturing is halted; use the "Toggle capture" menu
+entry to re-enable it if desired.
+Using the 'E' key to empty the buffer will also stop capturing.
 
 ASCII upload - Send a file to the remote host, with no protocol.
-You can add a delay between every line sent, or cause the upload to wait for a
-prompt from the remote host before sending the next line. These two are
-mutually exclusive.
+You can add a delay between every line sent, or request the upload to wait for
+a prompt from the remote host before sending the next line. These two are
+mutually exclusive. During the upload, press 'p' to pause/unpause the sending.
+Press Esc to abort. Incoming XOFF/XON characters are respected, and will cause
+the transfer to pause and unpause respectively. The 'p' key can be used to
+manually unpause if this causes the transfer to get stuck for some reason.
 
 Xmodem receive - This is an implementation of Ward Christensen's original
 protocol, developed in 1977. It includes all the later additions, including
 CRC-16 error checking, and 1K-block capability (sometimes incorrectly
 referred to as Ymodem). Each of these are used if the host supports them.
-To transfer a file you must first give the suitable command to your host. You
-may request Xmodem-1K (from the host!) if you want - it's faster with a clean
-line. Remember to set D/L EOL Trans. to "None" before transferring a binary
-file. Exit to the menus and select this option. The Xmodem protocol doesn't
-exchange any file information, and therefore you have to type in the file name.
+To transfer a file you must first give the suitable command to your host ('sx'
+under most flavors of Unix). You may request Xmodem-1K (from the host!) if you
+wish - it's faster with a clean line. Remember to set D/L EOL Trans. to "None"
+before transferring a binary file. Then exit to the menus and select this
+option. The Xmodem protocol doesn't exchange any file information, therefore
+you have to type in the file name.
 The transfer will begin, and you will be notified about most of what's going
-on. Downloading will stop every incoming 16K to save to disk, and I hope this
-doesn't cause the host to time out.
+on. Downloading will stop every incoming 16K to save to disk.
 The main drawback to this protocol is that a maximum of 127 extra bytes,
 or 1023 bytes in 1K mode, can get added to the end of the file.
 If your sender program was written properly, it should be able to minimize this
@@ -643,17 +649,17 @@ Ymodem receive - This protocol is similar to Xmodem, with a few additions:
 wildcards to send more than one file (for example, you can request a file-
 name like *.DOC for all files with the DOC extension to be sent).
 3. The file's name is reported by the host, so you don't have to type it in.
-4. The file length is also sent, so any extra characters in the last block can
-be removed. This capability is lost if the file is over 16MB long, but I'm
-pretty sure you already knew that.
+4. The file length is also sent, so there is no file padding as in Xmodem.
+(This capability is lost, however, if the file is over 16MB long; such large
+files will be padded.)
 
 This implementation complies with Omen Technologies' definition of
 "True YMODEM(TM)", but I can't officially say that if it hasn't been
 certified by them. I am not going to attempt this.
 
-To transfer a file, request one or more files to be sent from your host,
-then select Ymodem receive in the Ice-T menu. The rest will be done
-automatically.
+To transfer a file, request one or more files to be sent from your host ('sb'
+under Unix) then select Ymodem receive in the Ice-T menu. The rest will be
+done automatically.
 
 Ymodem-G receive - This is a "streaming" version of Ymodem - the other side
 won't pause between packets for an acknowledgment, and in case of an error
@@ -662,12 +668,16 @@ used with a reliable null-modem cable, or with an error-correcting modem.
 Another thing that should be noted is that this transfer may not be used if
 both modem and disk drive are connected through the serial port. The transfer
 will attempt writing to the disk while the modem port is still open, and
-this will cause a system crash with such a hardware configuration. I recommend
-using this protocol only if you have a RAMdisk, hard disk or if your modem
-is connected through a Black Box or MIO (or similar device).
-Even with a RAMdisk, Ice-T may have trouble keeping up with the constant
-data stream at high baud rates. In this case data will be lost, causing an
-error and aborting the transfer.
+this will cause a system crash with such a hardware configuration. Even with
+a RAMdisk, data may be lost because RAMdisk access disables interrupts which
+may be crucial to receiving serial port data; in that case data will be lost,
+causing an error and aborting the transfer.
+To date, this mode of file transfer has only been verified to work under the
+Altirra emulator. Please update me of success on real hardware.
+
+There is no special command required to activate Ymodem-G on the host;
+request a regular Ymodem transfer as described above, then select Ymodem-G in
+the Ice-T menu.
 
 Zmodem receive - This is the best protocol of them all. Like Ymodem-G,
 it uses streaming (no pause for acknowledgement) for maximum speed. Unlike
@@ -679,11 +689,15 @@ documentation), a "Buffer overflow!" message will appear. Ice-T will pause to
 empty the buffer to disk, then resume, requesting the other side to repeat all
 the data that had been lost during the disk save. In fact, this should cause
 nothing more than a delay.
-While the protocol supports CRC-16 and CRC-32, only CRC-16 is implemented.
+Unfortunately the current version of 'lrzsz' (the X/Y/Zmodem transfer utility
+included with current Linux distributions) suffers from this problem.
 
-To begin a transfer, request one or more files from your host. This will
-automatically begin the download; you may never actually have to select this
-option in the menu, unless the sender's initial request to send gets garbled.
+While the protocol supports CRC-16 and CRC-32, only CRC-16 is supported by
+Ice-T.
+
+To begin a transfer, request one or more files from your host ('sz' under
+Unix). This will automatically begin the download (you may never actually have
+to select this option in the menu).
 
 If a download is aborted for any reason, all validated data will be saved,
 and the file will close (no junk will be saved in the file). In addition,

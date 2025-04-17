@@ -3274,9 +3274,13 @@ nofefe
 ;	sta	timer_1sec
 
 	ldx #60
-	lda $D014		; PAL/NTSC indicator
+	lda $d014		; PAL/NTSC indicator
 	and #$e			; check bits 1-3
 	bne ?ntsc
+	lda	#bank2
+	sta	banksw
+	lda #'5
+	sta setasdw_change	; change "1/60 sec" to "1/50 sec" in ASCII upload delay menu
 	ldx #50
 ?ntsc
 	stx vframes_per_sec

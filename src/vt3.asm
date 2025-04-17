@@ -1738,6 +1738,7 @@ input
 tglcapt			; Toggle capture mode
 	lda	capture
 	eor	#1
+?ext			; this is called by save-capture when done
 	sta	capture
 	asl	a
 	adc	capture
@@ -1758,23 +1759,23 @@ tglcapt			; Toggle capture mode
 
 svcapt			; Save capture to disk
 	jsr	prepflnm
-	ldx	#0
+?cpfl
+	ldx	#11
 ?lp
 	lda	flname,x
 	bne	?okz
 	lda	#32
 ?okz
-	cmp	#65
+	cmp	#'A
 	bcc	?okc
-	cmp	#91
+	cmp	#'Z+1
 	bcs	?okc
 	clc
-	adc	#32
+	adc	#32		; convert file name to lower case for display
 ?okc
 	sta	svcfil,x
-	inx
-	cpx	#12
-	bne	?lp
+	dex
+	bpl	?lp
 	ldx	#>svcwin
 	ldy	#<svcwin
 	jsr	drawwin
@@ -1784,22 +1785,21 @@ svcapt			; Save capture to disk
 	bne	?ne
 	jmp	bkxfr
 ?ne
-	cmp	#102	; f
+	cmp	#'f		; 'f' - change file name
 	bne	?nf
-
 	ldx	#60
 	ldy	#6
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
-	bne	?go
-	jmp	bkxfr
+	bne	?go		; if user aborted, window needs to be
+	jsr	getscrn	; redrawn to clear any editing junk
+	jmp	?cpfl
+
 ?nf
-	cmp	#101	; e
-	beq	?endok
-	cmp	#155	; Go
-	beq	?go
-	cmp	#32
+	cmp	#'e		; 'e' - empty buffer
+	beq	?clrbuff
+	cmp	#155	; Return - Go
 	bne	?kl
 ?go
 	jsr	close2
@@ -1815,8 +1815,8 @@ svcapt			; Save capture to disk
 	lda	#0
 	sta	icaux2+$20
 	jsr	ciov
-	cpy	#128
-	bcs	?err
+	bmi	?err
+	
 	ldx	#$20
 	lda	#11	; block-put
 	sta	iccom+$20
@@ -1833,33 +1833,22 @@ svcapt			; Save capture to disk
 	lda	captplc
 	bne	?ok
 	lda	captplc+1
-	cmp	#$40	; Save nothing if capture is empty
+	cmp	#$40			; Save nothing if capture is empty
 	bne	?ok
-	jsr	ropen
 	jmp	?endok
 ?ok
 	lda	#bank4
 	jsr	bankciov
-	cpy	#128
-	bcs	?err
-	jsr	ropen
+	bmi	?err
 ?endok
-	lda	#0
-	sta	captplc
+	jsr	ropen
+?clrbuff
+	jsr	getscrn
 	lda	#$40
 	sta	captplc+1
-	jsr	getscrn
-	jsr	getscrn
-	jmp	xfer
-
-;	lda	capture
-;	beq	?end
-;	jsr	getscrn
-;	lda	#0/1
-;	sta	capture
-;	jmp	tglcapt
-;?end
-;	jmp	bkxfr
+	lda	#0
+	sta	captplc
+	jmp	tglcapt?ext		; indicate Capture Off and return to menu
 
 ?err
 	jsr	cverr
@@ -1868,12 +1857,11 @@ svcapt			; Save capture to disk
 fildmp			; Dump file to Terminal
 	lda #1
 	.byte BIT_skip2bytes
-filvew			; File viewer
+filvew			; Text file viewer
 	lda #0
 	sta crcl	; flag whether this is text file viewer or dump to VT
 	jsr	chkcapt
-	cmp	#1
-	bne	?ncpt
+	beq	?ncpt
 	jmp	bkfil
 ?ncpt
 	ldx	#>vewwin
@@ -1890,8 +1878,7 @@ filvew			; File viewer
 ?nesc
 	jsr	buffdo
 	jsr	open3fl
-	cpy	#128
-	bcs	?lp
+	bmi	?lp
 
 	lda crcl
 	bne ?n1
@@ -2318,42 +2305,44 @@ prepflnm		; Prepare full filename
 
 ascupl			; Ascii upload
 	jsr	chkcapt
-	cmp	#1
-	bne	?ncpt
+	beq	?ncpt
 	jmp	bkxfr
 ?ncpt
 	jsr	prepflnm
-	ldx	#0
+	; copy filename to window
+?cpfl
+	ldx	#11
 ?lp
 	lda	flname,x
-	bne	?okz
+	bne	?noz
 	lda	#32
-?okz
-	cmp	#65
+?noz
+	cmp	#'A
 	bcc	?okc
-	cmp	#91
+	cmp	#'Z+1
 	bcs	?okc
 	clc
 	adc	#32
 ?okc
 	sta	asufil,x
-	inx
-	cpx	#12
-	bne	?lp
+	dex
+	bpl	?lp
+	; draw window
 	ldx	#>ascwin
 	ldy	#<ascwin
 	jsr	drawwin
+	; get key from user
 ?kl
 	jsr	getkeybuff
-	cmp	#27
+	cmp	#27		; esc
 	bne	?ns
 	jmp	bkxfr
 ?ns
-	cmp	#112	; p
+	cmp	#'p			; 'p' - set prompt character
 	bne	?np
 	lda	ascdelay
 	cmp	#8
-	bcs	?n8
+	bcs	?n8			; 0-7 is a delay value, 8 and over is a valid char. So don't display if it was under 8
 	lda	#0
 ?n8
 	sta	ascprc
@@ -2373,7 +2362,7 @@ ascupl			; Ascii upload
 	jmp	?kl
 
 ?np
-	cmp	#100	; d
+	cmp	#'d		; 'd' - set delay
 	bne	?nd
 	lda	ascdelay
 	cmp	#8
@@ -2396,34 +2385,31 @@ ascupl			; Ascii upload
 	jmp	?kl
 
 ?nd
-	cmp	#102	; f
+	cmp	#'f		; 'f' - change file name
 	bne	?nf
 	ldx	#64
 	ldy	#7
 	jsr	filnam
 	lda	prpdat
 	cmp	#255
-	bne	?ng
-	jsr	getscrn
-	ldx	#0
-	jmp	?lp
+	bne	?ng		; if user aborted, window needs to be
+	jsr	getscrn	; redrawn to clear any editing junk
+	jmp	?cpfl
 ?ng
 	jmp	?kl
 ?nf
-	cmp	#103	; g
+	cmp	#'g		; 'g' - Go
 	bne	?ng
 	jsr	getscrn
 	jsr	open3fl
-	ldx	#0
-	cpy	#128
-	bcc	?ner
-	jmp	?lp
-?ner
+	bpl	?no_err
+	jmp	?cpfl
+?no_err
+	; close window, prepare display for Terminal mode
 	jsr	getscrn
 	lda	#0
 	sta	clock_enable
 	jsr	erslineraw_a
-
 	ldx	#>ascpr
 	ldy	#<ascpr
 	jsr	prmesg
@@ -2432,12 +2418,11 @@ ascupl			; Ascii upload
 	jsr	prmesg
 	ldx	#22
 	ldy	#0
-	sty	topy
+	sty	topy		; used here as pause flag
 	jsr	prxferfl
 	ldx #>do_term_main_display
 	ldy #<do_term_main_display
 	jsr jsrbank1
-;	jsr	boldon
 ?mlp
 	jsr	close2
 	ldx	#$30
@@ -2457,35 +2442,72 @@ ascupl			; Ascii upload
 	pla
 	tay
 	lda	#0
-	sta	prfrom
-	sta	?cpl+1
-	sta	topx
+	sta	?read_l+1	; ?read_l/?read_h - data pointer
+	sta	?cpl+1		; ?cpl/?cph - end of data
 	lda	#$40
-	sta	prfrom+1
+	sta	?read_h+1
 	lda	#$80
 	sta	?cph+1
 
-	cpy	#136
+	cpy	#136	; EOF error?
 	beq	?ef
-	cpy	#128
+	cpy	#128	; any other error?
 	bcc	?alp
-	jsr	close3
 	jsr	cverr
+	jsr	close3
 	jmp	goterm
 ?ef
-	lda	#1
-	sta	topx
 	lda	icbll+$30
 	sta	?cpl+1
 	clc
 	lda	#$40
 	adc	icblh+$30
 	sta	?cph+1
-?alp
-	jsr	?doky
+?alp			; main ASCII upload loop
+	; check if we're at end of buffer.
+	lda	?read_l+1
+?cpl	cmp	#0	; self modified
+	bne	?not_end
+	lda	?read_h+1
+?cph	cmp	#0	; self modified
+	bne	?not_end
+	lda	?cph+1
+	cmp #$80	; was buffer full? means not EOF
+	bne	?done
+
+; Not EOF, load more
+
+; Wait for other side to shut up (for 1 sec at least)
+; before closing channel
+
+	lda #0
+	sta	20
+?em2
+	jsr	?myvt
+	cpx	#1
+	beq	?ep2
+	stx	20
+?ep2
+	lda	20
+	cmp	vframes_per_sec
+	bcc	?em2
+	jmp	?mlp
+
+; All done, go to terminal
+?done
+	jsr	close3	
+	jsr	ropen	; R: must be reopened after close3
+	jmp	goterm
+
+?not_end
+	jsr	?doky	; check keyboard for Esc or P(pause)
 	lda	topy
 	bne	?emp
 	tay
+?read_l	lda #0	; self-modified
+	sta prfrom
+?read_h	lda #0	; self-modified
+	sta prfrom+1
 	lda	#bank4
 	jsr	ldaprfrm
 	cmp	#155
@@ -2493,34 +2515,39 @@ ascupl			; Ascii upload
 	ldx	ueltrns
 	cpx	#2
 	bne	?n2
-	lda	#10
+	lda	#10		; LF
 ?n2
 	cpx	#2
 	bcs	?elo
-	lda	#13
+	lda	#13		; CR
 	cpx	#1
 	beq	?elo
 	jsr	rputch
-	lda	#10
+	lda	#10		; and another LF
 ?elo
 	jsr	rputch
 	lda	ascdelay	; Short delay between lines if
-	beq	?nel	; user wants one..
+	beq	?ddn		; user wants one..
 	cmp	#8
 	bcc	?o8
-	jmp	?wtpr	; Or, wait for a prompt from remote.
+	jmp	?wtpr		; Or, wait for a prompt from remote.
 ?o8
 	tax
-	lda	ascdltb,x
+	lda	ascdltb_ntsc,x
+	ldy vframes_per_sec
+	cpy #50
+	bne ?nopal
+	lda ascdltb_pal,x
+?nopal
+	sta	ymodem		; used as temp location
 	ldx	#0
 	stx	20
 ?dlp
-	sta	ymodem	; used as temp location
 	jsr	?myvt
 	jsr	?doky
-	lda	ymodem
-	cmp	20
-	bne	?dlp
+	lda	20
+	cmp	ymodem
+	bcc	?dlp
 	jmp	?ddn
 ?nel
 	cmp	#127	; TAB conversion
@@ -2532,49 +2559,16 @@ ascupl			; Ascii upload
 ?ntb
 	jsr	rputch
 ?ddn
-	inc	prfrom
+	inc	?read_l+1
 	bne	?emp
-	inc	prfrom+1
+	inc	?read_h+1
 ?emp
-	jsr	?myvt
+	jsr	?myvt	; display input characters as long as they keep coming
 	beq	?emp
-	lda	prfrom
-?cpl	cmp	#0
-	bne	?galp
-	lda	prfrom+1
-?cph	cmp	#0
-	bne	?galp
-	lda	topx
-	bne	?nlp
-
-; Not EOF, load more
-
-; Wait for other side to shut up (for 1 sec at least)
-; before closing channel
-
-	sta	20
-?em2
-	jsr	?myvt
-	cpx	#1
-	beq	?ep2
-	stx	20
-?ep2
-	lda	20
-	cmp	vframes_per_sec
-	bne	?em2
-	lda	#0
-	sta	topx
-	jmp	?mlp
-?nlp
-	jsr	close3	; All done, go to terminal
-	jsr	ropen	; R: must be reopened after close3
-	jmp	goterm
-
-?galp
-	jmp	?alp
+	jmp ?alp
 
 ?wtpr
-	jsr	?doky	; Wait for user-requested prompt
+	jsr	?doky	; Wait for user-specified prompt
 	jsr	?myvt	; character before sending next line.
 	cpx	#1
 	beq	?wtpr
@@ -2616,7 +2610,7 @@ ascupl			; Ascii upload
 	cmp	#255
 	beq	?nk2
 	jsr	getkeybuff
-	cmp	#27
+	cmp	#27		; Esc? Abort.
 	bne	?ne
 	jsr	close3
 	jsr	ropen	; R: must be reopened after close3
@@ -2624,17 +2618,13 @@ ascupl			; Ascii upload
 	pla
 	jmp	goterm
 ?ne
-	cmp	#112	; "p"
+	cmp	#'p		; 'p' - pause/unpause upload
 	bne	?nk2
 	lda	topy
 	eor	#1
 	sta	topy
 ?nk
-	pha
-	lda	prfrom
-	pha
-	lda	prfrom+1
-	pha
+;	pha
 	lda	topy
 	beq	?t0
 	ldx	#>?pop
@@ -2646,15 +2636,11 @@ ascupl			; Ascii upload
 	ldy	#<ascpr2
 	jsr	prmesg
 ?t1
-	pla
-	sta	prfrom+1
-	pla
-	sta	prfrom
-	pla
+;	pla
 ?nk2
 	rts
 ?pop
-	.byte	65,0,7
+	.byte 65,0,7
 	.byte +$80," Pause "
 
 open3fl			; "open #3,4,0,filename"
@@ -2671,11 +2657,10 @@ open3fl			; "open #3,4,0,filename"
 	sta	icaux1+$30
 	lda	#0
 	sta	icaux2+$30
-cioverr
 	jsr	ciov
-	cpy	#128
-	bcs	cverr
+	bmi	cverr
 	rts
+; Display error number in a window and wait for a key
 cverr
 	tya
 	pha
@@ -2730,15 +2715,15 @@ prxferfl		; Display file path and name
 
 chkcapt			; Check if capture is off and empty
 	lda	capture
-	bne	?ok
+	bne	?bad
 	lda	captplc
-	bne	?ok
+	bne	?bad
 	lda	captplc+1
 	cmp	#$40
-	bne	?ok
+	bne	?bad
 	lda	#0
 	rts
-?ok
+?bad
 	ldx	#>cptewin
 	ldy	#<cptewin
 	jsr	drawwin
