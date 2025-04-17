@@ -6,12 +6,11 @@
 
 ; note: unused memory locations are indicated by the word "spare" in a comment
 
-; Zero-page variables
-
-; Note: perhaps we can also use 50-7f (except 79-7a, 7c), but save their contents at startup and restore when quitting.
+; Zero-page variables. Start from $50, keeping $79-7a and $7c reserved for OS use.
+; Modifying data in $50-$7f may break the OS screen handler, but it's unused during the program so we save their contents at startup and restore when quitting.
 
 	.bank
-	*=	$80
+	*=	$50
 
 cntrl		.ds 1	; general 16-bit counter, lo byte
 cntrh		.ds 1	; general 16-bit counter, hi byte
@@ -52,7 +51,9 @@ modedo		.ds 1
 ckeysmod	.ds 1
 finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
+keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 numgot		.ds 1
+holdch		.ds 1	; OS reserved - must equal $7c
 scrltop		.ds 1	; top of scrolling area, 1-24
 scrlbot		.ds 1	; bottom of scrolling area, 1-24
 origin_mode	.ds 1	; Origin mode
@@ -140,14 +141,18 @@ bank3		.ds 1
 bank4		.ds 1
 
 ; spare
-	.ds 2
+	.ds 47
 
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
 	.endif
-
-; Note: it seems that area from $50 to $78 (inclusive) can also safely be used.
-
+	.if keydef <> $79
+	.error "keydef is wrong"
+	.endif
+	.if holdch <> $7c
+	.error "holdch is wrong"
+	.endif
+	
 ; Xmodem constants
 
 xmd_SOH  =	$01
@@ -417,8 +422,11 @@ colortbl_2	.ds 24
 colortbl_3	.ds 24
 colortbl_4	.ds 24
 
+; backup of page zero area, mostly used by screen handler, saved at startup and restored at exit
+page_zero_backup	.ds $30
+
 ; spare (page 6)
-	.ds 134
+	.ds 86
 
 	.if	* <> $700
 	.error "not using page 6 fully!!"
@@ -436,7 +444,6 @@ rtclock_2	=	$14	; Increments by 1 each vblank
 icax1z	=	$2a
 atract	=	$4d		; Attract mode timer and flag
 lmargn	=	$52		; Text mode left margin
-keydef	=	$79		; Points to keyboard code conversion table (from keyboard code to ASCII)
 vdslst	=	$200	; DLI vector
 vvblki	=	$222	; Immediate VBI vector
 vvblkd	=	$224	; Deferred VBI vector

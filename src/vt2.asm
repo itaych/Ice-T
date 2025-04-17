@@ -2733,10 +2733,10 @@ ptxreg
 	sta outdat	; remember character we're overwriting
 	cpx #32
 	bne ?db		; Space character: no bold/unbold as this may pointlessly ruin an adjacent character.
-	lda undrln	; but if Underlined/Inverse/Bold change to 127 so we know it's there if it needs to be overwritten later
-	ora revvid	; (127 is also a blank character)
+	lda undrln	; but if Underlined/Inverse/Bold change to 255 so we know it's there if it needs to be overwritten later
+	ora revvid	; (255 is also a blank character. Was 127 in the past, but is now used for block character.)
 	beq ?snb
-	ldx #127
+	ldx #255
 ?db
 	lda boldface
 	beq ?ndb

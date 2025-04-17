@@ -11,6 +11,7 @@ Outputs > Video > Artifacting mode: None.
 Peripherals > Devices > Add > Cartridge devices > R-Time 8
 Peripherals > Devices > Add > Serial I/O bus devices > 850 Interface Module. Leave default options.
 Click the Serial Port, then Add > Modem. Uncheck "automatic CR/LF conversion". Negotiate terminal type: vt102. Set Network simulation to "Disabled" unless you actually want to hear 1990's style simulated modem sounds when connecting.
+In the main menu bar, View > Overscan Mode > select Indicator Margin. 
 
 Drag the icet.xex file icon onto the Altirra window; a box saying "Boot image" will appear - drop the icon onto that; Ice-T should load correctly. At the title screen press Enter twice to enter Terminal mode. You should now be able to type:
 

@@ -16,10 +16,6 @@ This code converts a hex digit 0 to F (i.e. the accumulator $00 to $0F) to $30 t
      ADC #$66 ; Add $67 (the carry is set), convert $0A to $0F --> $71 to $76
 SKIP EOR #$30 ; Convert $00 to $09, $71 to $76 --> $30 to $39, $41 to $46
 
-
-zpage:
-50-7f (except 79-7a, 7c)
-
 lda v1
 cmp v2
 bcc ---> v1<v2

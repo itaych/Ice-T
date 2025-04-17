@@ -2726,8 +2726,6 @@ doquit			; Quit program
 	sta banked_memory_top-2
 	lda scrlsv+1
 	sta banked_memory_top-1
-	lda #2
-	sta lmargn
 	jsr close3
 	jsr vdelay
 	lda rsttbl
@@ -2786,6 +2784,15 @@ doquit			; Quit program
 
 	lda bank0
 	sta banksw
+
+	; restore page zero area ($50-$7f) that was saved at program entry
+	ldx #$2f
+?zp_lp
+	lda page_zero_backup,x
+	sta $50,x
+	dex
+	bpl ?zp_lp
+
 	jmp (dosvec)	; we are done, exit to DOS
 
 ; Calculate	memory position in ASCII mirror
@@ -3153,6 +3160,14 @@ menuclk_clear	.byte	"12:00:00"
 
 initial_program_entry
 	cld
+	; we're going to overwrite some zero-page locations whose contents may be important after exiting ($50-$7f), so save them here
+	ldx #$2f
+?zp_lp
+	lda $50,x
+	sta page_zero_backup,x
+	dex
+	bpl ?zp_lp
+
 	lda #0
 	sta sdmctl
 	sta color4
@@ -3195,13 +3210,15 @@ initial_program_entry
 	lda #>reset
 	sta casini+1
 
-	; Create lookup table for print routing: for each ASCII character, point to correct location in character set table.
-	; for each char from 0 to 127:
+	; Create lookup table for print routing: for each ASCII character, point to correct location in character set.
+	; For each char from 0 to 127:
 	; first perform a simple translation:
 	;	(0-31)   -> add 64
 	;	(32-95)  -> subtract 32
 	;	(96-127) -> no change
 	; then multiply by 8 and add character set base address.
+	; While we could reorder the font to prevent the need for this translation, that would break the dead-simple logic used to look up characters in the
+	; OS built in character set (for large letters): OS character = Ice-T chset character + (OS chset - Ice-T chset).
 	ldx #127
 ?lp
 	lda #0

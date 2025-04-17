@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# 20200429. This was used to fix whitespaces in the asm source files. Probably will never be needed again.
 from __future__ import print_function
 import sys
 
