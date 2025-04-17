@@ -52,7 +52,7 @@ jfsymbol = $07eb
 	tya
 	jsr jext_on
 	ldy #$00        ;$00 - off, $01 - on
-?ptr	jsr $0000
+?ptr	jsr $0000	; self modified
 	jsr jext_off
 	jmp ?nosparta
 ; symbol name, space-padded to 8 characters

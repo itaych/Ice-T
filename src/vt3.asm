@@ -1988,6 +1988,7 @@ vweof
 	adc	icblh+$30
 	sta	cmph+1
 	jsr close3
+	jsr ropen
 	lda crcl
 	beq viewloop
 	jmp viewloop_dumpvt
@@ -2177,6 +2178,7 @@ quitvwk
 	bne	?lp
 quitvw
 	jsr close3
+	jsr ropen
 	lda crcl
 	beq ?n1
 	jmp goterm

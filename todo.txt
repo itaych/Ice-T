@@ -28,10 +28,12 @@ file viewer: viewing a file whose size is a multiple of 256 (including 0) displa
 capture buffer indicator broken when full (done)
 Flow control can cause visual bugs or crashes, especially when entering dial menu. probably a zp variable conflict.
 	buffifnd (and buffdo) may use the following if xoff flow control acts: x, y, prchar/+1, cntrl/h. change to preserve them (except prchar) (done)
-
+read time in spartados 4.x at startup (done)
+	
 Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen? 3. What prevents "Rush" from being displayed during menus? 4. At chkrsh?ok there are calls that also call buffdo - could cause infinite recursion? 5. Cursor glitches.
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
+convert doc to ATASCII for ATR.
 
 file xfers:
 	x/ymodem failed due to close3 (done)
@@ -90,7 +92,7 @@ areas containing nothing but the checkerboard character may be considered blank 
 no proper detection of online status.
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
-e address byte
+e address byte (write memory)
 ? expr
 
 add to inittab or equivalent:

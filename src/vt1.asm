@@ -3187,7 +3187,7 @@ chsetinlp
 	rts
 
 ststmr_clear	.byte	"00:00:00"
-menuclk_clear	.byte	+$80, "12:00:00"
+menuclk_clear	.byte	"12:00:00"
 
 init
 	cld
@@ -3266,9 +3266,7 @@ nofefe
 	sta	dialdat+$540,x
 	inx
 	bne	?lp1
-	lda	#bank0
-	sta	banksw
-	stx	580
+	stx	580			; disable cold start on Reset
 
 	lda	#0
 	sta	online
@@ -3289,22 +3287,56 @@ nofefe
 ?ntsc
 	stx vframes_per_sec
 
-; Clear clock and timer
+; SpartaDOS: Read time from OS
+	lda $700 		; DOS type detection
+	cmp #'S
+	bne ?nospartatime
+	lda $701
+	and #$f0		; Sparta 4.x only
+	cmp #$40
+	bne ?nospartatime
+
+	lda #$10
+	sta $761	; device number
+	ldy #100	; get current time and date command
+	jsr $703	; kernel entry
+	; hh/mm/ss are in $77e/f/80 in 24-hr format.
+	lda $77e	; hours
+	cmp #13
+	bcc ?no_hr_12
+	sec
+	sbc #12		; convert to 12-hour format
+?no_hr_12
+	ldx #>menuclk_clear
+	ldy #<menuclk_clear
+	jsr ?numbr
+	lda $77f	; minutes
+	ldx #>(menuclk_clear+3)
+	ldy #<(menuclk_clear+3)
+	jsr ?numbr
+	lda $780	; seconds
+	ldx #>(menuclk_clear+6)
+	ldy #<(menuclk_clear+6)
+	jsr ?numbr
+?nospartatime
+
+; Clear clock (or set from whatever SpartaDOS gave us) and online timer
 	ldx #7
 ?clklp
 	lda	menuclk_clear,x
+	ora #$80
 	sta	menuclk+3,x	
 	lda	ststmr_clear,x
 	sta	ststmr+3,x
 	dex
 	bpl	?clklp
 
-	lda	#<txscrn	; Set textmirror
-	sta	cntrl	; pointers
+	lda	#<txscrn	; Set text mirror
+	sta	cntrl		; pointers
 	lda	#>txscrn
 	sta	cntrh
 	ldx	#0
-mktxlnadrs
+?mktxlnadrs
 	lda	cntrl
 	sta	txlinadr,x
 	lda	cntrh
@@ -3319,9 +3351,9 @@ mktxlnadrs
 	adc	#0
 	sta	cntrh
 	cpx	#24*2
-	bne	mktxlnadrs
+	bne	?mktxlnadrs
 
-	lda	#24	; Backscroll top
+	lda	#24		; Backscroll top
 	sta	looklim
 
 	lda	#0
@@ -3332,12 +3364,12 @@ mktxlnadrs
 	lda	#bank3	; Recall old backscroll
 	sta	banksw	; if there is one!
 	ldx	#41
-?lp
+?lp2
 	lda	$8000-45,x
 	cmp	svscrlms,x
-	bne	?ok
+	bne	?ok2
 	dex
-	bpl	?lp
+	bpl	?lp2
 	lda	#0
 	sta	$8000-45
 	sta	$8000-44
@@ -3347,7 +3379,7 @@ mktxlnadrs
 	sta	scrlsv
 	lda	$7fff
 	sta	scrlsv+1
-?ok
+?ok2
 
 ; Find R: device vectors (at HATABS $31A)
 
@@ -3430,11 +3462,11 @@ mktxlnadrs
 
 ; push filename 1 byte forward
 	ldx #cfgname_end-cfgname-1
-?lp2
+?lp3
 	lda cfgname-1,x
 	sta cfgname,x
 	dex
-	bpl ?lp2
+	bpl ?lp3
 ; get current device and number from OS (directory path not needed)
 	ldy #33
 	lda ($0a),y	; COMTAB+33 contains first 2 chars of full path (e.g. "D2")
@@ -3566,6 +3598,10 @@ mktxlnadrs
 
 ; Generate CRC-16 table for X/Y/Zmodem.
 
+; variables required (2 bytes needed for each)
+?vl		= cntrl
+?acl	= prchar
+
 	lda	#bank2
 	sta	banksw
 	ldx	#0
@@ -3606,8 +3642,29 @@ mktxlnadrs
 
 	jmp	norst
 
-?vl		.ds 2
-?acl	.ds 2
+; converts number in A to 2 decimal ASCII digits, at X/Y
+?numbr
+	stx cntrh
+	sty cntrl
+	ldx #'0
+?numbr_lp1
+	cmp #10
+	bcc ?numbr_ok1
+	sec
+	sbc #10
+	inx
+	bne ?numbr_lp1	; always branches
+?numbr_ok1
+	pha
+	txa
+	ldy #0
+	sta (cntrl),y
+	pla
+	clc
+	adc #'0
+	iny
+	sta (cntrl),y
+	rts
 
 ; offsets to R:, D:, H: in HATABS.
 ?device_r_pos .byte 255
@@ -3617,3 +3674,8 @@ mktxlnadrs
 ; offsets to each PM for bold (5 hi, 5 lo)
 ?tb_hi	.byte	$00,$00,$01,$01,$02
 ?tb_lo	.byte	$00,$80,$00,$80,$00
+
+; temp charsets will be loaded here, they need $800 bytes and can't conflict with chrtbll
+	.if	* >= chrtbll-$800
+	.error "font conflict!!"
+	.endif

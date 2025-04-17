@@ -278,7 +278,7 @@ boldpm	=	$8180	; P/M underlay for bold/blink/color text.
 ;boldp2	=	$8300
 ;boldp3	=	$8380
 
-minibuf	=	$8400
+minibuf	=	$8400	; used as R: input buffer. possibly a waste as it is ignored by most handlers...
 chrtbll	=	$8c00	; lookup table to find character in character set
 chrtblh	=	$8c80
 charset	=	$8d00	; main character set
@@ -683,9 +683,9 @@ svscrlms
 
 	.byte	"Version "
 version_str
-	.byte 	"2.8.0(alpha4)"
+	.byte 	"2.8.0(alpha5)"
 version_str_end
-	.byte	" Nov 26 2013. Contact: itaych@gmail.com"
+	.byte	" Nov 27 2013. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms
