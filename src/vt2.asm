@@ -16,7 +16,7 @@ connect
 	sta	cntrl
 	lda	linadr+1
 	sta	cntrh
-	jsr	erslineraw
+	jsr	erslineraw	; clear status line
 	lda	#0
 	sta	mnmnucnt
 	sta	oldbufc
@@ -28,21 +28,21 @@ connect
 	sta	x
 	sta	y
 	jsr	mkblkchr
-	jsr	print
+	jsr	print		; draw block if XOFF is on
 ?ok1
 
 	lda	bckgrnd
+	pha
 	eor	invon
 	sta	bckgrnd
 	jsr	setcolors
-	lda	bckgrnd
-	eor	invon
+	pla
 	sta	bckgrnd
 	jsr	boldon
 	lda	boldallw
 	cmp	#2
 	bne	?nbl	; If blink - turn blinking
-	lda	#0	; characters ON.
+	lda	#0		; characters ON.
 	ldx	#3
 ?bf
 	sta	53248,x
@@ -569,30 +569,17 @@ regmode			; Display normal character
 	sec
 	sbc	#95
 	bcc	notgrph
-	tax
-	lda	graftabl,x
-	cmp	#254
-	bne	grnoblank
-	lda	#0
-	tax
-grblklp
-	sta	charset+(91*8),x
-	inx
-	cpx	#8
-	bne	grblklp
-	lda	#27
-	jmp	grnoesc
-grnoblank
-	cmp	#128
-	bcc	grnoesc
+	tax				; For VT100 graphics characters,
+	lda	graftabl,x	; get value from translation table
+	bpl	grnoesc		; (values over 128 are for additional special characters not in the font)
 	and	#127
 	asl	a
 	asl	a
 	asl	a
 	tax
 	ldy	#0
-gresclp
-	lda	digraph,x
+gresclp				; Digraphs (glyphs containing two small letters) are not part of the font so
+	lda	digraph,x	; generate and display a special character
 	sta	charset+(91*8),y
 	inx
 	iny
@@ -1661,6 +1648,10 @@ dsr1
 	cpx	#4
 	bne	?lp
 	jmp	fincmnd
+
+dsrdata
+	.byte	27, "[0n"
+
 dsrno5
 	cmp	#6
 	beq	dsrys6
@@ -1826,12 +1817,11 @@ tbc2
 	cmp	#3
 	bne	tbcno3
 	lda	#0
-	tax
+	ldx #79
 tbc3lp
 	sta	tabs,x
-	inx
-	cpx	#80
-	bne	tbc3lp
+	dex
+	bpl	tbc3lp
 	jmp	fincmnd
 tbcno3
 	cmp	#0
@@ -2190,6 +2180,9 @@ decid
 	cpx	#7
 	bne	?lp
 	rts
+
+deciddata
+	.byte	27,  "[?1;0c"
 
 cmovedwn		; subroutine to move cursor
 	lda	ty		; down 1 line, scroll down if
@@ -3246,7 +3239,7 @@ scrlup			; SCROLL UP
 ; prepare for scrolling of a single boldface PM. Takes into account current highest and lowest line where known bold data exists
 ; and current screen scroll boundaries. Used for upwards or downwards scrolling. All line numbers are expected to be 1-24.
 ;
-; There are 5 different possible relationships between active bold area (boldsct to boldscb) and scroll area (scrltop to scrlbot):
+; There are 6 different possible relationships between active bold area (boldsct to boldscb) and scroll area (scrltop to scrlbot):
 ;
 ; (1)   (2)   (3)   (4)   (5)   (6)
 ;
@@ -3805,7 +3798,7 @@ gtky
 	bne	?nh
 	jmp	hangup
 ?nh
-	cmp #27			; esc - send break (shift-ctrl-esc accepted in addition to ctrl-esc)
+	cmp #27			; esc - send break (shift-ctrl-esc is accepted in addition to ctrl-esc)
 	bne ?nobrk
 	jmp ksendbrk
 ?nobrk
@@ -4098,6 +4091,9 @@ knodel
 	lda	#1
 	sta	outnum
 	jmp	outputdat
+
+deltab	.byte	127,8
+
 knosdel
 	cmp	#kretrn
 	bne	knoret
@@ -4493,27 +4489,21 @@ captbfdo
 	jmp	prmesg
 ?no
 	lda	#14
-	ldx	#0
+	ldx	#7
 ?lp
 	sta	captdt,x
-	inx
-	cpx	#8
-	bne	?lp
+	dex
+	bpl	?lp
 	lda	captold
+	beq	?skip
 	tax
-	beq	?lp3
 	lda	#27
 ?lp2
 	sta	captdt-1,x
 	dex
-	cpx	#0
 	bne	?lp2
-?lp3
-	lda	blkchr,x
-	sta	charset+(91*8),x
-	inx
-	cpx	#8
-	bne	?lp3
+?skip
+	jsr	mkblkchr
 	ldx	#>captpr
 	ldy	#<captpr
 	jmp	prmesg
@@ -5928,7 +5918,10 @@ dialmem	.ds	88
 mini1
 
 	.if	mini1 > $8000
-	.error "mini1>$8000!!"
+	.error "mini1>=$8000!!"
+	.endif
+	.if	mini1 > wind1
+	.error "mini1>wind1!!"
 	.endif
 
 ; Move all of the above crap into

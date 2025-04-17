@@ -3,6 +3,12 @@ ice-t
 1. proper detection of online status?
 2. Flow control can cause visual bugs or crashes, especially when entering dial menu.
 
+move DLI code into VBI1 and disable DLI.
+read RT8 less often (after 59 frames, read every frame until change seen)
+move non essential (clock) code from VBI1 to VBI2. maybe use clock_update as flag. increment it rather than set to 1.
+arrange memory. perhaps move title screen texts into banked area.
+
+
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
 
 add to inittab or equivalent:

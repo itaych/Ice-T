@@ -42,16 +42,16 @@ norst
 	beq ?no_rt8
 
 	; get time from hardware
-	ldx #rt8_sec
+	ldx #RT8_SEC
 	jsr rt8_read
 	sta clock_cnt	; remember initial seconds' value
 	ldx #9			; stat bar time format is 12:00:00, offsets to chars are 3,4,6,7,9,10
 	jsr rt8_to_menu_convert
-	ldx #rt8_min
+	ldx #RT8_MIN
 	jsr rt8_read
 	ldx #6
 	jsr rt8_to_menu_convert
-	ldx #rt8_hour
+	ldx #RT8_HOUR
 	jsr rt8_read
 	cmp #$00	; convert 24hr format to 12hr
 	bne ?no0
@@ -78,11 +78,12 @@ norst
 	cpx	#cfgnum
 	bne	?l
 
+	lda	#bank0
+	sta	banksw
+	sta	banksv
+
 	lda	flowctrl
 	sta	savflow
-
-	lda	autowrap
-	sta	wrpmode
 
 	lda	#>dlist	; Create display list
 	sta	561
@@ -116,21 +117,18 @@ dodl
 	sta	(prchar),y
 	adc	#>320
 	sta	cntrh
+	iny
+	txa
+	pha
+	ldx #6
+?dodl_lp
 	lda	#$f
-	iny
 	sta	(prchar),y
 	iny
-	sta	(prchar),y
-	iny
-	sta	(prchar),y
-	iny
-	sta	(prchar),y
-	iny
-	sta	(prchar),y
-	iny
-	sta	(prchar),y
-	iny
-	sta	(prchar),y
+	dex
+	bpl ?dodl_lp
+	pla
+	tax
 	clc
 	lda	prchar
 	adc	#10
@@ -150,9 +148,7 @@ dodl
 ?o
 	cpx	#25
 	bne	dodl
-	lda	dlist+2
-	ora	#128
-	sta	dlist+2
+		
 	ldy	#0
 	lda	#$41
 	sta	(prchar),y
@@ -173,12 +169,16 @@ dodl
 	sta	dlist+134
 	lda	#>(screen-640)
 	sta	dlist+135
+
+;	lda	dlist+2
+;	ora	#128
+;	sta	dlist+2
+
 	ldx	#0
 ?l
 	lda	dlist,x
 	sta	dlst2,x
 	inx
-;	cpx	#0
 	bne	?l
 
 	lda	#<xtraln
@@ -266,15 +266,6 @@ dodl
 	sta	mnmnucnt
 	jsr	resttrm
 
-	lda	#bank1	; Set terminal for
-	sta	banksw	; no Esc sequence now
-	lda	#<regmode
-	sta	trmode+1
-	lda	#>regmode
-	sta	trmode+2
-	lda	#bank0
-	sta	banksw
-
 	lda	#16	; Write "Ice-T" in big letters
 	sta	x
 	lda	#5
@@ -305,18 +296,15 @@ dodl
 	lda	#bank1	; for printerm
 	sta	banksw
 ?p
+	txa
+	pha
 	lda	tilmesg1,x
 	sta	prchar
-	txa
 	pha
 	jsr	printerm
-	pla
-	tax
 	inc	y
-	lda	tilmesg1,x
-	sta	prchar
-	txa
-	pha
+	pla
+	sta prchar
 	jsr	printerm
 	pla
 	tax
@@ -330,7 +318,7 @@ dodl
 	lda	#17
 	sta	y
 ?p2
-	lda	#64
+	lda	#32
 	sta	prchar
 	jsr	printerm
 	inc	x
@@ -359,10 +347,10 @@ dodl
 
 	jsr	rslnsize
 	clc
-	lda	linadr+10
+	lda	linadr+10	; Draw XE logo
 	adc	#<262	; 320-80+22
 	sta	cntrl
-	lda	linadr+11	; Draw logos
+	lda	linadr+11
 	adc	#>262
 	sta	cntrh
 	ldx	#0
@@ -387,8 +375,9 @@ dodl
 	inx
 	cpx	#16
 	bne	?x
+	
 	clc
-	lda	linadr+34
+	lda	linadr+34	; Draw Icesoft logo
 	adc	#17
 	sta	cntrl
 	lda	linadr+35
@@ -414,6 +403,33 @@ dodl
 	sta	cntrh
 	cpx	#40
 	bne	?t
+
+	lda vframes_per_sec
+	sta time_correct_cnt
+	lda #0
+	sta clock_flag_seconds
+	lda rt8_detected
+	bne ?no_setup_time_correction
+	sta	clock_cnt
+	sta time_correct_cnt
+	sta time_correct_cnt+1
+	ldy #<vbi1_time_correct_ntsc
+	ldx #>vbi1_time_correct_ntsc
+	lda vframes_per_sec
+	cmp #60
+	beq ?ntsc
+	ldy #<vbi1_time_correct_pal
+	ldx #>vbi1_time_correct_pal
+?ntsc
+	sty vbi1_time_correct_lo+1
+	stx vbi1_time_correct_hi+1
+;	lda #<dli
+;	sta	512
+;	lda #>dli
+;	sta	513
+;	lda	#192
+;	sta	54286
+?no_setup_time_correction
 
 	lda	$222
 	sta	sysvbi+1	; Keep old VBIs
@@ -441,45 +457,6 @@ dodl
 	lda	#>break_handler
 	sta	$237
 
-	ldx	#23*2	; Clear text mirror
-?ml
-	lda	txlinadr,x
-	sta	cntrl
-	lda	txlinadr+1,x
-	sta	cntrh
-	ldy	#79
-	lda	#32
-?lp
-	sta	(cntrl),y
-	dey
-	bpl	?lp
-	dex
-	dex
-	bpl	?ml
-
-	lda rt8_detected
-	bne ?nodli
-	lda #0
-	sta	clock_cnt
-	sta time_correct_cnt
-	sta time_correct_cnt+1
-	ldy #<dli_time_correct_ntsc
-	ldx #>dli_time_correct_ntsc
-	lda vframes_per_sec
-	cmp #60
-	beq ?ntsc
-	ldy #<dli_time_correct_pal
-	ldx #>dli_time_correct_pal
-?ntsc
-	sty dli_time_correct_lo+1
-	stx dli_time_correct_hi+1
-	lda #<dli
-	sta	512
-	lda #>dli
-	sta	513
-	lda	#192
-	sta	54286
-?nodli
 	jsr	setcolors	; Set screen colors
 	lda	#46
 	sta	559	; Show screen
@@ -497,6 +474,22 @@ dodl
 	lda	#0
 	sta	boldface
 	jsr	setcolors
+
+	ldx	#23*2	; Clear text mirror
+?ml
+	lda	txlinadr,x
+	sta	cntrl
+	lda	txlinadr+1,x
+	sta	cntrh
+	ldy	#79
+	lda	#32
+?lp
+	sta	(cntrl),y
+	dey
+	bpl	?lp
+	dex
+	dex
+	bpl	?ml
 
 gomenu
 	jsr	boldoff
@@ -608,6 +601,32 @@ resttrm			; Reset most VT100 settings
 	sta	savcursy
 	lda	#24
 	sta	scrlbot
+	lda	autowrap
+	sta	wrpmode
+
+; set a tabstop at each multiple of 8 except 0
+	ldx	#79
+?tabloop
+	ldy #0
+	txa
+	and #$07
+	bne ?notab
+	iny			; this is a multiple of 8 so set Y=1
+?notab
+	tya
+	sta	tabs,x	; Set tabstops array
+	dex
+	bne	?tabloop
+	sta	tabs,x  ; set 0 at position 0
+	
+	lda	#bank1	; Set terminal for
+	sta	banksw	; no Esc sequence now
+	lda	#<regmode
+	sta	trmode+1
+	lda	#>regmode
+	sta	trmode+2
+	lda	banksv
+	sta	banksw
 	rts
 
 drawwin			; Window drawer
@@ -1621,7 +1640,7 @@ chkrsh			; Check for impending
 	sta	banksw
 	rts
 
-mkblkchr		; Create block character
+mkblkchr		; Create block character (copy from PC character set)
 	ldx	#7
 ?lp
 	lda	blkchr,x
@@ -1678,7 +1697,43 @@ break_handler
 brk_exit
 	jmp $ffff
 
-; Idea taken from ANTIC 2/89 clock.m65 by John Little, see:
+;dli
+;	pha
+;	pla
+;	rti
+
+; Immediate VBI (occurs every frame)
+vbi1
+	lda	#8
+	sta	53279		; reset console speaker
+;	lda	560
+;	sta	$d402
+;	lda	561
+;	sta	$d403
+	inc	flashcnt	; Flash cursor and blink characters once per half a second  (in vbi2)
+
+; Real-time	clock
+	lda rt8_detected
+	beq ?no_rt8
+
+; check if a second has passed - using R-Time8
+	inc time_correct_cnt
+	lda time_correct_cnt
+	cmp vframes_per_sec
+	bcc vbi1_donetm
+	ldx #RT8_SEC
+	jsr rt8_read
+	cmp clock_cnt
+	beq vbi1_donetm
+	sta clock_cnt
+	lda #1
+	sta time_correct_cnt
+	jmp vbi1_rt8_ok
+?no_rt8
+
+; No RT8 so keep track of time by counting video frames. However this is not very
+; accurate as the Atari video output doesn't run at exactly 50/60Hz.
+; This idea is taken from ANTIC 2/89 clock.m65 by John Little, see:
 ; http://www.atarimagazines.com/v7n10/realworldinterface.html
 
 ; According to Altirra docs, frame frequency for NTSC = 59.9227 Hz, PAL = 49.8607 HZ.
@@ -1689,49 +1744,72 @@ brk_exit
 ; and cntfreq = counter frequency (60 or 50)
 ; then the correction = trufreq / (cntfreq-trufreq)
 
-dli_time_correct_ntsc = 765
-dli_time_correct_pal = 366
+vbi1_time_correct_ntsc = 765
+vbi1_time_correct_pal = 366
 
-dli
-	pha
 	inc	clock_cnt
 	inc time_correct_cnt
 	bne ?noinc
 	inc time_correct_cnt+1
 ?noinc
 	lda time_correct_cnt+1
-dli_time_correct_hi
+vbi1_time_correct_hi
 	cmp #1			; cmp value modified at init
-	bne dli_done
+	bne vbi1_time_correct_done
 	lda time_correct_cnt
-dli_time_correct_lo
+vbi1_time_correct_lo
 	cmp #1			; cmp value modified at init
-	bne dli_done
+	bne vbi1_time_correct_done
 	inc	clock_cnt	; extra increment to time counter
 	lda #0
 	sta	time_correct_cnt
 	sta	time_correct_cnt+1
-dli_done
-	pla
-	rti
+vbi1_time_correct_done
 
-vbi1
-	lda	#8
-	sta	53279
-	lda	560
-	sta	$d402
-	lda	561
-	sta	$d403
-	inc	flashcnt	; Flash cursor and blink characters once per half a second
+; Now check if a second has passed
+	lda	clock_cnt
+	cmp	vframes_per_sec
+	bcc	vbi1_donetm
+	sec
+	sbc	vframes_per_sec	; subtract vframes_per_sec rather than set to 0 - as
+	sta	clock_cnt		; clock_cnt may occasionally increment by 2
+
+vbi1_rt8_ok
+	inc clock_flag_seconds	; tell VBI2 that a second has passed
+
+vbi1_donetm
+
+sysvbi
+	jmp	$ffff	; Self-modified
+
+clock_offsets .byte 3,4,6,7,9,10
+clock_limits  .byte +1, "995959"
+
+; Deferred VBI (occurs every frame after immediate VBI, unless disk I/O is active)
+vbi2
+	lda	nowvbi
+	beq	?vk
+	jmp	endvvv
+?vk
+	lda	#1
+	sta	nowvbi
+
+; handle flashing cursor/blinking characters
 	lda vframes_per_sec
 	lsr a
-	cmp flashcnt ; If vframes/2 >= flashcnt the Carry will be set
-	beq ?flash   ; flash if flashcnt = vframes/2
-	bcs ?noflash ; don't flash if flashcnt <= vframes/2 (but can't be equal by this point)
+	cmp flashcnt ; If flashcnt >= vframes_per_sec/2 then time to flash
+	beq ?flash
+	bcs ?noflash
+	; flashcnt -= vframes_per_sec/2 (because at this point flashcnt > vframes_per_sec/2)
+	; Accumulator contains vframes_per_sec/2 so negate its polarity (flip bits and add 1)
+	eor #$ff
+	sec		; to add 1
+	adc flashcnt
+	.byte BIT_skip2bytes
 ?flash
 	lda	#0
 	sta	flashcnt
-	lda	newflash
+	lda	newflash	; Flash cursor
 	eor	#1
 	sta	newflash
 
@@ -1774,32 +1852,16 @@ vbi1
 	inc	xoff
 ?ok
 
-; Real-time	clock
-	lda rt8_detected
-	beq ?no_rt8
-
-; check if a second has passed - using R-Time8
-	ldx #rt8_sec
-	jsr rt8_read
-	cmp clock_cnt
-	beq ?tm
-	sta clock_cnt
-	jmp ?rt8_ok
-?no_rt8	
-
-; check if a second has passed using internal timer
-	lda	clock_cnt
-	cmp	vframes_per_sec
-	bcc	?tm
-	sec
-	sbc	vframes_per_sec	; subtract vframes_per_sec rather than set to 0 - as
-	sta	clock_cnt		; clock_cnt may occasionally increment by 2
-
-?rt8_ok
+; increment clock if VBI1 tells us to.
+	lda clock_flag_seconds
+	beq vbi2_donetm
+	
 	lda	#1
 	sta	clock_update
 
-; increment clock. note that clock is inverse-video hh:mm:ss.
+?time_inc_loop
+
+; increment clock by 1 second. note that clock is inverse-video hh:mm:ss.
 	ldy #5
 ?clk_lp
 	cpy #3	; are we incrementing the minutes ones-digit?
@@ -1850,28 +1912,16 @@ vbi1
 	inc	ststmr,x
 	lda	ststmr,x
 	cmp	clock_limits,y
-	bne ?tmr_done
+	bne ?donetm
 	lda #'0
 	sta ststmr,x
 	dey
 	bpl ?tmr_lp
-?tmr_done
-
-?tm
-
-sysvbi
-	jmp	$ffff	; Self-modified
-
-clock_offsets .byte 3,4,6,7,9,10
-clock_limits  .byte +1, "995959"
-
-vbi2
-	lda	nowvbi
-	beq	?vk
-	jmp	endvvv
-?vk
-	lda	#1
-	sta	nowvbi
+?donetm
+	dec clock_flag_seconds
+	bne ?time_inc_loop
+	
+vbi2_donetm
 	lda	crsscrl		; coarse scroll flag?
 	beq	?no
 	ldx	#2
@@ -1896,10 +1946,9 @@ vbi2
 ;	sta	$d01a
 	lda	doclick
 	beq	nodoclick
-	ldx	#1
-	stx	53279
-	dex
-	stx	doclick
+	sta	53279	; value is always 1
+	lda #0
+	sta	doclick
 nodoclick
 	lda	dobell
 	cmp	#2
@@ -2899,10 +2948,10 @@ zrotmr			; Zero online timer
 ; R-Time 8 clock support
 ; see: http://atariwiki.strotmann.de/wiki/Wiki.jsp?page=Cartridges#section-Cartridges-TheRTime8
 
-rt8_sec = 0
-rt8_min = 1
-rt8_hour = 2
-rt8_weeknum = 7
+RT8_SEC = 0
+RT8_MIN = 1
+RT8_HOUR = 2
+RT8_WEEKNUM = 7
 
 rt8_reg = $d5b8 
 
@@ -2911,7 +2960,7 @@ rt8_temp_2	.byte 0
 
 ; Detect whether hardware clock is available. Returns with A=0 for false, 1 for true.
 rt8_detect
-	ldx #rt8_weeknum
+	ldx #RT8_WEEKNUM
 	jsr rt8_read
 	eor #1 ; write a value different from what we read. change 1 bit to stay <= 9
 	sta rt8_temp_1
@@ -3004,17 +3053,9 @@ chsetinlp
 	sta	charset+$300,x
 	inx
 	bne	chsetinlp
-	
-	ldx	#7
-dpcloop2
-	lda	#0
-	sta	pcset+$400-8,x
-	lda	blkchr,x
-	sta	pcset+$400-16,x
-	dex
-	bpl	dpcloop2
-	inx
+
 .if 1					; '0' to disable partial load feature
+	ldx #0
 ?lp
 	lda	#bank1
 	sta	banksw
@@ -3075,13 +3116,7 @@ nofefe
 	sta	2
 	lda	#>reset
 	sta	3
-	ldx	#15
-tabchdo
-	lda	xchars,x
-	sta	charset+$400-16,x
-	dex
-	bpl	tabchdo
-	inx
+	ldx #0
 ?lp
 	lda	#0
 	sta	chrtblh,x	; Lookup table for
@@ -3151,22 +3186,6 @@ tabchdo
 	sta	ststmr+3,x
 	dex
 	bpl	?clklp
-
-; set a tabstop at each multiple of 8 except 0
-
-	ldx	#79
-?tabloop
-	ldy #0
-	txa
-	and #$07
-	bne ?notab
-	iny			; this is a multiple of 8 so set Y=1
-?notab
-	tya
-	sta	tabs,x	; Set tabstops array
-	dex
-	bne	?tabloop
-	sta	tabs,x  ; set 0 at position 0
 
 	lda	#<txscrn	; Set textmirror
 	sta	cntrl	; pointers

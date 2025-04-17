@@ -297,14 +297,13 @@ endoffl
 
 namnmwin
 	.byte	30,10,51,13
-	.byte	" First character  "
+	.byte	"First character   "
 	.byte	"can't be a number!"
 
 namspwin
-	.byte	26,10,51,14
-	.byte	"Spaces not allowed as "
-	.byte	" seperators or first  "
-	.byte	"character!  <any key> "
+	.byte	26,10,51,13
+	.byte	"Spaces not allowed in "
+	.byte	"file name! <any key>  "
 
 pthwin
 	.byte	34,4,77,6

@@ -45,7 +45,7 @@ wrpmode		.ds 1
 undrln		.ds 1
 revvid		.ds 1
 invsbl		.ds 1
-boldface	.ds 1	; graphic rendition on
+boldface	.ds 1	; terminal currently drawing in bold/blink (PM underlay) mode
 gntodo		.ds 1
 qmark		.ds 1
 modedo		.ds 1
@@ -156,12 +156,12 @@ cfgnum	=	20
 buffer	=	$4000
 buftop	=	$8000
 
-; Bank 1 - Terminal and data
+; Bank 1 - Terminal and data (vt2.asm)
 
-macros	=	$6700
-wind1	=	$7200
-wind2	=	$7800
-wind3	=	$7c00
+; bitmap buffers that remember what was beneath a window
+wind1	=	$7200	; 1.5k
+wind2	=	$7800	; 1k
+wind3	=	$7c00	; 1k
 
 ; Bank 2 - Menus and dialling info
 ; Bank 3 - Backscroll buffer
@@ -218,8 +218,9 @@ pcset	=	$9900
 	.bank
 	*=	$9d00
 savddat		.ds cfgnum
-clock_update	.ds 1	; flagged every second
+clock_update	.ds 1	; flagged when VBI has updated the time (normally every second)
 clock_enable	.ds 1	; enables clock display in menu
+clock_flag_seconds	.ds 1	; VBI1 tells VBI2 to increase clock by this many seconds
 timer_1sec	.ds 1
 timer_10sec	.ds 1
 brkkey_enable	.ds 1	; enables generating a keyboard code when BREAK key detected.
@@ -237,7 +238,7 @@ crcchek		.ds 1
 isbold		.ds 1
 
 ; some free bytes here
-			.ds 6
+			.ds 5
 
 ; we use area starting from screen-640 = $9D30
 screen_conflict_check
@@ -333,7 +334,7 @@ menuclk
 norhw
 	.byte	30,16,49,20
 	.byte	"Can't open port!"
-	.byte	" Esc to exit or "
+	.byte	"Esc to exit or  "
 	.byte	"any key to retry"
 
 winbufs
@@ -342,10 +343,6 @@ winbufs
 	.word	wind3
 
 postbl	.byte	$f0,$0f
-
-xchars
-	.byte	0,85,170,0,0,0,0,0
-	.byte	0,0,0,0,0,0,0,0
 
 sname	.byte	"S:"
 rname	.byte	"R:", 155
@@ -382,8 +379,8 @@ stopbits	.byte 0
 localecho	.byte 0
 click		.byte 2
 curssiz		.byte 6
-finescrol	.byte 0
-boldallw	.byte 1		; Enable boldface
+finescrol	.byte 0		; Enable fine scroll (0=disabled, 3=enabled)
+boldallw	.byte 1		; Enable boldface (0=disabled, 1=bold, 2=blink)
 autowrap	.byte 1
 delchr		.byte 0
 bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
@@ -398,14 +395,15 @@ flowctrl	.byte 1
 eolchar		.byte 0
 ascdelay	.byte 2
 
+; Translation table for graphical character set, ASCII 95-126 when enabled.
 graftabl
-	.byte	254,6,0,128,129,130,131,7,8
+	.byte	32,6,0,128,129,130,131,7,8
 	.byte	132,133,3,5,17,26,19,15,16
 	.byte	20,21,25,1,4,24,23,124
 	.byte	9,10,11,12,13,14,255
 
-blkchr
-	.byte	0,0,238,238,238,238,0,0
+blkchr = pcset + (126*8) ; block shaped character is located in PC character set
+
 digraph
 	.byte	170,238,170,0,119,34,34,0  ; ht
 	.byte	238,204,136,0,119,102,68,0 ; ff
@@ -420,9 +418,6 @@ leds_on_char	.byte $ee,$ee,$ee,$00,$ee,$ee,$ee,$00
 sizes	.byte	2,3,0,1,0
 szlen	.byte	80,40,40,40
 
-dsrdata
-	.byte	27, "[0n"
-
 ; These are the luminance values for the color scheme (the hue is user selectable).
 ; Note that the screen is actually set up such that the background is color 1 (set bits) and
 ; text is color 0 (0 bits) so that the boldface PMs "shine" through. So, the foreground and
@@ -431,9 +426,6 @@ dsrdata
 sccolors
 	.byte	0,10,14,2	; Light text on dark background
 	.byte	14,4,0,12	; Dark text on light background
-
-deciddata
-	.byte	27,  "[?1;0c"
 
 kretrn	=	128
 kup		=	129
@@ -448,8 +440,6 @@ ksdel	=	137
 kbrk	=	138
 kzero	=	139
 kctrl1	=	140
-
-deltab	.byte	127,8
 
 p_device_name	.byte "P:"
 
@@ -572,7 +562,8 @@ tilmesg2
 tilmesg3
 	.byte	(80-57)/2,10,57
 svscrlms
-	.byte	"Version 2.76, October 10, 2013. Contact: itaych@gmail.com"
+;	.byte	"Version 2.76, October 10, 2013. Contact: itaych@gmail.com"
+	.byte	"Version 2.76+(internal)12.10.13 Contact: itaych@gmail.com"
 .if 1
 tilmesg4
 	.byte	(80-75)/2,13,71
@@ -622,4 +613,3 @@ prpdat			; Prompt routine's data
 	.byte	155
 
 ;  End of data (For menu data see VTDT, VT23)
-

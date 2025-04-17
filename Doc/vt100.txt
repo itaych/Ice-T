@@ -54,7 +54,7 @@ Control characters
     to inform of an error. If not - the code is ignored.
 ^X B00 - Begin a Zmodem session. This is the beginning of the ZRQINIT frame.
 ^[  Escape. Begins a new Escape-sequence, cancelling any other which may have
-    been in progress. (^[ is 27 or Esc.)
+    been in progress.
 
 Esc x Codes
 -----------
@@ -196,8 +196,8 @@ Special characters in graphics mode:
 
 ASCII| Character in graphics mode
 -----+-------------------------------------
- _    Blank
- \    Diamond
+Underscore (95): Blank
+Grave accent (96): Diamond
  a    Checkerboard
  b    Two small letters HT, in upper-left and lower-right corners of character
  c    Letters FF
@@ -224,9 +224,9 @@ ASCII| Character in graphics mode
  x    vertical bar      |
  y    less/equal     _<
  z    greater/equal     >_
-Opening curly braces: Pi symbol
- |    Not equal        =/=
-Closing curly braces: UK pound symbol
-Tilde:                Centered dot
+Opening curly braces (123): Pi symbol
+ | (124)    Not equal        =/=
+Closing curly braces (125): UK pound symbol
+Tilde (126):                Centered dot
 
 Any corrections to the above will be appreciated!

@@ -337,8 +337,7 @@ setscr			; Special effects department
 	ldx	#>setscrd
 	ldy	#<setscrd
 	lda	finescrol
-	clc
-	adc	boldallw
+	ora	boldallw
 	sta	mnucnt
 	jsr	menudo1
 	lda	menret
@@ -358,6 +357,7 @@ setscr			; Special effects department
 	sta	boldallw
 	lda	#0
 	sta	finescrol
+	sta boldface
 	jsr	boldclr
 ?bl
 	jmp	bkopt
@@ -579,15 +579,15 @@ setclo			; Set clock
 	cpx	#8
 	bne	?lp
 
-; zero the seconds, but not if RT8 is used
-	ldx	#0
-	lda rt8_detected
-	bne ?no_zero_secs
+; zero the seconds
 	lda	#'0+$80
 	sta	menuclk+9
 	sta	menuclk+10
+	ldx	#0
+	lda rt8_detected
+	bne ?no_zero_clock_cnt
 	stx	clock_cnt
-?no_zero_secs
+?no_zero_clock_cnt
 	inx
 	stx	clock_update
 	jmp	bkopt
