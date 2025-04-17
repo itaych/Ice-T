@@ -32,12 +32,7 @@ read time in spartados 4.x at startup (done)
 restore TDLINE at exit (done)
 charsets: just load direct to destination (done)
 
-Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen? 3. What prevents "Rush" from being displayed during menus? 4. At chkrsh?ok there are calls that also call buffdo - could cause infinite recursion? 5. Cursor glitches.
-xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
-for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
-convert doc to ATASCII for ATR.
-
-file xfers:
+file xfers: (done)
 	x/ymodem failed due to close3 (done)
 	ymodem-g sent redundant ACKs (done)
 	zmodem sent redundant XON (done)
@@ -60,6 +55,23 @@ file xfers:
 	Altirra H: does not return an error if trying to delete/lock/unlock a nonexistent file (io commands 33/35/36 respectively). (fixed in 2.5 test 7)
 	Altirra H: Rename (command 32) never returns an error, and incorrectly works on locked files. (fixed in 2.5 test 8)
 	Altirra Telnet doesn't identify as any terminal type. (fixed in 2.5 test 9)
+	
+macros: 16 macros of 64 chars each, Start+alphanumeric key (user selectable).
+	Options > under Dialing add "Macros...". Show 16 entries: for each entry show user key or '-' for blank.
+	Selecting an entry allows editing that macro. Ctrl-keys allowed, show up as inverse. Empty text to remove macro.
+	Enter closes edit window, opens "Bind to Start-__" - accept A-Z, 0-9 (flash if already in use) and Return.
+	Data table: 16 bytes + 1KB for macro data.
+	For user selected keys this overrides "Meta" functionality of Start button.
+	
+Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen?
+	3. What prevents "Rush" from being displayed during menus? 4. At chkrsh?ok there are calls that
+	also call buffdo - could cause infinite recursion? 5. Cursor glitches.
+
+xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
+
+for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
+convert doc to ATASCII for ATR.
+don't touch bit 0 of PORTB. (done)
 
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
@@ -68,6 +80,8 @@ colors:
 	colors are ugly if screen is inverse. perhaps have dual color table, one for regular one for inverse.
 	maybe do black text by enabling inverse video. Then background color takes priority.
 	Fill new (cleared) lines with background color?
+
+easter egg: if april 1, add "terminal je taime" text to title screen.
 
 private extensions:
 	Esc [ 99 ; cmd ; arg1 ; .. ; argn {

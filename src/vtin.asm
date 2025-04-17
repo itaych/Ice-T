@@ -12,7 +12,19 @@ bnkmem	=	$4000
 
 	.bank
 	*=	$3000
-check
+	
+system_checkup
+
+; determine bank select values which will be used by Ice-T. We don't want to touch bit 0 of PORTB.
+	ldx #4
+?lp
+	lda banksw	; PORTB
+	and #$01
+	ora bankselect_vals,x
+	sta bank0,x
+	dex
+	bpl ?lp
+
 	lda	82
 	pha
 	lda	#0
@@ -54,15 +66,15 @@ membad
 	jsr	prnt_line
 
 memok
-	lda	#bank0		; Test for 128K banked memory
+	lda	bank0		; Test for 128K banked memory
 	sta	banksw
 	lda	#12
 	sta	bnkmem
-	lda	#bank4
+	lda	bank4
 	sta	banksw
 	lda	#27
 	sta	bnkmem
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	lda	bnkmem
 	cmp	#12
@@ -302,8 +314,12 @@ retdsmsg
 fnme
 	.byte	"D:RS232.COM", 155
 
+; Values for bank selecting, with bit 0 reset. Bit 0 is taken from PORTB value at startup.
+bankselect_vals
+	.byte	$fe, $e2, $e6, $ea, $ee
+	
 ; cause this code to run immediately after loading
 
 	.bank
 	*=	$2e2
-	.word check
+	.word system_checkup

@@ -429,7 +429,7 @@ dovt100			; ANSI/VT100 emulation code
 	beq	?end
 	stx	outdat+1
 	ldy	#0
-	ldx	#bank4
+	ldx	bank4
 	jsr	staoutdt
 	inc	captplc
 	lda	captplc
@@ -6496,10 +6496,10 @@ inittrm
 	lda	#$40
 	sta	cntrh
 intrmlp
-	ldx	#bank0
+	ldx	bank0
 	stx	banksw
 	lda	(cntrl),y
-chbnk1  ldx	#bank1
+chbnk1  ldx	bank1	; this value is modified to bank2 for second iteration
 	stx	banksw
 	sta	(cntrl),y
 	iny
@@ -6522,13 +6522,13 @@ chbnk2  cmp	#>mini1
 	cpx	#$10
 	bne	?lp
 
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	
 ; self-modify code so next time it does bank 2 rather than 1
-	lda	#bank2
+	lda	#bank2	; This changes "ldx bank1" to "ldx bank2"
 	sta	chbnk1+1
-	lda	#>mini2
+	lda	#>mini2	; Changes "cmp #>mini1" to "cmp #>mini2"
 	sta	chbnk2+1
 	rts
 

@@ -703,7 +703,7 @@ savcfg			; Save configuration
 	sta	icbll+$20
 	lda	#>$640
 	sta	icblh+$20
-	lda	#bank1
+	lda	bank1
 	jsr	bankciov
 	bmi	?er
 
@@ -1836,7 +1836,7 @@ svcapt			; Save capture to disk
 	bne	?ok
 	jmp	?endok
 ?ok
-	lda	#bank4
+	lda	bank4
 	jsr	bankciov
 	bmi	?err
 ?endok
@@ -1954,7 +1954,7 @@ getdat
 	lda	#$40
 	sta	icbah+$30
 	sta	icblh+$30
-	lda	#bank4	; ..into bank 4
+	lda	bank4	; ..into bank 4
 	jsr	bankciov
 	tya
 	pha
@@ -2009,7 +2009,7 @@ cmpl	cmp #0	; self modified
 ?ok2
 	jmp	getdat
 vwok
-	lda	#bank4
+	lda	bank4
 	ldy	prfrom
 	ldx prfrom+1
 	jsr	lda_xy_banked
@@ -2227,7 +2227,7 @@ viewloop_dumpvt
 ?ok
 ?rdfroml ldy #$ff	; self modified (lo address to read)
 ?rdfromh ldx #$ff	; self modified (hi address to read)
-	lda	#bank4
+	lda	bank4
 	jsr	lda_xy_banked
 	ldx #>dovt100?nocapture
 	ldy #<dovt100?nocapture
@@ -2418,7 +2418,7 @@ ascupl			; Ascii upload
 	lda	#$40
 	sta	icbah+$30
 	sta	icblh+$30
-	lda	#bank4	; Otherwise used as capture buffer..
+	lda	bank4	; Otherwise used as capture buffer..
 	jsr	bankciov
 	tya
 	pha
@@ -2490,7 +2490,7 @@ ascupl			; Ascii upload
 	tay
 ?read_l	ldy #0	; self-modified (lo)
 ?read_h	ldx #0	; self-modified (hi)
-	lda	#bank4
+	lda	bank4
 	jsr	lda_xy_banked
 	cmp	#155
 	bne	?nel	; EOL translation if requested
@@ -2957,7 +2957,7 @@ xmdupl
 	; read the next byte from the buffer and increment buffer pointer.
 	ldy ?xupl_readptr
 	ldx ?xupl_readptr+1
-	lda	#bank0
+	lda	bank0
 	jsr lda_xy_banked
 	inc ?xupl_readptr
 	bne ?no_hibyte
@@ -3106,7 +3106,7 @@ xmdupl
 	sta	icblh+$30
 	lda	#$0
 	sta	icbll+$30
-	lda	#bank0
+	lda	bank0
 	jsr	bankciov
 	bpl ?no_err
 	cpy #136
@@ -3344,7 +3344,7 @@ begxdl
 ?sd
 	cpy	#0		; Character filtered out (due to EOL conversion)?
 	beq	?en		; if so skip storing this byte
-	ldx	#bank0
+	ldx	bank0
 	ldy	#0
 	jsr	staoutdt	; store data byte
 	inc	outdat		; increment data store pointer
@@ -3677,7 +3677,7 @@ xdsavdat
 	lda	outdat
 	sta	icbll+$30
 	ldx	#$30
-	lda	#bank0
+	lda	bank0
 	jsr	bankciov
 	bmi	dnlerr
 	rts
@@ -3866,7 +3866,7 @@ ydob1			; Handle Ymodem batch block
 	sta	outdat+1
 
 	ldy	#0
-	lda	#bank0
+	lda	bank0
 	jsr	ldabotx
 	cmp	#0
 	bne	?g
@@ -3886,14 +3886,14 @@ ydob1			; Handle Ymodem batch block
 zmgetnm			; Zmodem uses this too.
 	ldy	#0
 ?g
-	lda	#bank0
+	lda	bank0
 	jsr	ldabotx
 	iny
 	cmp	#32
 	bne	?g
 	dey
 ?dl
-	lda	#bank0	; Get rid of sent pathname
+	lda	bank0	; Get rid of sent pathname
 	jsr	ldabotx
 	cmp	#47		; slash
 	beq	?dk
@@ -3906,7 +3906,7 @@ zmgetnm			; Zmodem uses this too.
 	lda	#9
 	sta	y
 ?l
-	lda	#bank0
+	lda	bank0
 	jsr	ldabotx
 	tax
 	pha
@@ -3951,7 +3951,7 @@ zmgetnm			; Zmodem uses this too.
 ?o
 	ldy	#0
 ?f
-	lda	#bank0
+	lda	bank0
 	jsr	ldabotx
 	cmp	#0
 	beq	?z
@@ -3960,7 +3960,7 @@ zmgetnm			; Zmodem uses this too.
 ?gnn	jmp	?nn
 ?z
 	iny
-	lda	#bank0
+	lda	bank0
 	jsr	ldabotx
 	cmp	#0
 	beq	?gnn
@@ -3975,7 +3975,7 @@ zmgetnm			; Zmodem uses this too.
 	sta	ymdln+1
 	sta	ymdln+2
 ?n
-	lda	#bank0	; Get file length
+	lda	bank0	; Get file length
 	jsr	ldabotx
 	cmp	#32
 	beq	?gr
@@ -4621,7 +4621,7 @@ frameok			; Frame passes check
 	ldy	#0
 	sty	botx
 ?zs
-	lda	#bank0
+	lda	bank0
 	jsr	ldabotx
 	sta	attnst,y
 	iny
@@ -5020,7 +5020,7 @@ getpack			; Get data packet
 	bne	?nov
 	jmp	zbufovr
 ?nov
-	ldx	#bank0
+	ldx	bank0
 	ldy	#0
 	jsr	staoutdt	; store data
 	inc	outdat

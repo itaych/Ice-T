@@ -132,8 +132,16 @@ vframes_per_sec	.ds 1	; 50/60 depending on video system
 clock_cnt		.ds 1	; count increases each video frame
 time_correct_cnt .ds 2	; counter to correct slight time drift
 
+; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
+; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
+bank0		.ds 1
+bank1		.ds 1
+bank2		.ds 1
+bank3		.ds 1
+bank4		.ds 1
+
 ; spare
-	.ds 8
+	.ds 3
 	
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
@@ -422,12 +430,6 @@ xitvbv	=	$e462
 kbcode	=	$d209
 banksw	=	$d301	; PORTB
 
-bank0	=	$ff
-bank1	=	$e3
-bank2	=	$e7
-bank3	=	$eb
-bank4	=	$ef
-
 nmien	=	$d40e
 
 DLI_ENABLE	=	$c0
@@ -463,7 +465,7 @@ winbufs
 	.word	wind2
 	.word	wind3
 winbanks
-	.byte	bank1, bank2, bank2
+	.byte	1, 2, 2
 
 postbl	.byte	$f0,$0f
 

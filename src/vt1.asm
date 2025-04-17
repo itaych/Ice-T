@@ -78,7 +78,7 @@ norst
 	cpx	#cfgnum
 	bne	?l
 
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	sta	banksv
 
@@ -287,7 +287,7 @@ dodl
 	sta	lnsizdat+16
 	lda	#3
 	sta	lnsizdat+5
-	lda	#bank1	; for printerm
+	lda	bank1	; for printerm
 	sta	banksw
 	lda #1+(4*2)
 	sta	boldface
@@ -340,7 +340,7 @@ dodl
 	cmp	#(80-75)/2+75
 	bne	?p3
 	
-	lda	#bank2		; Most title data is in bank 2
+	lda	bank2		; Most title data is in bank 2
 	sta	banksw
 	ldx	#>tilmesg2	; Title messages
 	ldy	#<tilmesg2
@@ -534,13 +534,13 @@ gomenu
 	jsr	clrscrnraw
 	lda	#1
 	sta	crsscrl
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	jsr	vdelayr
 	jsr	screenget
 ?o2
 gomenu2
-	lda	#bank2
+	lda	bank2
 	sta	banksw
 	sta	banksv
 	lda	#1
@@ -589,7 +589,7 @@ rt8_to_menu_convert
 
 gozmdm
 	jsr	boldoff
-	lda	#bank2
+	lda	bank2
 	sta	banksw
 	sta	banksv
 	jmp	zmddnl_from_vt
@@ -597,7 +597,7 @@ gozmdm
 goterm
 	lda	savflow
 	sta	flowctrl
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	sta	banksv
 	lda	#0
@@ -607,7 +607,7 @@ goterm
 	jmp	connect
 
 dialing
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	sta	banksv
 	jmp	dialing2
@@ -653,7 +653,7 @@ resttrm			; Reset most VT100 settings
 	bne	?tabloop
 	sta	tabs,x  ; set 0 at position 0
 	
-	lda	#bank1	; Set terminal for
+	lda	bank1	; Set terminal for
 	sta	banksw	; no Esc sequence now
 	lda	#<regmode
 	sta	trmode+1
@@ -697,6 +697,8 @@ drawwin			; Window drawer
 	lda	winbufs,x
 	sta	prfrom+1
 	lda	winbanks,y
+	tay
+	lda	bank0,y
 	sta	banksw
 
 	inc	boty
@@ -1115,7 +1117,7 @@ clrscrn			; Clear screen
 	; copy text mirror to scrollback buffer, and clear text mirror
 	lda	banksv
 	pha
-	lda	#bank3
+	lda	bank3
 	sta	banksw
 	sta banksv
 	ldx	#0
@@ -1367,6 +1369,8 @@ gtwin
 	lda	winbufs+1,x
 	sta	prfrom+1
 	lda	winbanks,y
+	tay
+	lda	bank0,y
 	sta	banksw
 	ldy	#0
 gtwninlp
@@ -1454,7 +1458,7 @@ buffpl
 	beq	bufpok1
 	rts
 bufpok1
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	ldy	#0
 	lda	(bufget),y
@@ -1500,7 +1504,7 @@ calcbufln		; Calculate mybcount
 	rts
 
 buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is pending
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	jsr	rgetstat	; R: status command
 	bne	?bf			; jump if any data
@@ -1579,7 +1583,7 @@ putbuf			; Insert byte into buffer
 	rts
 
 putbufbk		; Insert byte into buffer
-	ldx	#bank0	; (plus select bank)
+	ldx	bank0	; (plus select bank)
 	stx	banksw
 	jsr	putbuf
 	lda	banksv
@@ -1587,7 +1591,7 @@ putbufbk		; Insert byte into buffer
 	rts
 
 chkrsh			; Check for impending
-	lda	#bank1	; buffer overflow, and
+	lda	bank1	; buffer overflow, and
 	sta	banksw	; use flow control
 
 ; Xon/Xoff flow control:
@@ -2715,7 +2719,7 @@ doquit			; Quit program
 	lda	#0
 	sta	fastr
 	jsr	clrscrn
-	lda	#bank3
+	lda	bank3
 	sta	banksw
 	ldx	#0
 ?lp
@@ -2788,7 +2792,7 @@ doquit			; Quit program
 	jsr jext_off
 ?nosparta
 
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	jmp	($a)
 
@@ -2908,7 +2912,7 @@ boldclr			; Clear boldface PMs
 	bne	?g
 	rts
 ?g
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	ldx	#4
 ?l
@@ -2987,7 +2991,7 @@ jsrbank1
 	tay
 	lda	banksv
 	pha
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	sta	banksv
 	tya
@@ -3013,7 +3017,7 @@ goscrldown
 doprompt
 	lda	banksv
 	pha
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	sta	banksv
 	jsr	doprompt2
@@ -3023,7 +3027,7 @@ doprompt
 	rts
 
 scrllnsv		; Copies top line, when
-	lda	#bank3	; scrolling off screen,
+	lda	bank3	; scrolling off screen,
 	sta	banksw	; into backscroll buffer
 ?lp			; (bank 3)
 	lda	(ersl),y
@@ -3031,12 +3035,12 @@ scrllnsv		; Copies top line, when
 	iny
 	cpy	#80
 	bne	?lp
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	rts
 
 lkprlp
-	lda	#bank3
+	lda	bank3
 	sta	banksw
 	asl	eitbit
 ?lp
@@ -3054,7 +3058,7 @@ lkprlp
 	iny
 	cpy	#80
 	bne	?lp
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	lsr	eitbit
 	rts
@@ -3159,12 +3163,12 @@ endinit
 partial_load_check
 	ldx #0
 ?lp
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	lda	$4000,x			; Do I need to load
 	cmp	svscrlms,x		; in the rest?
 	bne	?fail
-	lda	#bank2
+	lda	bank2
 	sta	banksw
 	lda	$4000,x
 	cmp	svscrlms,x
@@ -3178,7 +3182,7 @@ partial_load_check
 
 ; Test failed, program has not been loaded previously
 ?fail
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	rts
 
@@ -3199,7 +3203,7 @@ init
 	sta	remrhan+2
 	lda $8003
 	sta remrhan+3
-	lda	#bank0
+	lda	bank0
 	sta	banksw
 	sta	banksv
 	lda	$79
@@ -3250,7 +3254,7 @@ nofefe
 	cpx	#128
 	bne	?lp
 
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	ldx	#0
 ?lp1
@@ -3277,7 +3281,7 @@ nofefe
 	lda $d014		; PAL/NTSC indicator
 	and #$e			; check bits 1-3
 	bne ?ntsc
-	lda	#bank2
+	lda	bank2
 	sta	banksw
 	lda #'5
 	sta setasdw_change	; change "1/60 sec" to "1/50 sec" in ASCII upload delay menu
@@ -3359,7 +3363,7 @@ nofefe
 	lda	#$40
 	sta	scrlsv+1
 
-	lda	#bank3	; Recall old backscroll
+	lda	bank3	; Recall old backscroll
 	sta	banksw	; if there is one!
 	ldx	#41
 ?lp2
@@ -3538,14 +3542,14 @@ nofefe
 	sta	icbll+$20
 	lda	#>$640
 	sta	icblh+$20
-	lda	#bank1
+	lda	bank1
 	jsr	bankciov
 	jsr	close2
 ?interr
 
 ; Setup	tables for bold
 
-	lda	#bank1
+	lda	bank1
 	sta	banksw
 	lda	#1
 	ldx	#7
@@ -3600,7 +3604,7 @@ nofefe
 ?vl		= cntrl
 ?acl	= prchar
 
-	lda	#bank2
+	lda	bank2
 	sta	banksw
 	ldx	#0
 ?cr
