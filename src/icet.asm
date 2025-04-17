@@ -6,9 +6,9 @@
 	.include vtv.asm	; Data tables
 	.include vt1.asm	; Main code
 tmpchset
-	.incbin	..\fonts\vt.fnt		; VT100 character set
+	.incbin	../fonts/vt.fnt		; VT100 character set
 tmppcset
-	.incbin	..\fonts\vtheb2d.fnt	; Hebrew character set
+	.incbin	../fonts/vtheb2d.fnt	; Hebrew character set
 
 ; vtibm.fnt for standard PC, vtheb2d.fnt for Hebrew
 

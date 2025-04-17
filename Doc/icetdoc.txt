@@ -1,7 +1,7 @@
 
  I c e - T  XE --  A new terminal emulator for the 8-bits!
 
- by Itay Chamiel - (c)1996 IceSoft
+ by Itay Chamiel - (c)1997 IceSoft
 
  Version 2.72 - February 12, 1997
 
@@ -256,7 +256,7 @@ screen. Since each player is 8 pixels wide, we have a total of 40 pixels.
 This is a problem, since there are 80 characters per line.
 FlickerTerm cleverly bypasses this limitation by using two alternating PM
 memory locations for the two alternating 40-column screens. Ice-T can't do
-this, but if boldfaced words are seperated from normal words by at least one
+this, but if boldfaced words are separated from normal words by at least one
 space, this should have no visible effect.
 Using this mode should not affect your speed, until boldfaced characters
 actually appear on the screen. This is because the player/missiles are

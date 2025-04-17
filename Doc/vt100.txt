@@ -150,7 +150,7 @@ Esc # 8 Fill screen with the letter E for screen adjustment (useless, but
 The line-changing commands preserve anything already on that line, unless
 an 80-column line is changed into a 40-column line. In that case, the
 last 40 characters of that line are lost.
-Double-size characters use the standart built-in character set (since it's
+Double-size characters use the standard built-in character set (since it's
 40 columns) plus a few characters like tilde and curly braces, and for the
 special graphics characters, which don't exist in ATASCII, a simple routine
 which doubles the 80-column characters is used.
