@@ -7,7 +7,8 @@
 topmem	=	$bfff
 bnkmem	=	$4000
 
-	.or	$3000
+	.bank
+	*=	$3000
 check
 	lda	82
 	pha
@@ -106,8 +107,8 @@ bankok
 	sty	?rr2
 	jmp	bankok
 
-?rr1	.by	0
-?rr2	.by	0
+?rr1	.byte	0
+?rr2	.byte	0
 
 ?rb
 	jsr	prntbad
@@ -193,25 +194,28 @@ prntin
 	jmp	ciov
 
 okmsg
-	.by	'Loading Ice-T..'
+	.byte	"Loading Ice-T.."
 okmsg2
-	.by	155
+	.byte	155
 badtext
-	.by	'Ice-T requires a 128K computer, with no' 155
-	.by	'cartridges active. You also have to' 155
-	.by	'rename your R: handler to RS232.COM.' 155 155
-	.by	'The following conditions were not met:' 155 155
+	.byte	"Ice-T requires a 128K computer, with no", 155
+	.byte	"cartridges active. You also have to", 155
+	.byte	"rename your R: handler to RS232.COM.", 155, 155
+	.byte	"The following conditions were not met:", 155, 155
 bd48
-	.by	'* Base 48K not free!' 155
+	.byte	"* Base 48K not free!", 155
 bnkbd
-	.by	'* No banked memory!' 155
+	.byte	"* No banked memory!", 155
 rhndbd
-	.by	'* No R: - Interface not ready!' 155
+	.byte	"* No R: - Interface not ready!", 155
 rhndbd1
-	.by	'* No R: - Can' 39 't load R: handler file!' 155
+	.byte	"* No R: - Can't load R: handler file!", 155
 retdsmsg
-	.by	'Hit any key to return to DOS..' 155
+	.byte	"Hit any key to return to DOS..", 155
 fnme
-	.by	'D:RS232.COM' 155
- .or $2e2
- .wo check
+	.byte	"D:RS232.COM", 155
+
+	.bank
+	*=	$2e2
+	.word check
+

@@ -6,7 +6,8 @@
 
 ; This part	is resident in bank #1
 
-	.or	$4010
+	.bank
+	*=	$4010
 
 ; VT-100 TERMINAL EMULATOR
 
@@ -49,7 +50,7 @@ connect
 	dex
 	bpl	?bf
 	lda	559
-	and	#%11110011	; Disable PM DMA
+	and	#~11110011	; Disable PM DMA
 	sta	559
 	sta	$d400
 
@@ -354,7 +355,7 @@ dovt100			; ANSI/VT100 emulation code
 	cpx	#4
 	bne	?l
 	jmp	goymdm
-?et	.by	8,8,32,32     ; String for erasing Zmodem junk (^H ^H space space)
+?et	.byte	8,8,32,32     ; String for erasing Zmodem junk (^H ^H space space)
 ?ng
 	ldx	#1
 ?nl
@@ -2396,7 +2397,7 @@ pbchsdo
 usatst
 	lda	prchar+1
 	clc
-	adc	#>$e000-charset
+	adc	#>($e000-charset)
 	sta	prchar+1
 	txa
 	rts
@@ -4363,13 +4364,13 @@ wait10
 ; Break and hangup data
 
 brkwin
-		   .by 28,10,53,12
-		   .by ' Sending BREAK signal '
+		   .byte 28,10,53,12
+		   .byte " Sending BREAK signal "
 hngwin
-		   .by 32,10,47,12
-		   .by ' Hanging up '
+		   .byte 32,10,47,12
+		   .byte " Hanging up "
 
-hngdat  .by '%%%+++%%%ATH',13
+hngdat  .byte "%%%+++%%%ATH", 13
 
 ; END OF VT-100 EMULATION
 
@@ -4820,14 +4821,14 @@ dledit
 	sta	cntrh
 	jsr	erslineraw
 
-	ldx	#>dialmem+4
-	ldy	#<dialmem+4
+	ldx	#>(dialmem+4)
+	ldy	#<(dialmem+4)
 	jsr	doprompt	; Change name
 	lda	prpdat
 	cmp	#255
 	beq	?en
-	ldx	#>dialmem+48
-	ldy	#<dialmem+48
+	ldx	#>(dialmem+48)
+	ldy	#<(dialmem+48)
 	jsr	doprompt	; Change number
 	lda	prpdat
 	cmp	#255
@@ -4901,9 +4902,9 @@ noedit
 	dec	y
 	cmp	#2
 	bne	?yk
-	lda	#<dialdat-80
+	lda	#<(dialdat-80)
 	sta	cntrl
-	lda	#>dialdat-80
+	lda	#>(dialdat-80)
 	sta	cntrh
 	jmp	?yo
 ?yk
@@ -5054,10 +5055,10 @@ noedit
 	adc	#0
 	sta	prfrom+1
 	lda	prfrom
-	cmp	#<dialmem-80
+	cmp	#<(dialmem-80)
 	bne	?ml
 	lda	prfrom+1
-	cmp	#>dialmem-80
+	cmp	#>(dialmem-80)
 	bne	?ml
 	lda	#0
 ?el
@@ -5139,61 +5140,65 @@ finddld			; Find entry in table
 ; Dialing -	messages
 
 nodlmsg
-	.by	30,2,19
-	.by	'Directory is empty!'
+	.byte	30,2,19
+	.byte	"Directory is empty!"
 
 dilmnu
-	.by	0,23,72
-	.by	'Up/Down  Return-dial  Space-di'
-	.by	'al w/Retry  [E]dit [R]emove [A'
-	.by	']dd         '
+	.byte	0,23,72
+	.byte	"Up/Down  Return-dial  Space-di"
+	.byte	"al w/Retry  [E]dit [R]emove [A"
+	.byte	"]dd         "
 
-;	.by	']dd [C]onfig'
+;	.byte	"]dd [C]onfig"
 
 diltop
-	.by	1,0,14
-	.by	'Dialing menu |'
+	.byte	1,0,14
+	.byte	"Dialing menu |"
 modstr
-	.by	0,24,25
-	.by	155
-	.by	'-- Bill Kendrick! :) --'
-	.by	155
+	.byte	0,24,25
+	.byte	155
+	.byte	"-- Bill Kendrick! :) --"
+	.byte	155
 dilmsg
-	.by	0,24,24
-	.by	'Dialing.. (Esc to abort)'
+	.byte	0,24,24
+	.byte	"Dialing.. (Esc to abort)"
 retrmsg
-	.by	70,24,9
-	.by	'Retrying!'
+	.byte	70,24,9
+	.byte	"Retrying!"
 
 dilful
-	.by	0,24,25
-	.by	'Sorry, directory is full!'
+	.byte	0,24,25
+	.byte	"Sorry, directory is full!"
 
 dldelmsg
-	.by	0,24,25
-	.by	'Erase this entry? (Y/N)  '
+	.byte	0,24,25
+	.byte	"Erase this entry? (Y/N)  "
 
 dladdmsg
-	.by	0,24,38
-	asc	'Insert ', %[H]%, 'ere, or add at the ', %[B]%, 'ottom?'
+	.byte	0,24,38
+	.byte	"Insert "
+ 	.byte	+$80,"[H]"
+  	.byte	"ere, or add at the "
+   	.byte	+$80,"[B]"
+    .byte	"ottom?"
 
-dlblnk	.by	'<Blank entry>'
+dlblnk	.byte	"<Blank entry>"
 
 dledtnm
-	.by	15,2,9
-	.by	'Name:   ['
+	.byte	15,2,9
+	.byte	"Name:   ["
 dledtnb
-	.by	15,3,9
-	.by	'Number: ['
+	.byte	15,3,9
+	.byte	"Number: ["
 dleddat
-	.by	0,24,2,40
-	.by	0,24,3,40
+	.byte	0,24,2,40
+	.byte	0,24,3,40
 dialokm
-	.by	15,5,24
-	.by	% Make this change? (Y/N) %
+	.byte	15,5,24
+	.byte	+$80, " Make this change? (Y/N) "
 dledtms
-	.by	0,23,42
-	.by	'Please change this entry, or Esc to abort.'
+	.byte	0,23,42
+	.byte	"Please change this entry, or Esc to abort."
 
 doprompt2		; Accept Input Routine
 
@@ -5461,8 +5466,8 @@ mini1
 
 ; Move all of the above crap into
 ; banked memory
-
-	.or	$600
+	.bank
+	*=	$600
 inittrm
 	ldy	#0
 	sty	cntrl
@@ -5499,5 +5504,6 @@ chbnk2  cmp #>mini1
 	sta	chbnk2+1
 	rts
 
-	.or	$2e2
-	.wo	inittrm
+	.bank
+	*=	$2e2
+	.word	inittrm

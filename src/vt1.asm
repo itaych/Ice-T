@@ -130,13 +130,13 @@ dodl
 	lda	#>dlist
 	sta	(prchar),y
 	sta	dlst2+$102
-	lda	#<screen-320
+	lda	#<(screen-320)
 	sta	dlist+3
-	lda	#>screen-320
+	lda	#>(screen-320)
 	sta	dlist+4
-	lda	#<screen-640
+	lda	#<(screen-640)
 	sta	dlist+134
-	lda	#>screen-640
+	lda	#>(screen-640)
 	sta	dlist+135
 	ldx	#0
 ?l
@@ -1227,9 +1227,9 @@ gropen
 	sta	icbal+$20
 	lda	#>minibuf
 	sta	icbah+$20
-	lda	#<chrtbll-minibuf-1
+	lda	#<(chrtbll-minibuf-1)
 	sta	icbll+$20
-	lda	#>chrtbll-minibuf-1
+	lda	#>(chrtbll-minibuf-1)
 	sta	icblh+$20
 ; ldx fastr
 ; lda xiotb,x
@@ -1670,7 +1670,7 @@ vbi1
 	bpl	?bf
 
 	lda	559
-	and	#%11110011	; Disable PM DMA
+	and	#~11110011	; Disable PM DMA
 	sta	559
 	sta	$d400
 	jmp	?n
@@ -2650,8 +2650,8 @@ boldon			; Enable PMs
 	sta	623
 	rts
 
-pmhoztbl .by 80,112,144,176
-	 .by 72,64,56,48
+pmhoztbl .byte 80,112,144,176
+	 .byte 72,64,56,48
 
 boldclr			; Clear boldface PMs
 	lda	boldallw
@@ -2690,7 +2690,7 @@ boldoff			; Disable PMs
 	bpl	?lp
 
 	lda	559
-	and	#%11110011	; Disable PM DMA
+	and	#~11110011	; Disable PM DMA
 	sta	559
 	rts
 
@@ -2820,13 +2820,13 @@ settmrlp
 
 endinit
 
-	ifp	endinit-$4000
-	.pr	"endinit>$4000!!"
-	***
+	.if	endinit >= $4000
+	.error "endinit>$4000!!"
+	.endif
 
 ; Initialization routines (run once, then get erased)
-
-	.or	$8003
+	.bank
+	*=	$8003
 
 chsetinit
 	ldx	#0
@@ -3272,12 +3272,10 @@ interr
 
 	jmp	norst
 
-?tb	.by	0,0,1,1,2
-	.by	0,$80,0,$80,0
+?tb	.byte	0,0,1,1,2
+	.byte	0,$80,0,$80,0
 
 ?vl	.ds	2
 ?acl	.ds	2
 ;
-
-
 

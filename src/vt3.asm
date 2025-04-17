@@ -6,7 +6,8 @@
 
 ; This part	is resident in bank #2
 
-	.or	$4010
+	.bank
+ 	*=	$4010
 
 mnmenu
 	lda	mnlnofbl
@@ -1008,7 +1009,7 @@ invsub
 	sta	invhi
 	jmp	doinv
 
-?tb .by	5,10,15,20,25
+?tb .byte	5,10,15,20,25
 
 bkxfr
 	jsr	getscrn
@@ -1491,9 +1492,9 @@ fildir			; Disk Directory
 	sta	icaux1+$20
 	lda	#0
 	sta	icaux2+$20
-	lda	#<xferfile+3
+	lda	#<(xferfile+3)
 	sta	icbal+$20
-	lda	#>xferfile+3
+	lda	#>(xferfile+3)
 	sta	icbah+$20
 	jsr	ciov
 	cpy	#128
@@ -2458,8 +2459,8 @@ ascupl			; Ascii upload
 ?nk2
 	rts
 ?pop
-	.by	65,0,7
-	.by	% Pause %
+	.byte	65,0,7
+	.byte +$80," Pause "
 
 open3fl			; "open #3,4,0,filename"
 	jsr	close2
@@ -3971,8 +3972,8 @@ zopenfl
 	jsr	ropen
 	rts
 
-?op	.by	\Opening file\
-?crv	.by	\Crash recovery...\
+?op	.cbyte	"Opening file"
+?crv	.cbyte	"Crash recovery..."
 
 zrcvname		; Convert file name to crash-info name
 	ldx	#11
@@ -4011,8 +4012,8 @@ zrcvname		; Convert file name to crash-info name
 	bpl	?l5
 	rts
 
-?sf	.by	0 1 2 3 4 5 6 7 8 9 10 11
-?dt	.by	'RCV' 0
+?sf	.byte	0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+?dt	.byte	"RCV", 0
 
 recvfile		; Create recover file
 	lda	trfile
@@ -4139,7 +4140,7 @@ mnloop
 	jsr	fildomsg
 	jmp	mnloop
 
-?bf	.by	\Bad CRC for frame\
+?bf	.cbyte	"Bad CRC for frame"
 
 getbt			; Get a hex/binary byte
 	lda	hexg
@@ -4195,7 +4196,7 @@ frameok			; Frame passes check
 	jsr	sendxfrm
 	jmp	mnloop
 
-?cp	.by	\Command (ignored)\
+?cp	.cbyte	"Command (ignored)"
 
 ?ncm
 	lda	#14	; send ZCHALLENGE
@@ -4213,8 +4214,8 @@ frameok			; Frame passes check
 	jsr	sendxfrm
 	jmp	mnloop
 
-?cpr	.by	\ZCHALLENGE\
-?fok	.by	\Frame CRC ok\
+?cpr	.cbyte	"ZCHALLENGE"
+?fok	.cbyte	"Frame CRC ok"
 
 ?noinit
 	cmp	#2
@@ -4245,7 +4246,7 @@ frameok			; Frame passes check
 	jsr	sendack
 	jmp	mnloop
 
-?atp	.by	\Getting Attn string\
+?atp	.cbyte	"Getting Attn string"
 
 ?nosinit
 	cmp	#3
@@ -4285,7 +4286,7 @@ zrinit
 	jsr	sendxfrm
 	jmp	mnloop
 
-?snp	.by	\Sending ZRINIT\
+?snp	.cbyte	"Sending ZRINIT"
 
 chlbad
 	ldx	#>?cbd
@@ -4294,7 +4295,7 @@ chlbad
 	jsr	sendnak
 	jmp	mnloop
 
-?cbd	.by	\Challenge fail!\
+?cbd	.cbyte	"Challenge fail!"
 
 noack
 	cmp	#4
@@ -4337,7 +4338,7 @@ noack
 	sta	outdat+1
 	jmp	mnloop
 
-?fgp	.by	\Getting filename\
+?fgp	.cbyte	"Getting filename"
 
 ?nofile
 	cmp	#6
@@ -4351,7 +4352,7 @@ noack
 	jsr	sendpck	; Resend last pack
 	jmp	mnloop
 
-?gnk	.by	\Received ZNAK\
+?gnk	.cbyte	"Received ZNAK"
 
 ?nonck
 	cmp	#10
@@ -4426,10 +4427,10 @@ noack
 	bcs	?jl
 	jmp	mnloop
 
-?bdp	.by	\Unexpected data!\
-?svp	.by	\Saving data\
-?dtp	.by	\Getting data\
-?jp	.by	\Synchronizing..\
+?bdp	.cbyte	"Unexpected data!"
+?svp	.cbyte	"Saving data"
+?dtp	.cbyte	"Getting data"
+?jp	.cbyte	"Synchronizing.."
 
 ?nodata
 	cmp	#11
@@ -4458,8 +4459,8 @@ noack
 	jsr	fildomsg
 	jmp	mnloop
 
-?ep	.by	\Closing file\
-?ebp	.by	\Unexpected EOF!\
+?ep	.cbyte	"Closing file"
+?ebp	.cbyte	"Unexpected EOF!"
 
 ?neof
 	cmp	#8
@@ -4475,7 +4476,7 @@ noack
 	jsr	sendxfrm
 	jmp	ovrnout
 
-?enp	.by	\End of transfer\
+?enp	.cbyte	"End of transfer"
 
 ?nofin
 	cmp	#7
@@ -4488,7 +4489,7 @@ noack
 	ldy	#<?unk
 	jsr	fildomsg
 	jmp	mnloop
-?unk	.by	\Unknown command\
+?unk	.cbyte	"Unknown command"
 
 ?en
 
@@ -4516,7 +4517,7 @@ zabrtfile
 	jsr	fildomsg
 	jmp	ovrnout
 
-?en	.by	\Session cancel!\
+?en	.cbyte	"Session cancel!"
 
 ovrnout			; Over-and-out routine
 	lda	#0
@@ -4711,7 +4712,7 @@ getpack			; Get data packet
 	jsr	sendnak
 	jmp	mnloop
 
-?pkb	.by	\Packet CRC bad\
+?pkb	.cbyte	"Packet CRC bad"
 
 zbufovr	; Buffer overflow? - no problem.. This is Zmodem!!
 
@@ -4744,7 +4745,7 @@ zbufovr	; Buffer overflow? - no problem.. This is Zmodem!!
 	pla
 	jmp	mnloop
 
-?ovr	.by	\Buffer overflow!\
+?ovr	.cbyte	"Buffer overflow!"
 
 sendattn		; Send remote's Attention signal
 	lda	attnst
@@ -4784,7 +4785,7 @@ sendattn		; Send remote's Attention signal
 ?en
 	rts
 
-?atp	.by	\Sending Attn string\
+?atp	.cbyte	"Sending Attn string"
 
 
 sendrpos		; Send ZRPOS
@@ -4795,7 +4796,7 @@ sendrpos		; Send ZRPOS
 	sta	type
 	jmp	rposok
 
-?z	.by	\Repositioning...\
+?z	.cbyte	"Repositioning..."
 
 sendack			; Send a ZACK
 	ldx	#>zapr
@@ -4811,7 +4812,7 @@ rposok
 	dex
 	bpl	?lp
 	jmp	sendxfrm
-zapr	.by	\ZACK\
+zapr	.cbyte	"ZACK"
 
 sendnak			; Send a ZNAK
 	ldx	#>?nk
@@ -4827,7 +4828,7 @@ sendnak			; Send a ZNAK
 	bpl	?lp
 	jmp	sendxfrm
 
-?nk	.by	\Sending ZNAK\
+?nk	.cbyte	"Sending ZNAK"
 
 zdleget			; Get ZDLE-encoded data
 	lda	#255
@@ -4852,7 +4853,7 @@ zdleget			; Get ZDLE-encoded data
 	cmp	#24
 	beq	?cl
 	tax
-	and	#%01100000
+	and	#~01100000
 	cmp	#$40
 	bne	?nc
 	txa
@@ -4874,7 +4875,7 @@ zdleget			; Get ZDLE-encoded data
 ?ok
 	rts
 
-?cnct	.by	0
+?cnct	.byte	0
 sendxfrm		; Send hex frame header
 	ldx	#0
 	stx	crcl
@@ -4924,7 +4925,7 @@ puthexn			; Send number in hex
 	sta	outpck+4,y
 	rts
 
-outpck	.by	'**',24,'B1122334455chcl',13,10,17
+outpck	.byte	"**",24,"B1122334455chcl",13,10,17
 
 sendpck
 	ldx	#0
