@@ -2847,7 +2847,7 @@ ps0ok
 	sta	?p1+1
 	ldx	#7
 ?lp						; Main character-draw loop
-	ldy yindextab,x		; in vt1.asm
+	ldy yindextab,x
 	lda	chartemp,x
 ?p2	and	#0
 	sta	prchar 			; now used as a temp variable
@@ -2906,7 +2906,7 @@ psiz1
 	bne	psiz1
 	beq	psizoki		; always branches
 
-	; half-height: copy half character, suplicating lines
+	; half-height: copy half character, duplicating lines
 psiz3
 	ldy	#4	; bottom half: start from middle
 psiz2

@@ -27,7 +27,11 @@ Ascii upload bug due to usage of used zp variables (done)
 file viewer: viewing a file whose size is a multiple of 256 (including 0) displays a single garbage character at the end. (done)
 capture buffer indicator broken when full (done)
 Flow control can cause visual bugs or crashes, especially when entering dial menu. probably a zp variable conflict.
-	for example, when refreshing the screen on returning from dial menu, refresh ptr breaks.
+	buffifnd (and buffdo) may use the following if xoff flow control acts: x, y, prchar/+1, cntrl/h. change to preserve them (except prchar) (done)
+
+Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen? 3. What prevents "Rush" from being displayed during menus? 4. At chkrsh?ok there are calls that also call buffdo - could cause infinite recursion? 5. Cursor glitches.
+xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
+for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
 
 file xfers:
 	x/ymodem failed due to close3 (done)
@@ -44,20 +48,16 @@ file xfers:
 	xmodem upload: implement. (done)
 	zmodem: (linux) why does it overflow? (waiting for response from uwe)
 	xmodem upload: can't upload hardfile (waiting for response from phaeron)
-	xmodem upload: test eol translation (when phaeron fixes cr/lf issue)
-	check file xfers on real atari! null-modem to linux + APE telnet.
-
+	
 	Altirra has broken printer driver. (fixed in 2.4)
 	Altirra R: breaks if you make outbound connection then coldstart while still connected. (fixed in 2.5)
 	Altirra won't create a file if opening for append (aux1=9). (fixed in 2.5)
 	Altirra in "raw" mode, emulated Atari can receive any character, but cannot send 0xFF. (fixed in 2.5 test 6)
 	Altirra Telnet doesn't handle escape sequences or CR NUL properly so can't do any file transfer except Zmodem of plain text files. (fixed in 2.5 test 6)
 	Altirra H: does not return an error if trying to delete/lock/unlock a nonexistent file (io commands 33/35/36 respectively). (fixed in 2.5 test 7)
+	Altirra H: Rename (command 32) never returns an error, and incorrectly works on locked files. (fixed in 2.5 test 8)
 	
 	Altirra Telnet doesn't identify as any terminal type.
-	Altirra H: Rename (command 32) never returns an error, and incorrectly works on locked files.
-
-for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
 
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.

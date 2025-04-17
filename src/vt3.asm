@@ -2799,11 +2799,11 @@ xmdini			; Common initialization for X/Y/Zmodem transfers
 xmdupl
 
 ?pktbuf = numstk+$40
-?outstanding_byte = topx	; outstanding byte due to Return->CR/LF conversion overflowing a packet
+?outstanding_byte = invlo	; outstanding byte due to Return->CR/LF conversion overflowing a packet
 ?xupl_readptr = botx	; buffer read pointer, also uses boty. 
 ?xupl_buftop = fltmp	; buffer top
 ?pktsize = topy
-?can_cnt = putbt
+?can_cnt = dbltmp1
 		
 	lda	#0
 	sta	ymodem		; indicate ymodem off - so filename will be prompted
@@ -2845,13 +2845,18 @@ xmdupl
 	jsr	fildomsg
 
 	; get 1st char from receiver, switch to cksum if needed
-	
+	lda #5
+	sta retry
 ?char1lp
 	jsr getn2_upl
 	cmp	#'C			; Is other side requesting CRC check?
 	beq	?uc
 	cmp	#xmd_NAK	; NAK (other side requests checksum)?
-	bne	?char1lp
+	beq ?uchk
+	dec retry
+	bpl	?char1lp
+	bmi ?abort
+?uchk
 	ldx	#>xmdcsm	; Use checksum.
 	ldy	#<xmdcsm
 	jsr	prmesgnov
@@ -2963,7 +2968,7 @@ xmdupl
 	beq	?fil_pkt_gotbyte
 
 	cmp	#155
-	bne	?neol	
+	bne	?neol
 	ldx	ueltrns
 	cpx	#2
 	bne	?n2
@@ -2973,7 +2978,7 @@ xmdupl
 	lda	#13		; CR
 	cpx	#1
 	beq	?fil_pkt_gotbyte
-	ldx	#10		; and another LF
+	ldx	#10		; and another LF saved as 'outstanding' byte
 	stx ?outstanding_byte
 	bne ?fil_pkt_gotbyte	; always branch
 
@@ -3061,7 +3066,6 @@ xmdupl
 ?nocan
 	cmp #xmd_ACK
 	bne ?resp_lp
-	inc retry
 	lda retry
 	beq ?no_retry_msg
 	ldx	#>msg0		; "sending"
@@ -4471,6 +4475,8 @@ zmd_mnloop
 	lda	hexg
 	beq ?nohexend
 	jsr getzm
+	; some implementations send CR and/or LF with bit 7 set for some reason
+	and #$7f
 	cmp #xmd_CR
 	bne ?bd
 	jsr getzm
@@ -4480,7 +4486,6 @@ zmd_mnloop
 ;	bne ?nonul
 ;	jsr getzm
 ;?nonul
-	; some implementations send LF with bit 7 set for some reason
 	and #$7f
 	cmp #xmd_LF
 	bne ?bd

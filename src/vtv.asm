@@ -215,7 +215,7 @@ wind1	=	$7a00	; 1.5k
 
 ; Bank 2 - Menus and data
 
-wind2	=	$7810	; 1k - moved up a bit from $7800 to make room for vt3.asm code
+wind2	=	$7820	; 1k - moved up a bit from $7800 to make room for vt3.asm code
 wind3	=	$7c00	; 1k
 
 ; Bank 3 - Backscroll buffer
@@ -504,7 +504,7 @@ bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
 bckcolr		.byte 0
 eoltrns		.byte 0		; EOL translation for incoming files
 ansiflt		.byte 0
-ueltrns		.byte 1		; upload EOL translation. 
+ueltrns		.byte 3		; upload EOL translation. 
 ansibbs		.byte 0		; VT-102 (0), ANSI-BBS (1), VT-52 (2)
 eitbit		.byte 1
 fastr		.byte 2
@@ -685,7 +685,7 @@ svscrlms
 version_str
 	.byte 	"2.8.0(alpha4)"
 version_str_end
-	.byte	" Nov 24 2013. Contact: itaych@gmail.com"
+	.byte	" Nov 26 2013. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms

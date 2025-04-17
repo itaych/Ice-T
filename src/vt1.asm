@@ -821,19 +821,19 @@ winxok
 	sta	x
 	lda	topy
 	sta	y
-	lda	#145
+	lda	#17+128		; Inverse Ctrl-Q (upper left corner)
 	sta	prchar
 	jsr	print
 	inc	x
 tplnlp
-	lda	#146
+	lda	#18+128		; Inverse Ctrl-R (horizontal bar)
 	sta	prchar
 	jsr	print
 	inc	x
 	lda	x
 	cmp	botx
 	bne	tplnlp
-	lda	#133
+	lda	#5+128		; Inverse Ctrl-E (upper right corner)
 	sta	prchar
 	jsr	print
 	dec	botx
@@ -841,20 +841,23 @@ tplnlp
 winlp
 	lda	topx
 	sta	x
-	lda	#252
+	lda	#124+128	; inverse '|' character
 	sta	prchar
 	jsr	print
 	inc	x
-	lda	#160
-	sta	prchar
-	jsr	print
+;	lda	#32+128		; inverse space
+;	sta	prchar
+;	jsr	print
 	inc	x
 wlnlp
 	ldy	#0
-	lda	(prfrom),y
+	lda	(prfrom),y	; write text in window
+	cmp #32
+	beq ?skip_space
 	eor	#128
 	sta	prchar
 	jsr	print
+?skip_space
 	inc	prfrom
 	lda	prfrom
 	bne	wnocr
@@ -864,37 +867,37 @@ wnocr
 	lda	x
 	cmp	botx
 	bne	wlnlp
-	lda	#160
-	sta	prchar
-	jsr	print
+;	lda	#32+128		; inverse space
+;	sta	prchar
+;	jsr	print
 	inc	x
-	lda	#252
+	lda	#124+128	; inverse '|' character
 	sta	prchar
 	jsr	print
 	inc	x
 	jsr	blurbyte
 ; inc x
 	jsr	buffifnd
-	inc	y
-	lda	y
+	inc y
+	lda y
 	cmp	boty
 	bne	winlp
 	lda	topx
 	sta	x
 	inc	botx
-	lda	#154
+	lda	#26+128		; inverse Ctrl-Z (lower left corner)
 	sta	prchar
 	jsr	print
 	inc	x
 botlnlp
-	lda	#146
+	lda	#18+128		; Inverse Ctrl-R (horizontal bar)
 	sta	prchar
 	jsr	print
 	inc	x
 	lda	x
 	cmp	botx
 	bne	botlnlp
-	lda	#131
+	lda	#3+128		; Inverse Ctrl-C (lower right corner)
 	sta	prchar
 	jsr	print
 	inc	x
@@ -1056,8 +1059,8 @@ print
 ?ok1
 	lda	prchar
 	bpl	prchrdo2	; jump if not inverse-vid
-	ldx	eitbit
-	cpx	#2
+	ldx	eitbit		; usually 0 or 1 but shifted left in certain situations (e.g. redrawing scrollback) to indicate
+	cpx	#2			; whether characters >128 are inverse or from pc character set
 	bne	?ok2
 	sty	prchar+1
 	asl	a
@@ -1590,7 +1593,6 @@ chkrsh			; Check for impending
 	sta	banksw	; use flow control
 
 ; Xon/Xoff flow control:
-
 	lda	xoff
 	beq	?n1
 	lda	mybcount+1
@@ -1598,16 +1600,9 @@ chkrsh			; Check for impending
 	bcs	?ok
 	lda	#0
 	sta	xoff
-	lda	#17        ; XON (ctrl-Q)
-	jsr	rputch
-	lda	#0
-	sta	x
-	sta	y
-	lda	#32
-	sta	prchar
-	jsr	print
-	jmp	?ok
-
+	ldx	#17        ; XON (ctrl-Q)
+	jmp ?do
+	
 ?n1
 	lda	flowctrl
 	and	#1
@@ -1617,14 +1612,37 @@ chkrsh			; Check for impending
 	bcc	?ok
 	lda	#1
 	sta	xoff
-	lda	#19        ; XOFF (ctrl-S)
+	ldx	#19        ; XOFF (ctrl-S)
+?do
+	; This subroutine may be called from many places so preserve a few critical zp variables.
+	lda x
+	pha
+	lda y
+	pha
+	lda cntrl
+	pha
+	lda cntrh
+	pha
+	txa				; get xon/xoff value
 	jsr	rputch
 	lda	#0
 	sta	x
-	sta	y
-	jsr	mkblkchr
-	jsr	print
-
+	sta	y			; upper left cornet
+	lda	#32			; xoff - put a space
+	sta	prchar
+	lda xoff
+	beq ?noblk
+	jsr	mkblkchr	; xon - block character (this also updates prchar)
+?noblk
+	jsr	print		; display character
+	pla
+	sta cntrh		; restore saved variables
+	pla
+	sta cntrl
+	pla
+	sta y
+	pla
+	sta x
 ?ok
 
 ; "Rush" flow control (speeds up processing by not displaying
@@ -1637,7 +1655,7 @@ chkrsh			; Check for impending
 	bne	?nd
 	lda	flowctrl
 	and	#2
-	beq	?nor
+	beq	?nd
 	lda	#1
 	sta	rush
 	sta	didrush
@@ -1650,7 +1668,6 @@ chkrsh			; Check for impending
 	jsr	lookbk
 	pla
 	sta	finescrol
-?nor
 	jmp	?nd
 ?no
 	lda	rush	; Check for end of fast mode
