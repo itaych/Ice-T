@@ -315,6 +315,13 @@ setwrp			;  Set Auto-line-wrap
 	jmp	bkset
 
 setmacros		; Define macros
+
+?curmacro = fltmp	; currently handled macro
+?curvalue = fltmp+1
+
+	lda #0
+	sta ?curmacro
+?redraw_menu
 	; modify window to show currently assigned keys, or dashes for no key
 	ldx #0
 	ldy #0
@@ -330,21 +337,170 @@ setmacros		; Define macros
 	cpx #macronum
 	bne ?lp
 	
+	; main macros menu
 	ldx	#>setmacrosw
 	ldy	#<setmacrosw
 	jsr	drawwin
 	ldx	#>setmacrosd
 	ldy	#<setmacrosd
-	lda	#0
+	lda	?curmacro
 	sta	mnucnt
 	jsr	menudo1
+?done_mn1
 	lda	menret
 	cmp	#255
 	bne ?ok
 	jmp	bkopt
 ?ok
-	jmp ?ok
 
+	; redefine macro key window
+	sta ?curmacro
+	tax
+	lda macro_key_assign,x
+	sta ?curvalue
+	ldx	#>setmacros_getcharw
+	ldy	#<setmacros_getcharw
+	jsr	drawwin
+?mclp1
+	lda ?curvalue
+	bne ?nodash2
+	lda #'-
+?nodash2
+	ora #128
+	sta prchar
+	lda #60
+	sta x
+	lda #10
+	sta y
+	jsr print
+	; wait for user key
+	jsr	getkeybuff
+	cmp #27				; ESC
+	bne ?noesc
+?esc
+	jsr getscrn			; close window
+	ldx	#>setmacrosd	; rerun main menu (without inverting current entry)
+	ldy	#<setmacrosd
+	lda	?curmacro
+	sta	mnucnt
+	jsr	menudo2
+	jmp ?done_mn1
+?noesc
+	cmp #24				; ctrl-X - erase macro
+	bne ?noctrlx
+	ldx ?curmacro
+	jsr macro_find_data	; sets cntrl/h to macro data
+	lda #0
+	sta macro_key_assign,x
+	ldy #macrosize-1
+?ctrlxloop
+	sta (cntrl),y
+	dey
+	bpl ?ctrlxloop
+	jsr getscrn			; close window
+	jsr getscrn			; close window
+	jmp ?redraw_menu
+?noctrlx
+	cmp #32				; space - same as return
+	beq ?spc
+	cmp #155			; return
+	bne ?noret
+?spc
+	lda ?curvalue		; if no char selected - same as esc.
+	beq ?bad_entry
+	ldx ?curmacro
+	cmp macro_key_assign,x
+	beq ?ok_entry
+	; check that this character isn't previously used
+	ldy #macronum-1
+?entry_lp
+	cmp macro_key_assign,y
+	beq ?bad_entry
+	dey
+	bpl ?entry_lp
+	; assign new key, and move on to redefine macro.
+	sta macro_key_assign,x
+?ok_entry
+	jsr getscrn			; close window
+	jmp ?redefine_macro
+?noret
+	; input must be 0-9, A-Z. Convert lower case to upper.
+	cmp #'0
+	bcc ?bad_entry
+	cmp #'9+1
+	bcc ?good_entry
+	cmp #'A
+	bcc ?bad_entry
+	cmp #'Z+1
+	bcc ?good_entry
+	cmp #'a
+	bcc ?bad_entry
+	cmp #'z+1
+	bcs ?bad_entry
+	and #$20^$FF	; lower to upper case
+?good_entry
+	sta ?curvalue
+	jmp ?mclp1
+?bad_entry
+	lda	#14
+	sta	dobell
+	jmp ?mclp1
+
+; redefine macro contents window
+?redefine_macro
+
+?setmacros_redefine_copy = numstk + $40
+
+	ldx	#>setmacros_redefinew
+	ldy	#<setmacros_redefinew
+	jsr	drawwin_blank
+	ldx	#>setmacros_redefine_msg
+	ldy	#<setmacros_redefine_msg
+	jsr	prmesg
+
+	; copy prompt data
+	ldx #3
+?cpylp
+	lda setmacros_redefine_pr,x
+	sta ?setmacros_redefine_copy,x
+	dex
+	bpl ?cpylp
+	
+	; get current macro data
+	ldx ?curmacro
+	jsr macro_find_data	; sets cntrl/h to macro data
+	ldy #macrosize-1
+?rmac_lp1
+	lda (cntrl),y
+	sta ?setmacros_redefine_copy+4,y
+	dey
+	bpl ?rmac_lp1
+
+	; edit
+	ldx	#>(?setmacros_redefine_copy+4)
+	ldy	#<(?setmacros_redefine_copy+4)
+	jsr	doprompt
+	lda	prpdat
+	cmp	#255
+	beq ?skip_save
+	
+	; save macro data
+	ldx ?curmacro
+	jsr macro_find_data	; sets cntrl/h to macro data
+	ldy #macrosize-1
+?rmac_lp2
+	lda ?setmacros_redefine_copy+4,y
+	sta (cntrl),y
+	dey
+	bpl ?rmac_lp2
+?skip_save
+
+	jsr getscrn			; close window
+	jsr getscrn			; close window
+	jmp ?redraw_menu
+
+;	.ds 250
+	
 setclk			; Set Keyclick type
 	ldx	#>setclkw
 	ldy	#<setclkw
@@ -543,14 +699,14 @@ rsttrm			; Reset terminal settings
 	jmp	bkopt
 
 setclo			; Set clock
-	ldx	#3
+	ldx	#0
 ?l1
-	lda	menuclk,x
-	sta	setclkpr,x
+	lda	menuclk+3,x
+	sta	setclkpr+3,x
 	and	#127
-	sta	setclow+1,x
+	sta	setclow+4,x
 	inx
-	cpx	#8
+	cpx	#5
 	bne	?l1
 	ldx	#>setclow
 	ldy	#<setclow
@@ -574,9 +730,9 @@ setclo			; Set clock
 	bne	?ne
 	jmp	bkopt
 ?ne
-	cmp	#48	; '0'
+	cmp	#'0
 	bcc	?nn
-	cmp	#58 ; '9'+1
+	cmp	#'9+1
 	bcs	?nn
 	jsr	?cc
 	ldx	ersl
@@ -742,7 +898,7 @@ savcfg			; Save configuration
 	sta	icbal+$20
 	lda	#>macro_key_assign
 	sta	icbah+$20
-	lda	#macronum
+	lda	#macronum_rsvd
 	sta	icbll+$20
 	lda	#0
 	sta	icblh+$20
@@ -804,14 +960,12 @@ savcfg			; Save configuration
 ; of blocks. (min. 1 for all), X,Y
 ; of each place..
 
-menudo1
+menudo1	; standard entry point
 	lda	#0
-	sta	nodoinv
-	beq	menudo3
-menudo2
+	.byte BIT_skip2bytes
+menudo2	; do not invert initial menu entry
 	lda	#1
 	sta	nodoinv
-menudo3
 	stx	prfrom+1
 	sty	prfrom
 	ldy	#0
@@ -1353,7 +1507,7 @@ filren			; Rename file
 filpth			; Change disk path
 	ldx	#>pthwin
 	ldy	#<pthwin
-	jsr	drawwin
+	jsr	drawwin_blank
 	ldx	#>pthpr
 	ldy	#<pthpr
 	jsr	prmesg

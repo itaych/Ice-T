@@ -12,7 +12,7 @@
 
 tilmesg2
 	.byte	(80-75)/2,8,75
-	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2013 Itay Chamiel."
+	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2014 Itay Chamiel."
 .if 1
 tilmesg4
 	.byte	(80-75)/2,13,71
@@ -221,6 +221,19 @@ setmacrosd
 	.byte	36,7,38,7
 	.byte	36,8,38,8
 
+setmacros_getcharw
+	.byte	16,9,63,11
+	.byte	"Assign START+(A-Z/0-9), Ctrl-X to delete:   "
+
+setmacros_redefinew
+	.byte	6,9,73,11
+setmacros_redefine_msg
+	.byte	10,11,26
+	.byte	+$80," Macro Text ($xx, %=Ctrl) "
+
+setmacros_redefine_pr
+	.byte	~01,8,10,64	; must be copied to a location with 64 usable bytes following.
+
 setclkw
 	.byte	34,3,47,7
 	.byte	" None     "
@@ -378,8 +391,7 @@ namspwin
 
 pthwin
 	.byte	34,4,77,6
-	.byte	"                    "
-	.byte	"                    "
+
 pthpr
 	.byte	38,4,12
 	.byte	+$80," Enter path "
@@ -491,7 +503,7 @@ asufil	.byte	"            "
 
 ascprw
 	.byte	34,9,77,11
-	.byte	 "Type character to wait for and Return:  "
+	.byte	"Type character to wait for and Return:  "
 
 setasdw
 	.byte	54,10,77,16

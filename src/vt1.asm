@@ -656,8 +656,13 @@ resttrm			; Reset most VT100 settings
 	sta	banksw
 	rts
 
+drawwin_blank	; same as drawwin but string is ignored
+	lda #1
+	.byte BIT_skip2bytes
 drawwin			; Window drawer
-
+	lda #0
+	sta ersl	; 1 = ignore string
+	
 ; Reads	from X,Y registers addr
 ; that holds a table holding...
 ; top-x,top-y,bot-x,bot-y,string
@@ -850,6 +855,8 @@ winlp
 ;	jsr	print
 	inc	x
 wlnlp
+	lda ersl
+	bne ?skip_space	; no text if this flag is up
 	ldy	#0
 	lda	(prfrom),y	; write text in window
 	cmp #32
@@ -3146,6 +3153,19 @@ rt8_write
 	sta rt8_reg
 	rts
 
+; get macro number in X. Return data address in cntrl/h.
+macro_find_data
+	lda #0
+	sta cntrl
+	txa
+	lsr a
+	ror cntrl
+	lsr a
+	ror cntrl
+	adc #>macro_data
+	sta cntrh
+	rts
+	
 endinit
 
 	.if	endinit >= $4000
@@ -3508,7 +3528,7 @@ init
 	bpl	?set_defaults_lp1
 	; clear macro key assignment table
 	lda #0
-	ldx #macronum-1
+	ldx #macronum_rsvd-1
 ?set_defaults_lp2
 	sta macro_key_assign,x
 	dex
@@ -3559,7 +3579,7 @@ init
 	sta	icbal+$20
 	lda	#>macro_key_assign
 	sta	icbah+$20
-	lda	#macronum
+	lda	#macronum_rsvd
 	sta	icbll+$20
 	lda	#0
 	sta	icblh+$20

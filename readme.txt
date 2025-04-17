@@ -1,2 +1,2 @@
 
-Ice-T XE - 2.8.0 alpha 3
+Ice-T XE - 2.8.0 alpha 7

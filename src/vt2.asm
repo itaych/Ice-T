@@ -4474,38 +4474,35 @@ normal_key
 	bmi ?nomacro
 
 ?domacro
-	stx temp
+	; Playback macro! We have X = macro number.
+	jsr macro_find_data	; sets cntrl/h to macro data
 	jsr	getkey	; sound a keyclick (we know there's a valid key in the buffer)
-	; Playback a macro! We have temp = macro number. Multiply by 64 and add to macro_data
-	lda #0
-	sta cntrl
-	lda temp
-	lsr a
-	ror cntrl
-	lsr a
-	ror cntrl
-	adc #>macro_data
-	sta cntrh
+	jsr parse_macro	; copy macro from cntrl/h to macro_parser_output, parsing hex and ctrl characters
+	stx temp	; X contains length of macro to output
 	; output #macrosize bytes from cntrl/h, skipping null bytes. take care of local echo.
 	ldy #0
 ?domacrolp
+	cpy temp
+	bcs ?donemacro
+	lda	macro_parser_output,y
+	tax
 	tya
 	pha
 	lda	localecho
 	beq	?ne
-	lda	(cntrl),y
+	txa
 	jsr	putbufbk
 	pla
 	pha
 	tay
 ?ne
-	lda	(cntrl),y
+	lda	macro_parser_output,y
 	jsr	rputch
 	pla
 	tay
 	iny
-	cpy #macrosize
-	bcc ?domacrolp
+	bne ?domacrolp
+?donemacro
 	rts
 
 ?nomacro
@@ -5292,6 +5289,59 @@ hngwin
 		   .byte " Hanging up "
 
 hngdat  .byte "%%%+++%%%ATH", 13
+
+; Macro parser. Copy macro from cntrl/h to macro_parser_output, parsing hex and ctrl characters.
+; $xx = hex. $$ = $. %c = ctrl-c. %% = %.
+; returns size of parsed macro in X register.
+parse_macro
+	ldx #0
+	ldy #0
+?lp
+	lda (cntrl),y
+	cmp #'$
+	bne ?nohex
+	iny
+	lda (cntrl),y
+	cmp #'$
+	beq ?noctrl
+	jsr ?hg
+	asl a
+	asl a
+	asl a
+	asl a
+	sta temp
+	iny
+	lda (cntrl),y
+	jsr ?hg
+	ora temp
+	jmp ?noctrl
+?nohex
+	cmp #'%
+	bne ?noctrl
+	iny
+	lda (cntrl),y
+	cmp #'%
+	beq ?noctrl
+	and #$1f
+?noctrl
+	sta macro_parser_output,x
+	inx
+	iny
+	cpy #macrosize
+	bcc ?lp
+	rts
+
+?hg				; Convert ascii hex digit (0123456789abcdef) to 4-bit value
+	ora #$20	; convert upper to lower case. Has no effect on digits.
+	cmp	#'9+1
+	bcs	?lw
+	sec
+	sbc	#'0
+	rts
+?lw
+	sec
+	sbc	#('a-$a)
+	rts
 
 ; END OF VT-100 EMULATION
 
@@ -6202,7 +6252,7 @@ doprompt2		; Accept Input Routine
 
 ; x/y point	to data string (so data is 4 bytes *before* given pointer)
 
-prpdat = numstk+$100 - 43	; Prompt routine's data
+prpdat = numstk+$100 - (64+3) ; 43	; Prompt routine's data. Size is 3 + largest allowed prompt
 
 ?prplen = botx
 
@@ -6491,7 +6541,6 @@ parse_jumptable
 	jmp $ffff
 
 ; Bold - Fixed tables
-
 boldcolrtables_lo	.byte <colortbl_0, <colortbl_1, <colortbl_2, <colortbl_3, <colortbl_4
 boldcolrtables_hi	.byte >colortbl_0, >colortbl_1, >colortbl_2, >colortbl_3, >colortbl_4
 
@@ -6500,6 +6549,7 @@ boldcolrtables_hi	.byte >colortbl_0, >colortbl_1, >colortbl_2, >colortbl_3, >col
 ; white, red, green, yellow, blue, magenta, cyan
 bold2color_xlate	.byte $0a, $0e, 70, 74, 200, 206, 234, 238, 132, 136, 88, 92, 152, 156
 
+; Bold - tables filled at program start
 boldpmus	.ds 40	; convert column number to PM number (0-4)
 boldtbpl	.ds 5	; low-byte pointer to each player data
 boldtbph	.ds 5	; high
@@ -6508,15 +6558,15 @@ boldwri		.ds 8	; same as boldwr but inverted (running 0's)
 boldytb		.ds 25	; converts line number to vertical offset within PM
 
 ; Bold - Dynamic data:
-
 boldsct		.ds 5	; Per PM, current uppermost (lower value) bold line
 boldscb		.ds 5	; Per PM, current lowest (higher value) bold line
 boldypm		.ds 5	; Flag whether there are any enabled pixels in this PM
 
 ; Dialer's stuff:
-
 dialdat	.ds	80*20
 dialmem	.ds	88
+
+macro_parser_output = dialmem
 
 mini1
 

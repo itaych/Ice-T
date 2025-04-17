@@ -216,6 +216,8 @@ BIT_skip2bytes	= $2c
 cfgnum	=	20 ; size of configuration data. Correctness is checked.
 
 macronum =	12 ; number of macros
+macronum_rsvd =	16 ; reserve space in assignments (and config file) for 16 macros.
+
 macrosize =	64 ; size of each macro
 
 ; Bank 0 - Cyclic data buffer, X/Y/Zmodem buffer
@@ -229,10 +231,10 @@ buftop	=	$8000
 wind1	=	$7a00	; 1.5k
 wind1_oob = wind1 + $600
 
-; Bank 2 - Menus and data
+; Bank 2 - Menus and data (vt3.asm, vtdt.asm)
 
-wind2	=	$7c00	; 1k
-wind2_oob = wind2 + $400
+wind2	=	$7b00	; 1.25k
+wind2_oob = wind2 + $500
 
 ; Bank 3 - Backscroll buffer
 ; Bank 4 - Capture/ASCII Upload/File viewer buffer
@@ -377,11 +379,11 @@ dlst2		.ds $103
 
 lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
 
-; Macro key assignments. 12 bytes for 12 macros. 0-9 or A-Z (Ascii values, letters are upper case) or zero for no macro.
+; Macro key assignments. 12 bytes for 12 macros + 4 reserved. 0-9 or A-Z (Ascii values, letters are upper case) or zero for no macro.
 macro_key_assign
-			.ds 12
+			.ds 16
 ; spare
-			.ds 9
+			.ds 5
 
 	.if	* <> chartemp+320
 	.error "not using full second line!!"
@@ -469,13 +471,13 @@ norhw
 	.byte	"Esc to exit or  "
 	.byte	"any key to retry"
 
-winbufs_lo	.byte <wind1, <wind2, <wind3
-winbufs_hi	.byte >wind1, >wind2, >wind3
+winbufs_lo	.byte <wind1, <wind3, <wind2
+winbufs_hi	.byte >wind1, >wind3, >wind2
 
-winbufs_oob_hi .byte >wind1_oob, >wind2_oob, >wind3_oob
+winbufs_oob_hi .byte >wind1_oob, >wind3_oob, >wind2_oob
 
 winbanks
-	.byte	1, 2, 0
+	.byte	1, 0, 2
 
 postbl	.byte	$f0,$0f
 
@@ -566,20 +568,6 @@ sccolors
 	.byte	0,10,14,2	; Light text on dark background
 	.byte	14,4,0,12	; Dark text on light background
 
-kretrn	=	128
-kup		=	129
-kdown	=	130
-kright	=	131
-kleft	=	132
-kexit	=	133
-kcaps	=	134
-kscaps	=	135
-kdel	=	136
-ksdel	=	137
-kbrk	=	138
-kzero	=	139
-kctrl1	=	140
-
 p_device_name	.byte "P:"
 
 prntwin
@@ -605,6 +593,21 @@ diskdumpfname
 diskdumperr1
 	.byte	32,8,15
 	.byte	+$80, "  Disk error   "
+
+; special key code definitions
+kretrn	=	128
+kup		=	129
+kdown	=	130
+kright	=	131
+kleft	=	132
+kexit	=	133
+kcaps	=	134
+kscaps	=	135
+kdel	=	136
+ksdel	=	137
+kbrk	=	138
+kzero	=	139
+kctrl1	=	140
 
 keytab
 
@@ -664,7 +667,7 @@ sts2
 
 sts21	.byte	"Press Shift-Esc for menu."
 	.byte	"Use dialer to get online."
-;	.byte	"    Please register!     "		; yeah well, like that's gonna happen
+;	.byte	"    Please register!     "		; yeah, like that's gonna happen
 ;	.byte	" Support 8-bit software! "
 
 capsonp
@@ -705,9 +708,9 @@ svscrlms
 
 	.byte	"Version "
 version_str
-	.byte 	"2.8.0(alpha6)"
+	.byte 	"2.8.0(alpha7)"
 version_str_end
-	.byte	" Nov 28 2013. Contact: itaych@gmail.com"
+	.byte	", Oct 12 2014. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms
