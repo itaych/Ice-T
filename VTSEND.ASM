@@ -1,1 +1,0 @@
-; Ice-T terminal emulator v1.1,›; No R: handler.›› .oc› .ou V>ICETSEND.OBJ› .in V>VTIN.ASM  ; Intro test› .in V>VTV.ASM   ; Data tables› .in V>VT11.ASM  ; Main program› .in V>VT12.ASM› .in V>VT21.ASM  ; Terminal› .in V>VT22.ASM› .in V>VT3.ASM›tmpchset› .bi VT.FNT      ; VT100 charater set› .en›

@@ -1,0 +1,225 @@
+-----------------------------------------------------------
+                   VT100 Commands
+     as implemented in Ice-T Terminal Emulator v2.71
+              by Itay Chamiel, (c)1996.
+
+Based on list from Omnicom's documentation, by David Young.
+-----------------------------------------------------------
+
+Conventions used:
+
+Esc    - the ascii character 27
+^      - control.
+spaces - for clarity. They're not sent.
+__     - Decimal number from 0 to 255 (can be any number of digits: 001, 01, 1
+are the same).
+
+"Can scroll" means that if the cursor cannot move up or down without passing
+the scrolling limits (not necessarily the top or bottom of the screen), it
+will not move, and cause a scroll to occur.
+If the scrolling margin is not the same as the screen limit, and the cursor
+is at the top or bottom of the screen, "can scroll" commands will NOT cause a
+scroll. A scroll occurs ONLY at scroll margins.
+
+The VT100 commands are case-sensitive. C is not the same as c.
+
+Commands with parameters look like this:
+Esc [ __ ; __ ; __ ; ....... ; __ x (where x is a different letter for each
+command). Ice-T allows up to 255 numbers to be received in one command,  but
+most commands will only treat the first one or two numbers.
+All such commands have "defaults" which are used if no parameters are
+received, or if one is sent when two are expected.
+
+Unknown control characters, Unknown "Esc x" commands and unknown
+"Esc [ __ ; ... ; __ x" commands are all absorbed by the emulator with no
+effect.
+
+Control characters
+------------------
+^E  Send "Answerback" response, 4 characters (*): Ctrl-P + Ctrl-P 0
+^G  Bell, flash border color.
+^H  Cursor left one character. No effect if cursor on col 1
+^I  Tab. Cursor moves to next tabstop, or to column 80 if no further tabs.
+    Default tabstops are at columns 9, 17, 25, and so on, spaced 8 apart.
+^J  Linefeed, move cursor down one line. Move cursor to col 1 ONLY if newline
+    mode is SET (see Esc [ __ h). Can scroll.
+^K  Same as ^J
+^L  Formfeed, treated as Linefeed (^J)
+^M  Carriage-Return, move cursor to col 1
+^N  Invoke G1 character set (see "Esc )" commands)
+^O  Invoke G0 character set (see "Esc (" commands)
+^X  Abort any Esc sequence currently in progress. If a sequence was in progress
+^Y  and ^X or ^Y were sent, the checkerboard character is displayed to inform
+    of an error. If not - the code is ignored.
+^X B00 - Begin a Zmodem session. This is the beginning of the ZRQINIT frame.
+^[  Escape. Begins a new Escape-sequence, cancelling any other which may have
+    been in progress. (^[ is 27 or Esc.)
+
+(*) This answerback string is the one Telix (PC comm. program) returns.
+    I believe it is used for Compuserve transfers, and that it ought to be
+    configurable by the user.
+
+Esc x Codes
+-----------
+Esc c  Reset terminal settings, clear screen, home cursor.
+Esc D  Cursor down 1 line, can scroll.
+Esc E  Cursor down one line and moves to col 1, can scroll.
+Esc H  Set tab at current cursor horizontal position.
+Esc M  Cursor up 1 line, can scroll
+Esc Z  Identify Term. Software replies by sending response Esc [?1;0c
+Esc 7  Save cursor position, graphic rendition, character set, wrap mode.
+Esc 8  Restore stuff saved with Esc 7
+Esc >  Keypad NumLock On
+Esc =  Keypad NumLock Off
+
+Esc [ __ x commands
+-------------------
+These commands are also recognized if they do not receive any parameter
+(Esc [ x), or if they receive less than the required amount of parameters.
+In these cases, the default(s) replace the required number.
+
+Esc [ __ A  (none/0 --> 1) Cursor up __ lines, does not scroll, stops at edge
+          of screen
+Esc [ __ B  Down, same as above
+Esc [ __ C  Forward, same as above, cursor stays on same line
+Esc [ __ D  Backward, same as above
+Esc [ __ ; __ H  (none/0 --> 1,1) Set cursor to row, col. If any parameter is
+          not within range (80 for x or 24 for y) they are truncated to 80
+          or 24. 0 is converted to 1.
+Esc [ __ J  (none --> 0) Erase part of the screen:
+          0 - cursor position to end of line (inclusive) and all lines below
+          1 - cursor position to start of line (inclusive) and all lines above
+          2 - entire screen. cursor does not move. (ANSI-BBS: home cursor)
+          Other - ignore command
+Esc [ __ K  (none --> 0) Erase part of line:
+          0 - cursor position to end of line (inclusive)
+          1 - cursor position to start of line (inclusive)
+          2 - entire line
+          Other - ignore command
+Esc [ __ c  (Parameter ignored) Device attributes. Returns Esc [?1;0c
+Esc [ __ ; __ f  (none --> 1,1) same as Esc[_;_H (above)
+Esc [ __ g  (none --> 0)
+          0 - Clear tab at cursor column
+          3 - Clear all tabs.
+          Other - ignore command
+Esc [ __ h  (20 only accepted) 20 - Set newline mode
+          Receiving an lf will be treated as cr + lf
+          Pressing Return on keyboard sends cr + lf
+          Not 20 - ignore command.
+Esc [ __ l (20 only accepted) opposite of above, Reset newline mode
+          lf = lf alone
+          return sends lf alone
+          Not 20 - ignore command.
+Esc [ ? __ h  Set mode, see below
+Esc [ ? __ l  Reset mode, see below
+Parameter          Set           Reset
+ 1 - cursor keys   Application   Numeric
+ 3 - columns       clear screen in both cases
+ 5 - screen color  Reverse-vid   Normal
+ 7 - autowrap      On            Off
+Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
+ Select graphic rendition:
+ 0 - Normal      5 - Blink (recognized but not implemented)
+ 4 - Underline   7 - Reverse video   8 - Invisible (writes blank spaces)
+Esc [ __ n  (none --> 5)
+            Device Status Report. Response depends on parameter:
+            5: response is "ready" - Esc [0n
+            6: report cursor position - Esc [ row ; col R
+Esc [ __ ; __ r (defaults: 1,24) Set top and bottom scrolling margins.
+            1 and 24, for example, mean the entire screen scrolls.
+            14 and 24 cause the last 10 lines to scroll. 14,24 mean lines
+            14 to 24 INCLUSIVE.
+Esc [ __ s (Parameter ignored) Same as Esc 7
+Esc [ __ u (Parameter ignored) Same as Esc 8
+
+Other Escape sequences
+----------------------
+Esc ( A or Esc ( B             Set G0 to point to ASCII characters
+Esc ( 0 or Esc ( 1 or Esc ( 2  Set G0 to point to line-drawing graphics
+Esc ) A or Esc ) B             Set G1 to point to ASCII characters
+Esc ) 0 or Esc ) 1 or Esc ) 2  Set G1 to point to line-drawing graphics
+
+Esc # 3 Double-Height, top half
+Esc # 4 Double-Height, bottom half
+Esc # 5 Normal size
+Esc # 6 Double-width
+Esc # 7 Normal size
+Esc # 8 Fill screen with the letter E for screen adjustment (useless, but
+        was too easy to implement)
+
+The line-changing commands preserve anything already on that line, unless
+an 80-column line is changed into a 40-column line. In that case, the
+last 40 characters of that line are lost.
+Double-size characters use the standart built-in character set (since it's
+40 columns) plus a few characters like tilde and curly braces, and for the
+special graphics characters, which don't exist in ATASCII, a simple routine
+which doubles the 80-column characters is used.
+Double-height characters are the same as double-width, but their height is
+doubled.
+
+Special codes sent from the Ice-T keyboard:
+
+Numeric keypad:
+(Shift-Ctrl-key)            Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
+
+ Key  | On <NumLock> Off    Arrow |         Cursor key mode
+------+-----+------------    Key  | Reset (Numeric) | Set (Application)
+  0   | 0   | Esc O p       ------+-----------------+------------------
+  1   | 1   | Esc O q        Up   | Esc [ A         | Esc O A
+  2   | 2   | Esc O r       Down  | Esc [ B         | Esc O B
+  3   | 3   | Esc O s       Right | Esc [ C         | Esc O C
+  4   | 4   | Esc O t       Left  | Esc [ D         | Esc O D
+  5   | 5   | Esc O u
+  6   | 6   | Esc O v
+  7   | 7   | Esc O w
+  8   | 8   | Esc O x
+  9   | 9   | Esc O y
+  -   | -   | Esc O m
+  ,   | ,   | Esc O l
+  .   | .   | Esc O n
+Enter | ^M  | Esc O M
+ PF1  | --> | Esc O P  (Shift-Ctrl-Q)
+ PF2  | --> | Esc O Q  (Shift-Ctrl-W)
+ PF3  | --> | Esc O R  (Shift-Ctrl-E)
+ PF4  | --> | Esc O S  (Shift-Ctrl-R)
+
+Special characters in graphics mode:
+
+ASCII| Character in graphics mode
+-----+-------------------------------------
+ _    Blank
+ \    Diamond
+ a    Checkerboard
+ b    Two small letters HT, in upper-left and lower-right corners of character
+ c    Letters FF
+ d    Letters CR
+ e    Letters LF
+ f    Degree symbol
+ g    +/- symbol
+ h    Letters NL
+ i    Letters VT
+ j    lower-right corner of square
+ k    upper-right corner
+ l    upper-left corner
+ m    lower-left corner
+ n    crossing lines (+)
+ o    horizontal line - line 1 in character
+ p    horiz line - line 2
+ q    line 4
+ r    line 6
+ s    line 8
+ t    Left T            |-    (approximate appearance shown here)
+ u    Right T        -|
+ v    Bottom T         _|_
+ w    Top T          T
+ x    vertical bar      |
+ y    less/equal     _<
+ z    greater/equal     >_
+Opening curly braces: Pi symbol
+ |    Not equal        =/=
+Closing curly braces: UK pound symbol
+Tilde:                Centered dot
+
+Any corrections to the above will be appreciated!
+
+

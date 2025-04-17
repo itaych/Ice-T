@@ -1,0 +1,753 @@
+
+ I c e - T  XE --  A new terminal emulator for the 8-bits!
+
+ by Itay Chamiel - (c)1996 IceSoft
+
+ Version 2.72 - February 12, 1997
+
+ Email: itayc@hotmail.com
+
+Features:
+
+* Complete VT-102 and ANSI-BBS emulation, including boldface/blink support.
+* Takes advantage of XE/upgraded-XL banked RAM to provide many features.
+* Incredible speed - supports up to 19,200 baud, with no data loss!
+* Readable 80-columns, usable even with color TV.
+* Fully menu driven, very easy to use.
+* Xmodem-CRC, Xmodem-1K, Ymodem-batch, Ymodem-G, ZMODEM download protocols.
+* ASCII upload, 16K capture buffer
+* 16K scrollback buffer
+* Auto-dialer, with a directory of up to 20 numbers
+* Text file viewer
+* Fine scroll
+* Print screen (honest, it works now)
+
+48K USERS - There is an older, less capable version supporting all machines
+with less than 128K, including the 800. This is available at the Umich
+FTP/Gopher site, at 8bit/Telecomm/Terminals/icet800.arc.
+That version has a number of bugs, and I abandoned it when I moved on to
+a new version for the more capable 128K machines.
+
+Major additions for 2.7
+-----------------------
+Zmodem download - including crash recovery (resume a download later in case
+one was aborted in the middle).
+CRC error cheking now done using tables - no more speed limits for transfers!
+Tables are calculated, as opposed to being loaded from disk.
+Added boldfaced (highlighted) and blinking characters. Only one of these may
+be active at one time, though.
+Menu controls enhanced - the windows are more PC-like. Left/right will switch
+between different menus now.
+R: handler now loaded automatically. No more appending.
+Fixed disk-directory to allow for more than one screen to appear. (SpartaDOS
+doesn't limit the number of files allowed in a directory.)
+Some support added for those with automatic hardware flow control (Black-Box,
+MIO): Stops GETting data from R: if my buffer is full.
+Reset-terminal function and VT100 code added.
+Fixed a bug involving overwriting underlined spaces.
+Reset key now works properly, even if used more than once.
+Various other bug fixes, as usual. "Attract mode" now truly disabled.
+
+New for 2.71
+------------
+Bug fixes involving directory listings, screen clearing with 40-column (wide-
+character) lines on the screen, and setting scrolling margins. These are,
+I admit, pretty minor. I didn't have any free time!
+
+2.72
+----
+Print screen didn't work.. Pretty stupid mistake I made, I admit.
+
+Dialing string changed to invoke tone dialing only. See the "Dialing"
+section for details on how to use pulse.
+
+Discovered a minor annoying bug involving scrolling *portions* of the
+screen in boldface mode. It seems to strike especially when using IRC
+(through a dialup Unix/VAX shell) in multi-window mode.. My favorite
+online activity!! Grrr... I don't have time to fix this. Minor cosmetic
+bug in XON/XOFF flow control - ditto.
+
+A couple of extra registrations, but far from enough; I am probably
+ending this project due to extremely low feedback. I'm also going to the
+army, which means I have no spare time for this (I'm 18 now, and I live
+in Israel, which means I get drafted. By the way, I started this project
+when I was 13). Sorry, no macros or uploading..
+
+Shareware donation request
+--------------------------
+This software is shareware. It is NOT free, and some compensation for
+it is required. All details about this can be found in the title screen,
+meaning that if you don't get as far as that, you owe me nothing! :)
+
+Distribute this software widely and freely!
+
+Files in this archive
+---------------------
+ICET.COM - The main program file.
+ICET.DOC - You Are Here.
+VT100.DOC - Documentation of the VT-100 terminal, as implemented in Ice-T.
+*.HND - Various R: handlers. See below ("Getting started") for details.
+COL80.COM - An 80-column file reader.. It's not really a complete program,
+and has some bugs. It does auto-detect the end-of-line character, and it
+lets you move up as well as down in the file. When you're done reading
+these docs, I recommend rebooting rather than trying to Quit to DOS.
+PAPER.COM - Paperweight, by Curt Cox. This one is supposed to destroy your
+computer by melting the 6502. Unfortunately, it won't, but it's pretty funny
+to watch anyway. (Analog Computing, *April* 1986, included for your
+amusement.)
+
+Introduction
+------------
+Like most of today's 8-bit software, Ice-T started out as a quick hack
+designed to satisfy my needs. It gradually grew, however, and has already
+reached the point at which I can safely say that Bobterm is no longer the
+best communications software available (unless you want to upload!).
+The intention of this software is to remind everyone out there that the
+Atari 8-bit still is an exciting and viable computing platform; We ain't
+dead yet!
+
+Getting started
+---------------
+As with most modem-using programs, you need some kind of R: handler, which
+will allow the software to communicate with your particular modem/interface.
+Some interfaces already have such a handler built in, and don't need any
+software to install them. The 850, P:R: connection, and anything else that
+hooks up through the SIO or joystick ports, definitely needs such a file.
+
+Included with this disk are a number of such handlers. BOOT850.HND is for the
+850 interface. The other .HND files were taken from the Bobterm archive, and
+are included for your convenience - I credit Bob Puff for these.
+All .HND files are not mine; They may be used and distributed freely, and the
+Shareware request does not regard them. I'm just saying this so no one thinks
+I'm asking for money for freely available files.
+
+Once you know which file you need, rename it to RS232.COM. Ice-T will
+automatically load this file when loading, but only if it is actually
+needed (if there is no R: device already in the device table). You will
+also have the option of removing this handler from memory when quitting
+the program.
+
+I recommend write-protecting your disk before running for the first time;
+There is a large variety of RS-232 interfaces, and I haven't tested all
+(well, most) of them.
+
+Make sure your interface and/or modem are ON.
+
+If this is the first time you're using this version, make sure there
+is no ICET.DAT file on your disk or in the "D:" directory. Older
+configuration files are not compatible with the newer software.
+Don't attempt using these older files! (Note: Files created by version
+2.7 ARE compatible.)
+
+Binary-load ICET.COM.
+
+SpartaDOS users: This program is not guaranteed to be fully compatible.
+In earlier versions, problems were caused by the key buffer. A "key off"
+command had to be typed in before loading Ice-T, but this is no longer
+needed.
+
+A quick memory and device-handler test will be performed at load-up
+time. If you don't have 128K free, or if an R: handler couldn't be found
+or loaded, a notice will appear, and you will be put back to DOS.
+
+Loading time will be considerably shorter than normal if you had already
+loaded in Ice-T before. Your scrollback buffer will be preserved if you had
+used "Quit" to terminate the program (as opposed to a coldstart or whatever).
+
+I strongly recommend turning the computer off for about ten seconds in
+between using two different versions of Ice-T. I won't explain this here,
+but if for example you're using 2.6, quit, and then load 2.7, you'll be in
+trouble if you don't turn the computer off between them. (This won't
+happen if 2.71 is involved, though. You can freely switch between 2.71
+and any older version).
+
+You should now be looking at the title screen. If you see the message "Can't
+open port!", it means that something pretty bad has gone wrong.. Try loading
+again, and check your hardware.
+
+If you encounter any problems, feel free to mail me.
+
+Hit any key to enter the main menu.
+
+Before going on, I strongly recommend that you read through the rest of this
+doc. Some settings in the menu (not just the baud rate!) are critical and may
+cause problems if not set properly - especially slowing things down, or
+causing serious data loss.
+
+The RESET key can be used at any time to reset the terminal settings and
+to get back to the title screen in the rare case of a lockup.
+
+This program disables the "Attract" mode, that causes the screen
+colors to change a few minutes after the last time a key was pressed,
+protecting the image from "burning in". Therefore, don't leave this
+program on for long intervals without the display changing. If a wait is
+necessary, turn the monitor off, but leave the computer on.
+("Long interval" would probably best be defined as several months, unless
+you're using a really old monitor.. but don't hold me responsible if you
+ruin your display!)
+
+There is a bit of competition going on between this program and Clay
+Halliwell's terminal emulator FlickerTerm80. FT uses a special display scheme,
+using two alternating 40-column text screens, to create the illusion of
+an 80-column display. The advantage is that it's as fast as plain 40-column
+text, and in fact it is much faster than that. The disadvantage is the flicker.
+FT is flickery and annoying, in my opinion, but is extremely fast, and
+does 19.2Kbaud smoothly. It is compatible with ALL 8-bits.
+Ice-T doesn't flicker, and goes up to 19.2kbaud without any data loss...
+Only exceptionally long bursts of data at high speeds will require any
+form of flow control.
+FT has a very good terminal emulation - Ice-T is better, and inherently can
+include more display attributes, such as underline, double-height and fine
+scroll (which, as Clay explained to me, would look horrible in flicker mode).
+Ice-T also includes many more useful functions, such as auto-dial, scrollback,
+capture, and file transfer (By the time you read this, of course, Clay may
+have already added some of them).
+I recommend seeing both of these programs, as they represent the best of what
+the Atari 8-bits can do with modern software.
+
+Navigating in menus
+-------------------
+You control the highlighted bar with the arrow keys (do not hold down
+Control). You make a selection with the Spacebar or with <Return>, and back
+off into the previous menu without changing anything by pressing <Escape>.
+Shift-Esc will, in most menus, bring you back to the terminal.
+In the main-menu bar, the down arrow will work like the Return key, and open
+one of the four menu windows. In these windows, left and right will switch
+to one of the adjacent menus.
+
+The main menu
+-------------
+This menu has five selections:
+Terminal, Options, Settings, Mini-DOS, Transfer.
+
+Options menu
+------------
+This menu allows you to configure some cosmetic settings to your liking,
+as well as dialing and setting the clock.
+
+Dialing: This allows you to use the auto-dialer. In this screen, use
+the up and down arrow keys to select a number to dial, then Return
+to dial it, or Space to constantly dial until a connection is
+established.
+
+E - Edit the currently highlighted entry.
+A - Add a new entry, either at the highlighter's location, or at the
+bottom of the list.
+R - Remove this entry.
+
+The dialing string is ATDT, and then the number. This will only allow for
+tone dialing, and I admit this was quite lazy on my part. However, if you
+need pulse dialing add a "P" character before all your phone numbers. It's
+a kludge, I know, but it'll work.
+
+After getting connected, the status line will indicate "Online", and a
+timer indicating online time. Your hosts's name is also shown,  but if it's
+over 25 characters long, you'll only see the first 25.
+
+Keyclick: Choose between the ordinary Atari built-in click, the simple
+quiet click, or no click at all.
+
+Special: Select one of the special display modes. "None" is for none at all.
+
+* Boldface - enables boldface characters. This uses a player/missile "underlay"
+to highlight characters. The four players and the four missiles (grouped into
+a fifth player) are quadrupled in horizontal size and spread across the
+screen. Since each player is 8 pixels wide, we have a total of 40 pixels.
+This is a problem, since there are 80 characters per line.
+FlickerTerm cleverly bypasses this limitation by using two alternating PM
+memory locations for the two alternating 40-column screens. Ice-T can't do
+this, but if boldfaced words are seperated from normal words by at least one
+space, this should have no visible effect.
+Using this mode should not affect your speed, until boldfaced characters
+actually appear on the screen. This is because the player/missiles are
+disabled when they aren't needed - which means that ANTIC doesn't take
+any unnecessary CPU time.
+
+* Blink - This is internally identical to bold, except that the PMs are
+black (obscuring the blinking characters), and alternate on/off every
+half second. When they are off, player DMA is disabled, to save time.
+
+The ANSI codes for activating blink and bold characters are, of course,
+different, which means that if on a real terminal a certain screen will
+have the upper half in boldface and the lower half blinking, that same screen
+in Ice-T with Bold enabled will have the upper half highlighted and the
+lower half normal. With Blink enabled, the upper half will look normal
+and the lower half will blink.
+
+* Fine Scroll - enables fine scrolling in the terminal and file viewer.
+This scroll is done in VBI, which means that data continues to be displayed
+while the scroll is still taking place. No data loss can occur (I hope).
+I don't recommend using this for 19.2kbaud - it just won't look good, and
+will slow things down quite badly.
+
+Background: You can select the background color, but not its brightness.
+You CAN request a screen in inverse colors, though. Monochrome monitor
+users should only use color 0, and choose inverse mode according to their
+preference. Color users should choose the setting which renders the
+80-column screen most readable. I recommend trying 1,2,and F, in both
+inverse and standard modes.
+
+8-bit set: This is useful for PC-based BBS systems, which heavily use
+characters above 127 for character graphics and menus. However, if you select
+this, the scrollback buffer will not preserve inverse characters as such.
+Since this is not a part of the ANSI standard, you may wish to leave this
+off when using most Unix/VMS dialups and Internet access systems, since they
+will probably use the ANSI graphics mode, which doesn't need 8-bit characters.
+
+Cursor style: Choose between an underline cursor or a block one.
+
+Set clock: Set the clock in the upper-right corner of the menu screen.
+The current time will be displayed (upon startup it's 12:00).
+Use the arrows and number keys to change the setting.
+For example, if the time is 10:48 you just type "1048" and you're done.
+If it says 10:47, you press "->" 3 times (or "<-" once) and type 8.
+The screen will flash if you type in an invalid number, and in some cases this
+might cause problems, but nothing to get annoyed at.
+The clock cycles at 12:59 to 1:00. Look out your window for AM/PM.
+Pressing Return will set the time and zero the seconds.
+
+Zero timer: This will set the terminal's online timer to zero.
+
+Reset term - Reset all the internal VT "registers". This should be used if
+badly-written software at your host, noise in the line, or a sudden hangup
+leaves the terminal in a wrong mode. For example, if graphics mode is enabled
+when text is received, or if scrolling seems to stop working because the
+scrolling lower boundary is above the cursor's location.
+
+Settings menu
+-------------
+This menu is for setting your hardware for proper communications, with your
+modem and remote host.
+
+Baud rate: Set the communications speed between your computer and your
+modem. 14.4kbaud users should select 19.2k. Also, 850 users should note
+that this interface doesn't support 19.2k, so selecting it is the same
+as choosing 9600.
+
+Local Echo: When on, every character you type in Terminal will be sent to
+your host, and also sent directly to the VT100 processor, echoing what
+you typed. This option should be used with systems that don't automatically
+echo what you type back to you.
+
+Stop bits: Generally set to 1. I don't think 2 will ever be needed, I just
+put it in since it wasn't too difficult.
+
+Auto-wrap: You decide whether the cursor will wrap-around to the next line
+when it reaches the edge of the screen. Note that when entering this menu,
+the highlighted bar will NOT indicate the present status (which can be
+changed by a code from your host), but it shows the default mode, present
+when you load the program or reset the terminal (by pressing <Reset> or
+by selecting that option).
+Changing this setting WILL alter the current state, though (leaving this
+menu by hitting Esc will not).
+
+Emulation: Choose VT-102 or ANSI-BBS. I only know of one difference
+between these two (whether to home the cursor when clearing the
+screen - ANSI does).
+
+Delete key: Some hosts will only recognize $7F as delete, and others will
+need ^H. Choose the one suitable for yours, or the one used most often.
+
+End of line: Choose which incoming character is interpreted as an EOL.
+This shouldn't be confused with a similar menu in the Mini-DOS menu, which
+handles EOL conversion during file transfers and capture only.
+CR + LF  - Normal. CR moves cursor to the left and LF does a line feed.
+CR or LF - Either CR or LF are treated as a combination of both.
+ATASCII  - 155 ($9B), the Atari "return", is recognized as an EOL. Also,
+           the Atari TAB character is used. (CR or LF are still usable.)
+
+Status calls: This setting is fairly crucial for proper operation of this
+software.. Basically, if you're using anything faster than 4800, use
+"constantly". 850 users should use "normal". This setting determines
+how often the R: input buffer is emptied into Ice-T's large 16K buffer
+(indicated by the Bf: indicator), when Ice-T is already busy emptying
+this large buffer to the screen. Should it pause every character to
+check on the buffer or what? The problem is that most interfaces (not the
+850) have a very small (128-byte) input buffer, which easily loses data
+if not emptied often enough. On the other hand, the 850 allows using a large
+input buffer, and will slow you down if too many Status calls are made.
+Experiment with the settings until you find the best for your setup.
+Just to get the numbers straight:
+The 850, and any interface fully compatible with it, will use a 2K input
+buffer. Many other devices ignore CIO requests for larger buffers, and use
+128 bytes. The amount of characters processed in between emptying the R:
+buffer is:
+Normal     - 1024 bytes
+Very Often - 16 bytes
+Constantly - 1 byte.
+If the 16K buffer is empty, status calls are done constantly in all cases.
+
+Flow control: Choose between XON/XOFF, Rush, neither or both.
+
+Ice-T has a 16K cyclic buffer for all incoming data. Both of these flow-control
+schemes kick in when 12Kbytes of the buffer are full.
+
+This can happen if:
+
+* The buffer gets that full during Pause mode (stuff keeps coming in)
+* When fine scrolling, or heavy use of ANSI codes cause Ice-T to slow
+down and gradually accumulate characters (rare at low speeds)
+* Too much high-speed data (9600 and up) arrives at once, and is simply
+too much for the software to handle, in which case the buffer will gradually
+fill up.
+
+If the buffer gets full (16K), Ice-T will stop GETting data from the port.
+This will enable automatic hardware flow control, for those interfaces
+which support it.. You may even disable all flow controls by selecting
+"None", and this will still happen.
+
+Any form of flow control will actually occur quite rarely; At 9600 baud,
+37K of data have to come in, non-stop, for the flow control schemes to
+kick in; At 19.2kbaud, 16K of data has to fly in.
+Even if no flow control is enabled, much more that that has to arrive
+before any overflow (and therefore data loss, if your interface doesn't
+support auto hardware flow control) occurs.
+
+Incoming data keeps getting buffered up even if you're in the menus. XOFF
+remains enabled, but Rush does not, meaning that if you select Rush only, no
+flow control will be active and the buffer may overflow.
+
+When XOFF is working, a small brick character will appear at the upper
+left corner of the screen. Ice-T is smart enough to send more Ctrl-S
+characters if the first one was ignored, or if the remote host snaps
+back to life after a few moments of silence. In no case, though, will
+more than one ^S code be sent per second.
+
+As for the "Rush" flow control, I'm pretty sure it's never been done before
+(with good reason, too, I guess), so here's a quick description:
+
+Instead of "Online", "Paused", or "Manual" in the upper left corner, "Rush"
+lights up. All output to screen is stopped, and, if in Pause, scrollback
+will immediately scroll back to the main screen, and stop working.
+Note that this can NOT happen in the menus. If you quit to the menu,
+only the XOFF flow control remains active, *if* you selected it or both.
+
+During this time, the computer will be chugging away in the background,
+processing the incoming data as quickly as possible, not displaying it and only
+saving it into the 2K text mirror of the screen, which is much faster (used in
+Print-screen, screen refreshes and scrollback). When the buffer has shrunk
+back to safer proportions, this process stops.
+
+(Note that this text-mirror, which is always active, is, like the 8K graphics
+screen, scrolled "virtually", which means that I'm not actually moving 2K of
+data around.)
+
+-If you were in Pause mode, you won't be able to scrollback. Leaving Pause
+will refresh and update the screen, after which you will be able to
+scrollback as usual, but the older history info may have been lost.
+-If you were in Terminal mode, the screen will freeze during Rush, then
+suddenly blank and get redrawn. You can then Pause or scrollback as usual.
+
+This process can repeat if data keeps coming in quickly. You can try remotely
+pausing it by typing ^S (Xoff), but that would be done for you anyway if
+you selected "both" in the flow control menu. (^Q is Xon.)
+
+Save configuration:
+This will save the current settings and the dialing data into D:ICET.DAT.
+Note that the "pathname" has no effect on where this file is saved.
+
+Mini-DOS menu
+-------------
+Disk directory:
+This will display the directory of the path name you specified.
+Hit any key to return to the menu.
+
+Change path:
+Select the general pathname for all disk operations.
+Ice-T will try to complete incomplete names.. If what you entered doesn't
+begin with a "D", a "D" will be added. If it doesn't end with a ":" or with
+a ">", a ":" will be added. This means that "2" will be traslated to "D2:".
+":icet" will be translated to "d:icet:".
+Also note that all names are displayed and entered in lower case.
+
+D/L EOL trans.: Download EOL translation, for capture and protocol transfers.
+None - File transferred as-is. Good for binary transfers.
+ CR  - CR turns into a EOL, LF is ignored. This is recommended for most
+       text formats, since CR/LF combos are translated properly.
+ LF  - LF -> EOL, CR trashed.
+Either - Either code is translated to EOL. Don't use this if CR/LF is
+used in the original file, since you'll have two EOLs between each line.
+
+U/L EOL trans.: Upload EOL translation for ASCII-upload.
+EOL -> CR/LF - EOL translated to the CR/LF combo.
+EOL -> CR    - EOL translated to CR.
+EOL -> LF    - EOL translated to LF.
+No change    - File uploaded as-is. Use for binary transfers.
+
+Capture ANSI: Allows stripping of all ANSI codes from captured data.
+This does nothing to files transferred using protocol transfers (X/Y/Zmodem).
+
+View file: Read contents of a file in 80 columns. Press the space bar
+to jump one page, or Return for one line.
+
+Rename file:
+Type in the first name, then the second, with a Return after each.
+
+Delete, Lock, Unlock:
+File operations. Type in a file and Return.
+
+Transfer menu
+-------------
+Toggle capture: Enable or disable saving all incoming data into the capture
+buffer, marked by the "C:" indicator in the terminal. Data will be saved
+in this buffer when it is displayed (which can be after it is received).
+All EOL translation and ANSI stripping, if requested, will occur at that
+point, and not when saving; Make sure you have the proper settings for these
+before putting anything in the capture buffer.
+
+Save capture: This will allow you to save the current capture buffer into
+a disk file, or to discard it. Note that this *appends* the buffer's
+contents after the end of the currently existing file. This can be used
+to capture lots of data into one file, with a save being done once in
+a while to make room in the buffer.
+Any data coming in *during* a save will be lost, so make sure nothing does.
+
+ASCII upload - Send a file to the remote host, with no protocol.
+You can add a delay between every line sent, or cause the upload to wait for a
+prompt from the remote host before sending the next line. These two are
+mutually exclusive.
+
+Xmodem receive - This is an implementation of Ward Christensen's original
+protocol, developed in 1977. It includes all the later additions, including
+CRC-16 error checking, and 1K-block capability (sometimes incorrectly
+referred to as Ymodem). Each of these are used if the host supports them.
+To transfer a file you must first give the suitable command to your host. You
+may request Xmodem-1K (from the host!) if you want - it's faster with a clean
+line. Remember to set D/L EOL Trans. to "None" before transferring a binary
+file. Exit to the menus and select this option. The Xmodem protocol doesn't
+exchange any file information, and therefore you have to type in the file name.
+The transfer will begin, and you will be notified about most of what's going
+on. Downloading will stop every incoming 16K to save to disk, and I hope this
+doesn't cause the host to time out.
+The only drawback to this protocol is that a maximum of 127 extra bytes,
+or even 1023 bytes in 1K mode, can get added to the end of the file.
+If your sender program was written properly, it should be able to minimize this
+problem in 1K mode by using 128-byte packets towards the end of the file (since
+the receiver is capable of handling any combination of 128 or 1024-byte
+blocks).
+The contents of these bytes are usually Ctrl-Z, but again you're at the mercy
+of whoever programmed your host's software. They may just contain junk.
+Text files, UUencoded files and ARC files will come through safely, but if your
+file can't tolerate junk at its end, use Ymodem or Zmodem.
+Xmodem is always to be used as a "last-choice" only - Ymodem is better, Zmodem
+is best.
+
+Ymodem receive - This protocol is similar to Xmodem, with a few additions:
+1. Block check is CRC-16, and never checksum (fascinating, isn't it).
+2. More than one file can be transferred per session, and you may use
+wildcards to send more than one file (for example, you can request a file-
+name like *.DOC for all files with the DOC extension to be sent).
+3. The file's name is reported by the host, so you don't have to type it in,
+and use wildcards instead (see -2- above).
+4. The file length is also sent, so any extra characters in the last block can
+be removed. This capability is lost if the file is over 16MB long, but I'm
+pretty sure you already knew that.
+
+This implementation complies with Omen Technologies' definition of
+"True YMODEM(TM)", but I can't officially say that if it hasn't been
+certified by them. I am not going to attempt this.
+
+To transfer a file, request one or more files to be sent from your host,
+then select Ymodem receive in the Ice-T menu. The rest will be done
+automatically.
+
+Ymodem-G receive - This is a "streaming" version of Ymodem - the other side
+won't pause between packets for an acknowledgment, and in case of an error
+the transfer will be aborted. For this reason, this protocol should best be
+used with a reliable null-modem cable, or with an error-correcting modem.
+Another thing that should be noted is that this transfer may not be used if
+both modem and disk drive are connected through the serial port. The transfer
+will attempt writing to the disk while the modem port is still open, and
+this will cause a system crash with such a hardware configuration. I recommend
+using this protocol only if you have a RAMdisk, hard disk or if your modem
+is connected through a Black Box or MIO (or similar device).
+Even with a RAMdisk, Ice-T may have trouble keeping up with the constant
+data stream at high baud rates. In this case data will be lost, causing an
+error and aborting the transfer.
+
+Zmodem receive - This is the best protocol of them all. Like Ymodem-G,
+it uses streaming (no pause for acknowledgement) for maximum speed. Unlike
+it though, error recovery is possible. In addition, it is usable with all
+hardware configurations, since the host will stop every 16K to let Ice-T
+write its buffer to disk.
+If your host doesn't support this pause (very rare, and against the protocol
+documentation), a "Buffer overflow!" message will appear. Ice-T will pause to
+empty the buffer to disk, then resume, requesting the other side to repeat all
+the data that had been lost during the disk save. In fact, this should cause
+nothing more than a delay.
+CRC-16 is used, even though a more secure 32-bit check is possible.
+A future version may include this if I have enough room for the tables.
+
+To begin a transfer, request one or more files from your host. This will
+automatically begin the download; you may never actually have to select this
+option in the menu, unless the sender's initial request to send gets garbled.
+
+If a download is aborted for any reason, all validated data will be saved,
+and the file will close (no junk will be saved in the file). In addition,
+a file with the same name and a .RCV extension will be created, saving the
+received file's length; This file will be needed for crash recovery.
+When beginning a download, Zmodem will see if the filename to be transferred
+already exists locally. If it does, a .RCV file will be searched for, and
+the file transfer will continue from where it left off.
+If this .RCV file is not found, Ice-T will assume that this is NOT a crashed
+file, but it will not overwrite the old file; It will rename it by replacing
+the second character of the filename with a zero. If again such a file is
+found, the process repeats, increasing that number. It will cycle at 9.
+In the rare case that Zmodem can't find an unused name, it will cycle
+indefinitely; Press Esc to abort.
+
+If anyone has information on the faster ZedZap (8K packets) protocol, I'd
+like to hear about it.
+
+Quitting the program
+--------------------
+Hit <Escape> in the main menu. You will be asked whether you really wish to
+quit. A positive response will terminate the program, exiting to DOS,
+while saying no or pressing <Escape> will return you to the main menu.
+You also have the option of removing the R: handler and freeing the memory
+taken by it; This will only be possible if the handler was loaded by Ice-T.
+
+The Terminal
+------------
+The terminal is entered by selecting "Terminal" in the main menu. In this
+mode, whatever you type on the keyboard is sent to your host via the modem,
+and anything received is handled, either as a control command or as a
+character to be displayed.
+
+Pause:
+Ctrl-1 will toggle Pause mode. In Pause, all the keys work normally, and
+you can continue typing. Whatever you type WILL be sent to the host, but
+anything received from the host will be saved in the buffer, and will only be
+displayed when you press Ctrl-1 again. You can also exit to the menu from
+within Pause. Returning to terminal will put you back into Pause.
+
+When in Pause mode, you can use Option and Select to scroll the screen
+up and down respectively, to view the backscroll info.
+
+A "pseudo-pause" mode is entered by pressing Option to scroll back,
+when in normal terminal mode. While viewing the backscroll, any incoming
+data will bring you back to the main screen. This is useful if you're
+waiting for something and wish to read previous screens while waiting,
+knowing that you'll know about it as soon as it happens.
+
+Note, that only lines that get scrolled out of the top line get saved in this
+history buffer. If you're scrolling a lower portion of the screen (which
+is one of the capabilities of the VT100), the text is not retained.
+
+Incoming characters also accumulate in the buffer when you are not in
+Terminal mode. They are displayed when you return to Terminal with Pause off.
+
+Print-screen (^Shift-P):
+Will print the screen, as regular text, to any printer that is accessible
+through P:. Underlined or inverse text will appear normal on the printed
+page, and large-sized characters will also look normal, but will be spaced
+apart. ANSI graphics characters will not be printed, but characters above
+128 (in PC characters mode) will be, and are supported by most printers.
+Backscrolling will not affect the printout; Only the "main" screen gets
+printed. I have yet to hear any complaints about this.
+
+Hang-up (^Shift-H):
+Causes the modem to hang up by waiting 1.5 seconds, sending a "+++", waiting
+another 1.5 seconds, and sending an "ATH" (Return). The status line will
+indicate "Manual" (offline) mode.
+
+Quit to menu:
+Press Shift-Esc to quit to the main menu. If you are expecting data to arrive
+while you will be using the menu, or even if a new page of data is still being
+received, don't worry - any incoming data will be preserved, and up to 16K of
+text can come in without problems. XOFF flow control will remain active in the
+menus. Be warned, however, that any disk operation necessarily means closing
+the R: port, and data received during one will be lost.
+
+Using the keyboard in Terminal:
+Every usable key sounds a click when pressed (if click is enabled), so you'll
+know whether what you just pressed actually did something.
+
+Pressing a key with START held down is like Meta-[key], which means it sends
+an Escape before that key. For example, START-x will send a Meta-x, or
+"Esc x". This does not work with keys that send more than one code, like
+the arrow keys.
+Pressing anything with Select held down will send that code with the
+high bit set. Like Start-key, it only works with the "simple" keys. I doubt
+it'll ever need to be used, but when offline you can test the PC character
+set (make sure it's enabled in the "8-bit set" setting).
+
+Here is a list of legal keys:
+
+^ means the Control key.
+
+Local-function keys:
+Shift-Esc  Exit to menu
+^1         Pause (indicated in status line)
+^Esc       Send break
+Caps       Toggle Caps lock (indicated in status line)
+Shift-Caps Set caps lock to on
+^Shift-P   Print screen
+^Shift-H   Hang up
+^Shift-S   Obscure internal speed test
+
+Numeric keypad emulation:
+Codes sent depend on setting of Num-lock, which is indicated in
+the status-line, and is controlled by a code sent from host.
+
+The following used with ^Shift:
+0-9    -  Numeric-keypad 0-9
+Comma, period, minus, <Return> - Numeric keypad equivalents
+Q,W,E,R - PF1,2,3,4 respectively
+
+General keys:
+A-Z       - Lower or upper case according to Caps setting.
+Shift-A-Z - upper-case if Caps is off, lower-case if on.
+^A-Z, 0-9, Shift-0-9, Esc, Tab, <Return>, others not mentioned - obvious
+<Delete>  - Delete code specified in Parameters menu
+Shift-<Delete>  - Other delete code, the one you didn't specify.
+Ctrl-arrow keys - up, down, left, right. Code sent depends on cursor-key mode
+                  (controlled by host).
+(1200-XL only) Function keys: same as Ctrl-arrow keys - F1,2,3,4 are up, down,
+                  left, right, respectively.
+^7 - Accent mark
+^9,0 - Curly brackets
+Inverse/Atari logo key - tilde
+
+Special-purpose ASCII characters:
+^comma  - ^[ (same as Esc)
+^period - ^]
+^6      - ^^
+^8      - ^@ (null)
+^space  - ditto
+^colon  - ^_
+^?      - ^? ($7F, DEL)
+
+Acknowledgments
+---------------
+I'd like to thank Clay Halliwell (for competition, inspiration, enormous help
+with various speed-up ideas), Bill Kendrick (for testing, ideas, B&BH quotes),
+John Harris (for writing the MAE assembler/editor), Russ Gilbert (for getting
+the CRC to work!), and Tom Drake (bunches of help). Thanks guys!
+
+I'd also like to mention the OTHERS responsible for the creation of this
+software. I refer to the people who wrote the earlier VT-100 emulations,
+Kermit-65 (John Dunning), and Omnicom (David Young). While I respect these
+efforts to create useful software, they appear to have been written with
+no motivation, no cleverness, no love for the instrument - almost (gasp!) like
+PC software! To put it this way: Neither of them will work at 2400 baud
+without tight flow control. Quite simply, they suck. There, I said it, and
+I HAVE proven that I can do it better.
+
+Registration
+------------
+This software is not free. I have previously warned that future versions
+will have some sort of "cripple" if people keep thinking that it is,
+but I haven't done that just yet. I'm too lazy to do it anyway...
+Seriously, I just don't believe that this software, which consists of
+thousands of hours of work (seriously), can just be tossed out with nothing
+in exchange. If you use this program you must register!
+
+Enjoy Ice-T!!!!!
+
+Itay Chamiel
+9-A Narkis St.
+Jerusalem, 92461
+Israel
+--------------------------
+
