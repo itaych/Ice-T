@@ -119,8 +119,13 @@ Parameter          Set           Reset
  7 - autowrap      On            Off
 Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
  Select rendition mode(s) for text, parsed in the order they appear:
- 0 - Reset to normal   1 - Boldface        4 - Underline
+ 0 - Reset to normal   1 - Bold (bright)   4 - Underline
  5 - Blink             7 - Reverse video   8 - Invisible (writes blank spaces)
+ 22 - Normal intensity (turn bold off)
+ 30-37 - foreground color (White/Red/Green/Yellow/Blue/Magenta/Cyan/White)
+         (30 should be black but due to display limitations considered white)
+ 40-47 - background color - ignored if a foreground color is set, otherwise
+         treated as foreground color.
 Esc [ __ ; ... ; __ q Virtual LEDs control. 0 turns all off, 1-4 turns on the
             respective LED.
 Esc [ __ n  (none --> 5)

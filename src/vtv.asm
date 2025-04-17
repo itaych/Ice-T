@@ -13,7 +13,6 @@
 	.bank
 	*=	$80
 
-sv712		.ds 1
 cntrl		.ds 1
 cntrh		.ds 1
 x			.ds 1
@@ -130,6 +129,7 @@ crch		.ds 1
 nowvbi		.ds 1
 
 virtual_led	.ds 1
+dli_counter	.ds 1
 
 rt8_detected	.ds 1
 vframes_per_sec	.ds 1	; 50/60 depending on video system
@@ -146,6 +146,8 @@ end_page_zero
 
 ; Other	program equates
 
+; skips next 1-byte or 2-byte instruction, see http://www.6502.org/tutorials/6502opcodes.html#BIT
+; (note: this is a BIT opcode, so affects flags N V Z)
 BIT_skip1byte	= $24
 BIT_skip2bytes	= $2c
 
@@ -285,6 +287,14 @@ lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
 
 dlist	=	$bef0
 
+	.bank
+	*=	$602	; use page 6. skip 2 bytes to prevent some calculations from needing 16 bit math (we subtract 2 from array pointer)
+colortbl_0	.ds 24
+colortbl_1	.ds 24
+colortbl_2	.ds 24
+colortbl_3	.ds 24
+colortbl_4	.ds 24
+
 ; System equates
 
 brkkey	=	$11
@@ -311,6 +321,11 @@ bank1	=	$e3
 bank2	=	$e7
 bank3	=	$eb
 bank4	=	$ef
+
+nmien	=	$d40e
+
+DLI_ENABLE	=	$c0
+DLI_DISABLE	=	$40
 
 ; Program data
 
@@ -379,8 +394,8 @@ stopbits	.byte 0
 localecho	.byte 0
 click		.byte 2
 curssiz		.byte 6
-finescrol	.byte 0		; Enable fine scroll (0=disabled, 3=enabled)
-boldallw	.byte 1		; Enable boldface (0=disabled, 1=bold, 2=blink)
+finescrol	.byte 0		; Enable fine scroll (0=disabled, 4=enabled)
+boldallw	.byte 1		; Enable boldface (0=disabled, 1=color, 2=bold only, 3=blink)
 autowrap	.byte 1
 delchr		.byte 0
 bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
@@ -554,48 +569,15 @@ captdt		.byte "        "
 captfull
 	.byte	64,0,8
 	.byte	"--Full--"
+	
+; Title screen messages are in end of vtdt.asm (bank 2) except for version string
 tilmesg1
 	.byte	"Ice-T __"
-tilmesg2
-	.byte	(80-75)/2,8,75
-	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2013 Itay Chamiel."
 tilmesg3
-	.byte	(80-57)/2,10,57
+	.byte	(80-60)/2,10,60
 svscrlms
 ;	.byte	"Version 2.76, October 10, 2013. Contact: itaych@gmail.com"
-	.byte	"Version 2.76+(internal)12.10.13 Contact: itaych@gmail.com"
-.if 1
-tilmesg4
-	.byte	(80-75)/2,13,71
-	.byte	"This software is free, but donations are always appreciated (via Paypal"
-tilmesg5
-	.byte	(80-25)/2,14,25
-	.byte	"using the address above)."
-.else
-tilmesg4
-	.byte	2,12,76
-	.byte	"This software is Shareware, and may be freely distributed. For registration,"
-tilmesg5
-	.byte	3,13,72
-	.byte	"send $25 to Itay Chamiel, 9-A Narkis St, Apt 13, Jerusalem 92461 Israel."
-tilmesg6
-	.byte	1,14,79
-	.byte	"Help support further Atari 8-bit development by registering. Thanks in advance!"
-.endif
-
-xelogo
-	.byte	227,159,119,63,62,56,28,63
-	.byte	28,63,62,56,119,63,227,159
-
-icesoft		     ; IceSoft logo data
-	.byte	30,32,0,0,4
-	.byte	18,32,14,6,78
-	.byte	122,76,208,8,68
-	.byte	78,81,200,205,224
-	.byte	72,162,5,80,128
-	.byte	120,153,185,144,192
-	.byte	0,0,0,0,0
-	.byte	255,255,255,255,128
+	.byte	"Version 2.8.0(alpha2) Oct 15 2013. Contact: itaych@gmail.com"
 
 pstbl	.byte	0, 16, 1
 

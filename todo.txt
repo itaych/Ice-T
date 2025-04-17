@@ -2,14 +2,27 @@ ice-t
 -----
 1. proper detection of online status?
 2. Flow control can cause visual bugs or crashes, especially when entering dial menu.
+3. Does file transfer even work??
 
-move DLI code into VBI1 and disable DLI.
-read RT8 less often (after 59 frames, read every frame until change seen)
-move non essential (clock) code from VBI1 to VBI2. maybe use clock_update as flag. increment it rather than set to 1.
-arrange memory. perhaps move title screen texts into banked area.
-
+move DLI code into VBI1 and disable DLI. (done)
+read RT8 less often (after 59 frames, read every frame until change seen) (done)
+move non essential (clock) code from VBI1 to VBI2. maybe use clock_update as flag. increment it rather than set to 1. (done)
+arrange memory. perhaps move title screen texts into banked area. (done)
+colors (done)
+fine scroll will ruin DLI markers. must restore when leaving fscrol mode. (done)
+improve code efficiency. jump tables (done)
+colors not blanked when redrawing line during resize (done)
+colors not blanked when erasing lines or partial screen clears (done)
+find "todo" in vt2.asm, investigate and doit
+spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
+	however space should always bold/unbold if overwriting an existing char!
+colors are ugly if screen is inverse.
+maybe do black text by enabling inverse video. Then background color takes priority.
+set boldface to 0 when hanging up and dialing
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\bin\icet.lab
+e address byte
+? expr
 
 add to inittab or equivalent:
 dt:12345:respawn:/sbin/agetty -L ttyS0 9600 vt100

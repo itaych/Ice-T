@@ -8,6 +8,54 @@
 
 ; All menu-related data tables
 
+; Most title screen messages here
+
+tilmesg2
+	.byte	(80-75)/2,8,75
+	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2013 Itay Chamiel."
+.if 1
+tilmesg4
+	.byte	(80-75)/2,13,71
+	.byte	"This software is free, but donations are always appreciated (via Paypal"
+tilmesg5
+	.byte	(80-25)/2,14,25
+	.byte	"using the address above)."
+;tilmesg6
+;	.byte	(80-77)/2,24,77
+;	.byte	34,"Terminal je t'aime, I love you terminal, bella mia!",34," -Meir Ariel (1942-1999)"
+.else
+tilmesg4
+	.byte	2,12,76
+	.byte	"This software is Shareware, and may be freely distributed. For registration,"
+tilmesg5
+	.byte	3,13,72
+	.byte	"send $25 to Itay Chamiel, 9-A Narkis St, Apt 13, Jerusalem 92461 Israel."
+tilmesg6
+	.byte	1,14,79
+	.byte	"Help support further Atari 8-bit development by registering. Thanks in advance!"
+.endif
+
+xelogo
+	.dbyte ~1110001110011111
+	.dbyte ~0111011100111111
+	.dbyte ~0011111000111000
+	.dbyte ~0001110000111111
+	.dbyte ~0001110000111111
+	.dbyte ~0011111000111000
+	.dbyte ~0111011100111111
+	.dbyte ~1110001110011111
+
+icesoft		     ; IceSoft logo data
+	.byte	30,32,0,0,4
+	.byte	18,32,14,6,78
+	.byte	122,76,208,8,68
+	.byte	78,81,200,205,224
+	.byte	72,162,5,80,128
+	.byte	120,153,185,144,192
+	.byte	0,0,0,0,0
+	.byte	255,255,255,255,128
+; End of title screen data
+	
 escdat	.byte	"<Esc>!"			; used by text file viewer to display non-printable characters
 ctldat	.byte	"<Ctrl-F>!"
 vewdat	.byte	155, "Blabber!"
@@ -164,14 +212,15 @@ setclkd
 	.byte	36,3,36,4,36,5
 
 setscrw
-	.byte	36,3,55,8
+	.byte	36,3,55,9
 	.byte	" None           "
+	.byte	" ANSI colors    "
 	.byte	" Bold text      "
 	.byte	" Blinking text  "
 	.byte	" Fine scrolling "
 setscrd
-	.byte	1,4,16
-	.byte	38,4,38,5,38,6,38,7
+	.byte	1,5,16
+	.byte	38,4,38,5,38,6,38,7,38,8
 
 setcolw
 	.byte	36,3,55,10

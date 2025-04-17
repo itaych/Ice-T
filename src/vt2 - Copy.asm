@@ -12,10 +12,14 @@
 ; VT-100 TERMINAL EMULATOR
 
 connect
+	lda	linadr
+	sta	cntrl
+	lda	linadr+1
+	sta	cntrh
+	jsr	erslineraw	; clear status line
 	lda	#0
 	sta	mnmnucnt
 	sta	oldbufc
-	jsr	erslineraw_a	; clear status line
 	jsr	chklnsiz
 
 	lda	xoff
@@ -37,7 +41,7 @@ connect
 	jsr	boldon
 	lda	boldallw
 	cmp	#3
-	bne	?nbl	; If blink - turn blinking characters on by disabling PMs
+	bne	?nbl	; If blink - turn blinking characters ON by disabling PMs
 	lda	#0
 	ldx	#3
 ?bf
@@ -745,10 +749,10 @@ ysff
 ctrlcode_0b		; ^K - VT, same as lf
 ctrlcode_0c		; ^L - FF, same as lf
 	lda	newlmod	; Add a CR? (host)
-	beq	?no
+	beq	nolfcr
 	lda	#0	; yes.
 	sta	tx
-?no
+nolfcr
 	jsr	cmovedwn
 	jmp	rseol
 
@@ -991,6 +995,8 @@ esccode_resttrm	; c - Reset terminal
 	jsr	clrscrn
 	jmp	fincmnd
 
+hash_process
+
 ; process chars after Esc #
 
 ; 3 - double-height/width, top
@@ -1000,7 +1006,6 @@ esccode_resttrm	; c - Reset terminal
 ; 7 - normal size
 ; 8 - Fill screen with E's
 
-hash_process
 	cmp	#'8
 	bne	no_fill_e
 
@@ -1088,7 +1093,7 @@ no_fill_e
 	sta	lnsizdat,x	; and set new value
 	lda	szlen,y		; get size of new line (80 or 40 columns)
 	sta	szprchng+1	; self modified code defining size of redrawn line
-	jsr	ersline_no_txtmirror	; clear line including bold underlay, but don't erase in text mirror
+	jsr	noerstx		; clear line marked by variable y
 	jsr	calctxln	; calculate position of line in ascii mirror and put in ersl
 	lda	#32
 	ldx	#79
@@ -1194,17 +1199,31 @@ brakpro_first_char	; process first char after Esc [ (which may be a question mar
 	stx	trmode+1	; next char cannot be a '?' so do not accept one
 	ldx	#>brakpro
 	stx	trmode+2
-	cmp	#63			; is this a question mark?
+	cmp	#63			; '?'
 	bne	brakpro
 	lda	#1
 	sta	qmark		; indicate that we got a question mark and finish
 	rts
 
-brakpro			; Get numberical arguments and command after 'Esc ['
+brakpro			; Get numbers after 'Esc ['
+	cmp	#59		; semicolon?
+	bne	?notsmic
+?done_number
+	lda	finnum
+	ldx	numgot
+	sta	numstk,x
+	inc	numgot
+	lda	#255
+	sta	finnum
+	lda	#0
+	sta	digitgot
+	sta	gogetdg
+	rts
+?notsmic
 	cmp	#'0		; is this a digit?
-	bcc	?not_digit
+	bcc	?gotcomnd
 	cmp	#'9+1
-	bcs	?not_digit
+	bcs	?gotcomnd
 	sec
 	sbc	#'0
 	sta	temp
@@ -1229,23 +1248,21 @@ brakpro			; Get numberical arguments and command after 'Esc ['
 	lda	#1
 	sta	gogetdg
 	rts
-?not_digit		; not a digit, so the number is complete. add it to arguments stack
+?gotcomnd			; not a semicolon or digit - this is the command character.
 	tay
-	lda	finnum
-	ldx	numgot
-	sta	numstk,x
-	inc	numgot
-	lda	#255
-	sta	finnum
-	lda	#0
-	sta	digitgot
-	sta	gogetdg
+	lda	gogetdg		; read in the last argument (if there is one pending) into argument stack
+	beq	?nogetdg
+	jsr ?done_number
+?nogetdg
+	; if no args were given, generate one argument of invalid value (helps parsing later)
+	lda numgot
+	bne ?ok
+	lda #255
+	sta numstk
+	inc numgot
+?ok	
 	tya
-	cmp	#59		; is this character a semicolon?
-	bne	?notsemic
-	rts			; yes, we're done, wait for more arguments
-?notsemic
-	; this is the command character. Jump according to whether sequence started with a question mark
+	; Jump according to whether sequence started with a question mark
 	ldx	qmark
 	bne	?qmark
 	ldx #>esc_brakargs_code_jumptable
@@ -1297,7 +1314,7 @@ esc_brakargs_qmark_code_jumptable
 	.byte 'l
 	.word escbrakcode_rm
 	.byte $ff	; default
-	.word fincmnd1	; but should this be fincmnd in qmark mode? why? todo..
+	.word fincmnd1	; but should be fincmnd in qmark mode? why? todo..
 esc_brakargs_code_jumptable_end
 
 	.if esc_brakargs_code_jumptable_end - esc_brakargs_code_jumptable > $100
@@ -1310,6 +1327,10 @@ escbrakcode_cup		; H or f - Position cursor
 	bcs	hvpdo
 	lda	#1
 	sta	numstk+1
+	cpx	#0
+	bne	hvpdo
+	lda	#1
+	sta	numstk
 hvpdo
 	lda	numstk
 	cmp	#255
@@ -1518,92 +1539,104 @@ escbrakcode_decstbm	; r - set scroll margins
 	stx	ty
 	jmp	fincmnd1
 
-escbrakcode_el		; K - erase in line
+escbrakcode_el	; K - erase in line
+	lda	numgot
+	cmp	#0
+	bne	el1
+	sta	numstk
+el1
 	lda	numstk
-	beq ?v0
 	cmp	#3
-	bcs	?v0
-	cmp #1
-	beq ?v1
-	lda	ty			; 2 - clear entire line
-	sta	y
-	jsr	ersline
+	bcc	el2
+	lda	#0
+	sta	numstk
+el2
+	cmp	#0
+	bne	elno0
+	jsr	ersfmcurs
 	jmp	fincmnd
-?v0
-	jsr	ersfmcurs	; 0 or other - erase from cursor
-	jmp	fincmnd
-?v1					; 1 - erase to cursor
+elno0
+	cmp	#1
+	bne	elno1
 	jsr	erstocurs
 	jmp	fincmnd
-
-escbrakcode_ed		; J - erase in screen
-	lda	numstk
-	beq ?v0
-	cmp	#3
-	bcs	?v0
-	cmp #1
-	beq ?v1
-
-?v2					; 2 - clear entire screen. cursor does not move. (ANSI-BBS: home cursor)
-	jsr	clrscrn
-	lda	ansibbs
-	beq	?nc
-	lda	#0
-	sta	tx
-	lda	#1
-	ldx origin_mode
-	beq ?no_org
-	lda scrltop
-?no_org
-	sta	ty
-?nc
+elno1
+	lda	ty
+	sta	ersl
+	jsr	ersline
 	jmp	fincmnd
-	
-?v0					; 0 - clear from cursor position (inclusive) to end of line and all lines below
-					; (exception: if cursor is at home, just go and clear the whole screen. This is simpler plus
-					;  pushes the text mirror into scrollback buffer)
+
+escbrakcode_ed	; J - erase in screen
+	lda	numgot
+	bne	ed1
+	sta	numstk
+ed1
+	lda	numstk
+	cmp	#3
+	bcc	ed2
+	lda	#0
+	sta	numstk
+ed2
+	cmp	#0
+	bne	edno0
+; 0 - clear from cursor position to end of line (inclusive) and all lines below
+
+	; if cursor is at home, just go and clear the whole screen
 	lda ty
 	cmp #1
 	bne ?not_home
 	lda tx
-	beq ?v2
+	beq edno1
 ?not_home
 	jsr	ersfmcurs
 	lda	ty
 	sta	y
 	lda tx		; is cursor at start of line? don't skip this line when resetting line sizes
-	beq ?ed0lp2
-?ed0lp
+	beq ed0lp2
+ed0lp
 	inc	y
-?ed0lp2
+ed0lp2
 	lda	y
 	cmp	#25
-	beq	?ed0ok
+	beq	ed0ok
+
 	tax			; reset line sizes
 	dex
 	lda	#0
 	sta	lnsizdat,x
+	inx
+	txa
+
+	sta	ersl
 	jsr	ersline
 	jsr	buffifnd
-	jmp	?ed0lp
-?ed0ok
+	jmp	ed0lp
+ed0ok
 	jmp	fincmnd
-?v1				; 1 - clear from cursor position (inclusive) to start of line and all lines above
+edno0
+	cmp	#1
+	bne	edno1
+; 1 - clear from cursor position to start of line (inclusive) and all lines above
 	lda	#1
 	sta	y
-?ed1lp
+ed1lp
 	lda	y
 	cmp	ty
-	beq	?ed1ok
+	beq	ed1ok
+
 	tax			; reset line sizes
 	dex
 	lda	#0
 	sta	lnsizdat,x
+	inx
+	txa
+
+	sta	ersl
 	jsr	ersline
 	jsr	buffifnd
 	inc	y
-	jmp	?ed1lp
-?ed1ok
+	jmp	ed1lp
+ed1ok
 	jsr	erstocurs
 	; is cursor at end of a line? reset line size of this line too
 	ldx ty
@@ -1617,7 +1650,22 @@ escbrakcode_ed		; J - erase in screen
 	sta lnsizdat,x
 ?done
 	jmp	fincmnd
-	
+edno1
+; 2 - clear entire screen. cursor does not move. (ANSI-BBS: home cursor)
+	jsr	clrscrn
+	lda	ansibbs
+	beq	?nc
+	lda	#0
+	sta	tx
+	lda	#1
+	ldx origin_mode
+	beq ?no_org
+	lda scrltop
+?no_org
+	sta	ty
+?nc
+	jmp	fincmnd
+
 escbrakcode_leds	; q - control LEDs
 	lda numgot
 	bne ?ok
@@ -1828,22 +1876,32 @@ decreqtparm_encoded_baudrates
 
 escbrakcode_bc	; g - clear tabs
 	lda	numgot
-	beq ?v0
+	bne	tbc1
+	lda	#255
+	sta	numstk
+tbc1
 	lda	numstk
-	beq ?v0
+	cmp	#255
+	bne	tbc2
+	lda	#0
+	sta	numstk
+tbc2
+	lda	numstk
 	cmp	#3
-	bne	?done
+	bne	tbcno3
 	lda	#0
 	ldx #79
-?lp
+tbc3lp
 	sta	tabs,x
 	dex
-	bpl	?lp
-?done
+	bpl	tbc3lp
 	jmp	fincmnd
-?v0
+tbcno3
+	cmp	#0
+	bne	tbcno0
 	ldx	tx
 	sta	tabs,x
+tbcno0
 	jmp	fincmnd
 	
 escbrakcode_sm	; h - set mode
@@ -1853,30 +1911,22 @@ escbrakcode_rm	; l - reset mode
 	lda	#0
 	sta	modedo
 
-	ldx #255
-	.byte BIT_skip2bytes
-	
-fincmnd_domode	; loop over arguments for h/l
-	pla
-	tax
-	inx
-	cpx numgot
+domode_loop		; This part for h and l
+	lda numgot	; loops until argument stack is empty
 	bne ?ok
 	jmp	fincmnd ; done, exit.
 ?ok
-	txa
-	pha
-	lda numstk,x
+	lda numstk
 	ldx	qmark
 	bne	?domode_qmark
-	cmp	#20			; without question mark after the Esc [..
+	cmp	#20		; without question mark after the Esc [..
 	bne	?noLNM
 	lda	modedo
-	sta	newlmod		; set Newline mode
+	sta	newlmod	; set Newline mode
 ?noLNM
 	jmp	fincmnd_domode
-?domode_qmark		; with question mark
-	cmp	#1
+?domode_qmark
+	cmp	#1			; with question mark
 	bne	nodecckm	; set arrowkeys mode
 	lda	modedo
 	sta	ckeysmod
@@ -1926,18 +1976,30 @@ nodecom
 	lda	modedo
 	sta	wrpmode
 nodecawm
-	jmp	fincmnd_domode
+;	jmp	fincmnd_domode
+	
+fincmnd_domode	; push back queue of values and go process first value again
+	ldx #0
+?lp
+	lda numstk+1,x
+	sta numstk,x
+	inx
+	cpx numgot
+	bne ?lp
+	dec numgot
+	jmp	domode_loop
 	
 escbrakcode_sgr	; m - set graphic rendition
 	ldy	#255
 	lda	numgot
 	bne	sgrlp
-	inc numgot	; no args? act as if there was 1 arg. (contains value 255)
+	sta numstk	; no args - put a 0 arg
+	inc numgot
 sgrlp
 	iny
 	cpy	numgot
 	bne ?ok
-	jmp	fincmnd
+	jmp	sgrdone
 ?ok
 	lda	numstk,y
 	beq	sgrmd0
@@ -2039,6 +2101,8 @@ sgrmdno8
 	jmp ?forecolor
 ?nobackcolor	
 	jmp	sgrlp
+sgrdone
+	jmp	fincmnd
 
 fincmnd1
 	jsr	rseol
@@ -2056,7 +2120,6 @@ erstocurs
 	sta	y
 	jsr	calctxln
 	ldy tx
-	sty x
 	ldx	ty
 	dex
 	lda	lnsizdat,x	; wide line?
@@ -2064,27 +2127,15 @@ erstocurs
 	tya			; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
 	tay
-	sty x		; for bold clear (later)
 	cpy #80
 	bcc ?ok
 	ldy #78
-	sty x
 ?ok
 	lda #32
 txerto
 	sta	(ersl),y
 	dey
 	bpl	txerto
-
-	; erase bold info
-	lda boldallw
-	beq ?nobold
-?boldlp
-	jsr unbold
-	dec x
-	dec x
-	bpl ?boldlp
-?nobold
 
 	; erase text on screen
 	lda	ty
@@ -2149,7 +2200,6 @@ ersfmcurs
 	sta	y
 	jsr	calctxln
 	ldy tx
-	sty x
 	ldx	ty
 	dex
 	lda	lnsizdat,x	; wide line?
@@ -2157,11 +2207,9 @@ ersfmcurs
 	tya			; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
 	tay
-	sty x		; for bold clear (later)
 	cpy #80
 	bcc ?ok
 	ldy #78
-	sty x
 ?ok
 	lda #32
 txerfm
@@ -2169,18 +2217,6 @@ txerfm
 	iny
 	cpy	#80
 	bne	txerfm
-
-	; erase bold info
-	lda boldallw
-	beq ?nobold
-?boldlp
-	jsr unbold
-	inc x
-	inc x
-	lda x
-	cmp #80
-	bcc ?boldlp
-?nobold
 
 	; erase text on screen
 	lda	ty
@@ -2991,7 +3027,13 @@ scdnrush
 
 doscroldn
 	lda	scrlbot
-	jsr	erslineraw_a	; blank the new line
+	asl	a
+	tax
+	lda	linadr,x
+	sta	cntrl
+	lda	linadr+1,x
+	sta	cntrh
+	jsr	erslineraw	; blank the new line
 	lda	#1
 	sta	crsscrl
 
@@ -3090,9 +3132,6 @@ doscroldn
 	sta	(cntrl),y
 
 	; scroll color info
-	lda boldallw
-	cmp #1
-	bne ?nocolor
 	lda boldcolrtables_lo,x
 	sta prfrom
 	sec
@@ -3116,7 +3155,7 @@ doscroldn
 	lda #0
 	sta (cntrl),y
 	jsr update_colors_line0
-?nocolor	
+	
 	dex		; on to the next PM
 	bmi	?en
 	jmp	?mlp
@@ -3243,7 +3282,13 @@ scrlup			; SCROLL UP
 	rts
 ?up
 	lda	scrltop
-	jsr	erslineraw_a
+	asl	a
+	tax
+	lda	linadr,x
+	sta	cntrl
+	lda	linadr+1,x
+	sta	cntrh
+	jsr	erslineraw
 	lda	#1
 	sta	crsscrl
 
@@ -3348,9 +3393,6 @@ scrlup			; SCROLL UP
 	sta	(cntrl),y
 
 	; scroll color info
-	lda boldallw
-	cmp #1
-	bne ?nocolor
 	lda boldcolrtables_lo,x
 	sec
 	sbc #1
@@ -3374,7 +3416,6 @@ scrlup			; SCROLL UP
 	lda #0
 	sta (cntrl),y
 	jsr update_colors_line0
-?nocolor
 	
 	dex		; on to the next PM
 	bmi	?en
@@ -3537,50 +3578,33 @@ prep_boldface_scroll
 ; ************************************************************************************************************
 
 ersline
-	lda	y
-	beq	ersline_done
-	; erase text mirror
+	lda	ersl
+	sta	y
+	cmp	#0
+	beq	noerstx
 	asl	a
 	tax
 	dex
 	dex
 	lda	txlinadr,x
-	sta	cntrl
+	sta	ersl
 	lda	txlinadr+1,x
-	sta	cntrh
+	sta	ersl+1
 	ldy	#79
 	lda	#32
-?lp
-	sta	(cntrl),y
+erstxlnlp
+	sta	(ersl),y
 	dey
-	bpl	?lp
-ersline_no_txtmirror
-	; erase bold underlay (if enabled) for this line
-	lda boldallw
-	beq ?nobold
-	ldx #4
-?bold_lp
-	lda boldtbpl,x
-	sta cntrl
-	lda boldtbph,x
-	sta cntrh
-	ldy y
-	lda boldytb,y
-	tay
-	lda #0
-	sta	(cntrl),y
-	iny
-	sta	(cntrl),y
-	iny
-	sta	(cntrl),y
-	iny
-	sta	(cntrl),y
-	dex
-	bpl ?bold_lp
-?nobold
-	lda y
-ersline_done
-	jmp erslineraw_a	; in VT1
+	bpl	erstxlnlp
+noerstx				; this is NOT a local!!
+	lda	y
+	asl	a
+	tax
+	lda	linadr,x
+	sta	cntrl
+	lda	linadr+1,x
+	sta	cntrh
+	jmp	erslineraw ; in VT1
 
 lookst			; Init buffer-scroller
 	lda	scrlsv
@@ -3887,7 +3911,8 @@ lookbk			; Go all the way down
 	lda	#24
 	sta	look
 ?n
-	jmp	boldon
+	jsr	boldon
+	rts
 
 crsifneed
 	lda	oldflash
@@ -4581,7 +4606,8 @@ hangup	        ; Hang up
 ?qh
 	jsr	getscrn
 	jsr	crsifneed
-	jmp	boldon
+	jsr	boldon
+	rts
 
 ; Status line doers
 
@@ -4915,7 +4941,11 @@ dialing2		; Dialing Menu
 	lda	#0
 	sta	clock_enable
 ;	jsr	getscrn
-	jsr	erslineraw_a
+	lda	linadr
+	sta	cntrl
+	lda	linadr+1
+	sta	cntrh
+	jsr	erslineraw
 	ldx	#>diltop
 	ldy	#<diltop
 	jsr	prmesg
@@ -5209,8 +5239,11 @@ dodial
 	bne ?lp2
 ?end_lp2
 
-	lda #24
-	jsr	erslineraw_a
+	lda	linadr+48
+	sta	cntrl
+	lda	linadr+49
+	sta	cntrh
+	jsr	erslineraw
 
 ?wtbuflp				; wait for response from modem
 	lda	764
@@ -5320,8 +5353,11 @@ dodial
 ?abort_dial
 	lda	#0
 	sta	diltmp2
-	lda	#24
-	jsr	erslineraw_a
+	lda	linadr+48
+	sta	cntrl
+	lda	linadr+49
+	sta	cntrh
+	jsr	erslineraw
 	jmp	dialloop
 ?nky
 	jsr	vdelay
@@ -5416,8 +5452,11 @@ dledit
 	cpy	#80
 	bne	?lp2
 ?mlp
-	lda #5
-	jsr	erslineraw_a
+	lda	linadr+10
+	sta	cntrl
+	lda	linadr+11
+	sta	cntrh
+	jsr	erslineraw
 
 	ldx	#>(dialmem+4)
 	ldy	#<(dialmem+4)
@@ -5561,8 +5600,11 @@ noedit
 	sta	y
 	jmp	dledit
 ?en
-	lda	#24
-	jsr	erslineraw_a
+	lda	linadr+48
+	sta	cntrl
+	lda	linadr+49
+	sta	cntrh
+	jsr	erslineraw
 	jmp	dialloop
 ?nadd
 	cmp	#114	; [r]emove entry
@@ -5575,8 +5617,11 @@ noedit
 	jsr	getkeybuff
 	cmp	#121	; y
 	bne	?en
-	lda #24
-	jsr	erslineraw_a
+	lda	linadr+48
+	sta	cntrl
+	lda	linadr+49
+	sta	cntrh
+	jsr	erslineraw
 	lda	scrltop
 	pha
 	lda	scrlbot

@@ -332,11 +332,11 @@ setclk			; Set Keyclick type
 
 setscr			; Special effects department
 	ldx	#>setscrw
-	ldy	#<setscrw	; (Boldface, blink, fine scroll)
+	ldy	#<setscrw	; (Boldface, color, blink, fine scroll)
 	jsr	drawwin
 	ldx	#>setscrd
 	ldy	#<setscrd
-	lda	finescrol
+	lda	finescrol	; only one of finescrol and boldallw may be nonzero.
 	ora	boldallw
 	sta	mnucnt
 	jsr	menudo1
@@ -350,7 +350,7 @@ setscr			; Special effects department
 	sta	boldface
 	jmp	?n
 ?nz
-	cmp	#3
+	cmp	#4
 	beq	?n1
 	cmp	boldallw
 	beq	?bl
@@ -358,6 +358,7 @@ setscr			; Special effects department
 	lda	#0
 	sta	finescrol
 	sta boldface
+	jsr set_dlist_dli	; re-set DLI bits in display list, as fine scroll may have moved them
 	jsr	boldclr
 ?bl
 	jmp	bkopt
@@ -1863,13 +1864,9 @@ filvew			; File viewer
 	pha
 ;	jsr	getscrn
 ;	jsr	getscrn
-	lda	linadr
-	sta	cntrl
-	lda	linadr+1
-	sta	cntrh
-	jsr	erslineraw
 	lda	#0
 	sta	clock_enable
+	jsr	erslineraw_a
 	lda	#24
 	sta	outdat
 	lda	#255
@@ -2280,13 +2277,9 @@ ascupl			; Ascii upload
 	jmp	?lp
 ?ner
 	jsr	getscrn
-	lda	linadr
-	sta	cntrl
-	lda	linadr+1
-	sta	cntrh
-	jsr	erslineraw
 	lda	#0
 	sta	clock_enable
+	jsr	erslineraw_a
 
 	ldx	#>ascpr
 	ldy	#<ascpr
@@ -2859,13 +2852,9 @@ xmdini			; Initialization for X/Y/Zmodem
 	dey
 	bpl	?lw
 	jsr	getscrn
-	lda	linadr
-	sta	cntrl
-	lda	linadr+1
-	sta	cntrh
-	jsr	erslineraw
 	lda	#0
 	sta	clock_enable
+	jsr	erslineraw_a
 	ldx	#>xmdtop1
 	ldy	#<xmdtop1
 	jsr	prmesgnov

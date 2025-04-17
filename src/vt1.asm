@@ -101,7 +101,8 @@ norst
 	sta	cntrl
 	lda	#>screen
 	sta	cntrh
-	ldx	#0
+	lda	#0
+	sta y
 dodl
 	ldy	#0
 	lda	#$4f
@@ -118,17 +119,13 @@ dodl
 	adc	#>320
 	sta	cntrh
 	iny
-	txa
-	pha
 	ldx #6
-?dodl_lp
 	lda	#$f
+?dodl_lp
 	sta	(prchar),y
 	iny
 	dex
 	bpl ?dodl_lp
-	pla
-	tax
 	clc
 	lda	prchar
 	adc	#10
@@ -136,17 +133,17 @@ dodl
 	lda	prchar+1
 	adc	#0
 	sta	prchar+1
-	inx
-	cpx	#1
+	lda y
 	bne	?o
-	lda	#0
-	tay
+	tay				; add blank scan line after first text line
 	sta	(prchar),y
 	inc	prchar
 	bne	?o
 	inc	prchar+1
 ?o
-	cpx	#25
+	inc y
+	lda y
+	cmp	#25
 	bne	dodl
 		
 	ldy	#0
@@ -161,6 +158,7 @@ dodl
 	lda	#>dlist
 	sta	(prchar),y
 	sta	dlst2+$102
+	; Some lines cross 4K boundaries; replace them with different lines.
 	lda	#<(screen-320)
 	sta	dlist+3
 	lda	#>(screen-320)
@@ -170,9 +168,7 @@ dodl
 	lda	#>(screen-640)
 	sta	dlist+135
 
-;	lda	dlist+2
-;	ora	#128
-;	sta	dlist+2
+	jsr set_dlist_dli
 
 	ldx	#0
 ?l
@@ -281,9 +277,8 @@ dodl
 	bpl	?u
 	lda	boldallw
 	pha
-	lda	#1
+	lda	#1			; color mode
 	sta	boldallw
-	sta	boldface
 	jsr	boldclr
 	lda	#1
 	sta	boldypm
@@ -292,9 +287,11 @@ dodl
 	sta	lnsizdat+16
 	lda	#3
 	sta	lnsizdat+5
-	ldx	#0
 	lda	#bank1	; for printerm
 	sta	banksw
+	lda #1+(4*2)
+	sta	boldface
+	ldx	#0
 ?p
 	txa
 	pha
@@ -313,12 +310,14 @@ dodl
 	inx
 	cpx	#8
 	bne	?p
-	lda	#17
+	lda #1+(2*2)
+	sta	boldface
+	lda	#17		; Make Icesoft logo bold
 	sta	x
 	lda	#17
 	sta	y
 ?p2
-	lda	#32
+	lda	#'_		; just print underscores for now; the logo will be drawn later.
 	sta	prchar
 	jsr	printerm
 	inc	x
@@ -326,6 +325,23 @@ dodl
 	cmp	#22
 	bne	?p2
 
+	lda #1+(1*2)
+	sta	boldface
+	lda #(80-75)/2 ; emphasize tilmesg2 too
+	sta x
+	lda #8
+	sta y
+?p3
+	lda	#'_
+	sta	prchar
+	jsr	printerm
+	inc	x
+	lda	x
+	cmp	#(80-75)/2+75
+	bne	?p3
+	
+	lda	#bank2		; Most title data is in bank 2
+	sta	banksw
 	ldx	#>tilmesg2	; Title messages
 	ldy	#<tilmesg2
 	jsr	prmesgnov
@@ -423,12 +439,6 @@ dodl
 ?ntsc
 	sty vbi1_time_correct_lo+1
 	stx vbi1_time_correct_hi+1
-;	lda #<dli
-;	sta	512
-;	lda #>dli
-;	sta	513
-;	lda	#192
-;	sta	54286
 ?no_setup_time_correction
 
 	lda	$222
@@ -448,6 +458,11 @@ dodl
 	lda	#7
 	jsr	setvbv
 
+	lda #<dli	; add display list interrupt
+	sta	512
+	lda #>dli
+	sta	513
+
 	lda	$236	; hook into 'break' key handler
 	sta	brk_exit+1
 	lda	$237
@@ -458,6 +473,8 @@ dodl
 	sta	$237
 
 	jsr	setcolors	; Set screen colors
+	lda #DLI_ENABLE
+	sta nmien
 	lda	#46
 	sta	559	; Show screen
 	jsr	ropen	; Open port, wait for key
@@ -532,6 +549,26 @@ gomenu2
 	lda #0
 	sta brkkey_enable
 	jmp	mnmnloop	; Jump to menu
+
+set_dlist_dli
+	ldx #22		; location of last scanline instruction (mode F) of first terminal text line (second line of screen)
+	ldy #22		; 23 lines need to be modified
+?lp
+	lda dlist,x
+	ora #$80	; enable DLI bit
+	sta dlist,x
+	txa
+	clc
+	adc #10		; each text line is LMS + 2 byte address + 7 bytes of graphics mode F = 10 bytes
+	tax
+	dey
+	bpl ?lp
+	
+	; last line: turn bit off
+	lda dlist,x
+	and #$7f
+	sta dlist,x
+	rts
 
 rt8_to_menu_convert
 	tay
@@ -1120,20 +1157,14 @@ clrscrn			; Clear screen
 	jsr	boldclr
 	jsr	rslnsize
 
-clrscrnraw		; Clear JUST the screen, nothing else
+clrscrnraw		; Clear JUST the terminal screen, nothing else (text mirror etc.)
 	lda	#0
 	sta	numofwin
 	ldx	#1
 ?lp
-	txa
-	asl	a
-	tay
-	lda	linadr,y
-	sta	cntrl
-	lda	linadr+1,y
-	sta	cntrh
 	; both of these JSRs do not affect x register
-	jsr	erslineraw
+	txa
+	jsr	erslineraw_a
 	jsr	buffifnd
 	inx
 	cpx	#25
@@ -1312,7 +1343,7 @@ gropen
 
 close2			; Close #2
 	ldx	#$20
-	.byte BIT_skip2bytes   ; skips next instruction, see http://www.6502.org/tutorials/6502opcodes.html#BIT
+	.byte BIT_skip2bytes
 close3			; Close #3
 	ldx	#$30
 	lda	#12
@@ -1661,20 +1692,21 @@ buffifnd		; Status call in time-costly routines
 	jsr	buffdo
 	pla
 	tax
+r_dummy_rts
 	rts
 
 ; For these calls we load $20 in X because some handlers look for information in IOCB even when called directly
 rgetch
 	ldx #$20
-rgetvector	jmp $ffff
+rgetvector	jmp r_dummy_rts
 
 rputch
 	ldx #$20
-rputvector	jmp $ffff
+rputvector	jmp r_dummy_rts
 
 rgetstat
 	ldx #$20
-rstatvector	jmp $ffff
+rstatvector	jmp r_dummy_rts
 
 ;        -- Ice-T --
 ;  A VT-100 terminal emulator
@@ -1697,15 +1729,34 @@ break_handler
 brk_exit
 	jmp $ffff
 
-;dli
-;	pha
-;	pla
-;	rti
+; Display List Interrupt invoked near end of each text line, to update PM underlay for color text
+dli
+	pha
+	txa
+	pha
+	inc dli_counter		; we want to start at offset 1 (0 values are placed in shadow color registers and taken care of by OS VBI)
+	ldx dli_counter
+	lda colortbl_0,x
+	sta $d019			; missiles (leftmost column)
+	lda colortbl_1,x
+	sta $d012
+	lda colortbl_2,x
+	sta $d013
+	lda colortbl_3,x
+	sta $d014
+	lda colortbl_4,x
+	sta $d015
+	pla
+	tax
+	pla
+	rti
 
 ; Immediate VBI (occurs every frame)
 vbi1
 	lda	#8
 	sta	53279		; reset console speaker
+	lda #0
+	sta dli_counter
 ;	lda	560
 ;	sta	$d402
 ;	lda	561
@@ -1814,7 +1865,7 @@ vbi2
 	sta	newflash
 
 	ldx	boldallw	; Blink characters..
-	cpx	#2
+	cpx	#3
 	bne	?noflash
 	ldx	isbold
 	beq	?noflash
@@ -1838,15 +1889,15 @@ vbi2
 	sta	$d400
 	ldx	#3
 ?bl
-	lda	pmhoztbl,x
+	lda	pmhoztbl_players,x
 	sta	53248,x
-	lda	pmhoztbl+4,x
+	lda	pmhoztbl_missiles,x
 	sta	53252,x
 	dex
 	bpl	?bl
 ?noflash
-	lda	xoff	; Flow-control timer
-	beq	?ok	; (Don't sent XOFF more than
+	lda	xoff			; Flow-control timer
+	beq	?ok				; (Don't sent XOFF more than
 	cmp	vframes_per_sec	; once per second)
 	beq	?ok
 	inc	xoff
@@ -2573,6 +2624,13 @@ chk1s
 	sta	numb+2
 	rts
 
+erslineraw_a	; Erase line in screen (at Accumulator)
+	asl	a
+	tay
+	lda	linadr,y
+	sta	cntrl
+	lda	linadr+1,y
+	sta	cntrh
 erslineraw		; Erase line in screen (at cntrl)
 	lda	#255
 filline_custom_value
@@ -2722,7 +2780,7 @@ setcolors		; Set color registers
 	cpy	#4
 	bne	?l
 	lda	boldallw
-	cmp	#2
+	cmp	#3
 	bne	?nbl
 	lda	709
 	sta	711
@@ -2738,7 +2796,7 @@ setcolors		; Set color registers
 ; Boldface routines
 
 boldon			; Enable PMs
-	lda	boldallw
+	ldy	boldallw
 	bne	?g
 	rts
 ?g
@@ -2756,20 +2814,25 @@ boldon			; Enable PMs
 	lda	#46
 	sta	559
 	sta	$d400
+	cpy #1		; color enabled? turn on DLI
+	bne ?o
+	jsr update_colors_line0
+	lda #DLI_ENABLE
+	sta nmien
 ?o
 	lda	#3
 	sta	53277
 	lda	#255
 	sta	53260
-	lda	#$80
+	lda	#$80	; PMBASE
 	sta	54279
 	ldx	#3
 ?lp
 	lda	#3
 	sta	53256,x
-	lda	pmhoztbl,x
+	lda	pmhoztbl_players,x
 	sta	53248,x
-	lda	pmhoztbl+4,x
+	lda	pmhoztbl_missiles,x
 	sta	53252,x
 	dex
 	bpl	?lp
@@ -2777,8 +2840,21 @@ boldon			; Enable PMs
 	sta	623
 	rts
 
-pmhoztbl .byte 80,112,144,176
-	 .byte 72,64,56,48
+pmhoztbl_players	.byte 80,112,144,176
+pmhoztbl_missiles	.byte 72,64,56,48
+
+update_colors_line0
+	lda colortbl_0
+	sta 711
+	lda colortbl_1
+	sta 704
+	lda colortbl_2
+	sta 705
+	lda colortbl_3
+	sta 706
+	lda colortbl_4
+	sta 707
+	rts
 
 boldclr			; Clear boldface PMs
 	lda	boldallw
@@ -2802,6 +2878,15 @@ boldclr			; Clear boldface PMs
 	sta	boldpm+$180,x
 	inx
 	bne	?lp
+
+	; clear PM color table
+	ldx #24*5-1		; 5 color tables, each 24 bytes (total 120)
+	lda #0
+?clp
+	sta colortbl_0,x
+	dex
+	bpl ?clp
+	
 	lda	banksv
 	sta	banksw
 
@@ -2819,6 +2904,8 @@ boldoff			; Disable PMs
 	lda	559
 	and	#~11110011	; Disable PM DMA
 	sta	559
+	lda #DLI_DISABLE	; Disable DLI if it was on (in case of color display)
+	sta nmien
 	rts
 
 ; Various routines for accessing banked memory from
@@ -3054,7 +3141,7 @@ chsetinlp
 	inx
 	bne	chsetinlp
 
-.if 1					; '0' to disable partial load feature
+.if 0					; '0' to disable partial load feature
 	ldx #0
 ?lp
 	lda	#bank1
@@ -3237,6 +3324,71 @@ mktxlnadrs
 	sta	scrlsv+1
 ?ok
 
+; Find R: device vectors (at HATABS $31A)
+
+	ldx	#0
+?hatabs_lp
+	lda	$31a,x
+	cmp	#'R
+	bne ?nor
+	stx ?device_r_pos
+?nor
+	cmp #'D
+	bne ?nod
+	stx ?device_d_pos
+?nod
+	cmp #'H
+	bne ?noh
+	stx ?device_h_pos
+?noh
+	inx
+	inx
+	inx
+	cpx #36		; maximum for HATABS
+	bne ?hatabs_lp
+
+	ldx ?device_r_pos
+	cpx #255
+	beq ?no_rhandler
+	lda	$31a+1,x	; vec. table
+	sta	cntrl
+	lda	$31a+2,x
+	sta	cntrh
+
+; increment each vector, since they are designed to be pushed onto the
+; stack then jumped to via an RTS instruction
+
+	ldy	#4	; find GET vector
+	lda	(cntrl),y
+	clc
+	adc	#1
+	sta	rgetvector+1
+	iny
+	lda	(cntrl),y
+	adc	#0
+	sta	rgetvector+2
+
+	ldy	#8	; find STATUS vector
+	lda	(cntrl),y
+	clc
+	adc	#1
+	sta	rstatvector+1
+	iny
+	lda	(cntrl),y
+	adc	#0
+	sta	rstatvector+2
+
+	ldy #6	; find PUT vector
+	lda (cntrl),y
+	clc
+	adc #1
+	sta rputvector+1
+	iny
+	lda (cntrl),y
+	adc #0
+	sta rputvector+2
+?no_rhandler
+
 ; SpartaDOS 2/3 or RealDOS: Fix pathname for configuration file and
 ; default for file operations (thanks to fox-1 for this code).
 
@@ -3260,21 +3412,34 @@ mktxlnadrs
 	bpl ?lp2
 ; get current device and number from OS (directory path not needed)
 	ldy #33
-	lda ($0a), y	; COMTAB+33 contains first 2 chars of full path (e.g. "D2")
+	lda ($0a),y	; COMTAB+33 contains first 2 chars of full path (e.g. "D2")
 	sta cfgname
 	sta pathnm
 	iny
-	lda ($0a), y
+	lda ($0a),y
 	sta cfgname+1
-	sta pathnm+1;
+	sta pathnm+1
 	lda #':
-	sta pathnm+2;
+	sta pathnm+2
 ?nosparta
 
+; Use H: instead of D: if H: device exists and D: does not
+	lda ?device_d_pos
+	cmp #255
+	bne ?no_use_h
+	lda ?device_h_pos
+	cmp #255
+	beq ?no_use_h
+	lda #'H
+	sta pathnm
+	sta cfgname
+?no_use_h
+
+; Load in config file
 	jsr	close2
 	ldx	#$20
 	lda	#3
-	sta	iccom+$20	; Load in config file
+	sta	iccom+$20
 	lda	#4
 	sta	icaux1+$20
 	lda	#0
@@ -3285,17 +3450,17 @@ mktxlnadrs
 	sta	icbah+$20
 	jsr	ciov
 	cpy	#128
-	bcc	initopok
+	bcc	?initopok
 	jsr	close2
 	ldx	#0
-interrlp
+?interrlp
 	lda	cfgdat,x	; If no file available
 	sta	savddat,x	; set defaults
 	inx
 	cpx	#cfgnum
-	bne	interrlp
-	jmp	interr
-initopok
+	bne	?interrlp
+	jmp	?interr
+?initopok
 	ldx	#$20
 	lda	#7
 	sta	iccom+$20
@@ -3321,8 +3486,7 @@ initopok
 	lda	#bank1
 	jsr	bankciov
 	jsr	close2
-
-interr
+?interr
 
 ; Setup	tables for bold
 
@@ -3375,61 +3539,6 @@ interr
 	cpx	#25
 	bne	?l2
 
-; Find R: device vectors (at $31A)
-
-	ldx	#0
-?lp
-	lda	$31a,x
-	cmp	#'R
-	beq	?ok
-	inx
-	inx
-	inx
-	jmp	?lp
-?ok
-
-; ldx #devmod	  ; modem device#*16
-; lda ichid,x
-; tax
-
-	lda	$31a+1,x	; vec. table
-	sta	cntrl
-	lda	$31a+2,x
-	sta	cntrh
-
-; increment each vector, since they are designed to be pushed onto the
-; stack then jumped to via an RTS instruction
-
-	ldy	#4	; find GET vector
-	lda	(cntrl),Y
-	clc
-	adc	#1
-	sta	rgetvector+1
-	iny
-	lda	(cntrl),y
-	adc	#0
-	sta	rgetvector+2
-
-	ldy	#8	; find STATUS vector
-	lda	(cntrl),y
-	clc
-	adc	#1
-	sta	rstatvector+1
-	iny
-	lda	(cntrl),y
-	adc	#0
-	sta	rstatvector+2
-
-	ldy #6	; find PUT vector
-	lda (cntrl),y
-	clc
-	adc #1
-	sta rputvector+1
-	iny
-	lda (cntrl),y
-	adc #0
-	sta rputvector+2
-
 ; Generate CRC-16 table for X/Y/Zmodem.
 
 	lda	#bank2
@@ -3472,12 +3581,14 @@ interr
 
 	jmp	norst
 
-; offsets to each PM for bold (5 hi, 5 lo)
+; offsets to R:, D:, H: in HATABS.
+?device_r_pos .byte 255
+?device_d_pos .byte 255
+?device_h_pos .byte 255
 
+; offsets to each PM for bold (5 hi, 5 lo)
 ?tb_hi	.byte	$00,$00,$01,$01,$02
 ?tb_lo	.byte	$00,$80,$00,$80,$00
 
 ?vl	.ds	2
 ?acl	.ds	2
-
-;
