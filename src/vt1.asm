@@ -1446,45 +1446,50 @@ winchng2
 buffpl
 	lda	bufget
 	cmp	bufput
-	bne	bufpok1
+	bne	?ok1
 	lda	bufget+1
 	cmp	bufput+1
-	bne	bufpok1
+	bne	?ok1
 	lda	mybcount+1
 	cmp	#$40
-	beq	bufpok1
+	beq	?ok1
+	; buffer is empty. Try polling serial port for more.
 	jsr	buffdo
 	lda	#0
 	sta	chrcnt
 	sta	chrcnt+1
 	cpx	#0
-	beq	bufpok1
-	rts
-bufpok1
+	beq	?ok1
+	rts		; serial port is empty too - bail out.
+?ok1
+	; read a byte from buffer
 	lda	bank0
 	sta	banksw
 	ldy	#0
 	lda	(bufget),y
-	pha
+	tay
+	lda	banksv
+	sta	banksw
+	; increment buffer pointer
 	inc	bufget
-	bne	?ok
+	bne	?ok2
 	inc	bufget+1
-?ok
 	lda	bufget+1
 	cmp	#>buftop
-	bne	bufpok2
-	lda	bufget
-	cmp	#<buftop
-	bne	bufpok2
+	bne	?ok2
+	; wraparound - set pointer to start of buffer
 	lda	#<buffer
 	sta	bufget
 	lda	#>buffer
 	sta	bufget+1
-bufpok2
-	jsr	calcbufln
-	lda	banksv
-	sta	banksw
-	pla
+?ok2
+	; decrement buffer size counter. quicker than jsr calcbufln
+	lda mybcount
+	bne ?ok3
+	dec mybcount+1
+?ok3
+	dec mybcount
+	tya
 	ldx	#0
 	rts
 
@@ -1506,9 +1511,27 @@ calcbufln		; Calculate mybcount
 	sta	mybcount+1
 	rts
 
+; buffdo
+	; jsr rgetstat
+	; bne ?bf
+	; ldx #1
+	; rts
+; ?bf
+	; ldx #0
+	; rts
+
+; buffpl
+	; jsr rgetstat
+	; bne ?bf
+	; ldx #1
+	; rts
+; ?bf
+	; jsr	rgetch
+	; ldx #0
+	; rts
+
+		
 buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is pending
-	lda	bank0
-	sta	banksw
 	jsr	rgetstat	; R: status command
 	bne	?bf			; jump if any data
 	lda	bufget		; Check my buffer
@@ -1521,24 +1544,24 @@ buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is 
 	cmp	#$40
 	beq	?okn
 	ldx	#1			; Report: buffer empty
-?o2
-	lda	banksv
-	sta	banksw
 	rts
 ?ok
-	jsr	calcbufln	; Not empty, check for
-?okn	jsr	chkrsh	; flow control
-	ldx	#0
-	jmp	?o2
+;	jsr	calcbufln	; 
+?okn	
+	jsr	chkrsh		; Not empty, check for flow control
+	ldx	#0			; Report buffer not empty
+	rts
 ?bf
-	lda	xoff			; If flow is off and data
-	cmp	vframes_per_sec	; comes in anyway, turn it
-	bne	?o3				; off again (once a second)
+	lda	bank0		; switch to bank 0 for writing data to input buffer
+	sta	banksw
+	lda	xoff		; If flow is off (we sent an XOFF) and data comes in anyway, try turn it off again (once a second)
+	cmp	vframes_per_sec
+	bne	?get_lp
 	lda	#0
 	sta	xoff
-?o3
+?get_lp
 	lda	mybcount+1
-	cmp	#$40	; Buffer full? GET nothing.
+	cmp	#$40	; Buffer full? GET nothing and quit loop.
 	beq	?gn
 	jsr	rgetch	; Get byte from R:
 	jsr	putbuf	; Stick it in my buffer
@@ -1550,7 +1573,7 @@ buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is 
 	dec	bcount+1
 ?cs
 	ora	bcount+1
-	bne	?bf
+	bne	?get_lp
 	lda	mybcount+1
 	cmp	#$40	; Buffer full? No calculating.
 	beq	?gn
@@ -1568,16 +1591,16 @@ putbuf			; Insert byte into buffer
 	bne	?ok
 	inc	bufput+1
 	lda	bufput+1
-	cmp	#$80
+	cmp	#>buftop
 	bne	?ok
-	lda	#$40
+	lda	#>buffer
 	sta	bufput+1
 ?ok
-	lda	bufput	; Overflow?
-	cmp	bufget
-	bne	?ok1
-	lda	bufput+1
+	lda	bufput+1	; Overflow?
 	cmp	bufget+1
+	bne	?ok1
+	lda	bufput
+	cmp	bufget
 	bne	?ok1
 
 	lda	#$40	; Get no more, until there's room
@@ -1593,9 +1616,7 @@ putbufbk		; Insert byte into buffer
 	sta	banksw
 	rts
 
-chkrsh			; Check for impending
-	lda	bank1	; buffer overflow, and
-	sta	banksw	; use flow control
+chkrsh			; Check for impending buffer overflow, and use flow control
 
 ; Xon/Xoff flow control:
 	lda	xoff
@@ -1632,7 +1653,7 @@ chkrsh			; Check for impending
 	jsr	rputch
 	lda	#0
 	sta	x
-	sta	y			; upper left cornet
+	sta	y			; upper left corner
 	lda	#32			; xoff - put a space
 	sta	prchar
 	lda xoff
@@ -1664,6 +1685,8 @@ chkrsh			; Check for impending
 	lda	#1
 	sta	rush
 	sta	didrush
+	lda	bank1
+	sta	banksw
 	jsr	shctrl1
 	lda	finescrol
 	pha
@@ -1673,7 +1696,7 @@ chkrsh			; Check for impending
 	jsr	lookbk
 	pla
 	sta	finescrol
-	jmp	?nd
+	jmp	?nd_banksv
 ?no
 	lda	rush	; Check for end of fast mode
 	beq	?nd
@@ -1685,10 +1708,13 @@ chkrsh			; Check for impending
 	sta	oldflash
 	lda	#1
 	sta	newflash
+	lda	bank1
+	sta	banksw
 	jsr	shctrl1
-?nd
+?nd_banksv
 	lda	banksv
 	sta	banksw
+?nd
 	rts
 
 mkblkchr		; Create block character (copy from PC character set)

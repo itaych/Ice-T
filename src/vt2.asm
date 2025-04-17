@@ -154,6 +154,7 @@ keepget
 	cpx	#1
 	beq	endlp
 	jsr	dovt100	; Process char
+;	jmp getno256 ; TEMP TEMP TEMP DELETE ME
 	lda	fastr
 	beq	?nofr
 	cmp	#2
@@ -175,9 +176,25 @@ keepget
 	lda	#0
 	sta	chrcnt+1
 ?ok
-	jsr	timrdo
+	; if status checks are set to "constantly" we do this for each byte. Try to save a few cycles at the expense of making
+	; the code a little ugly. (a jsr+rts takes 12 cycles)
+	
+	; equivalent to jsr timrdo - but save time if we don't need to jsr
+	lda	timer_1sec
+	beq	?skip_timer
+	jsr	timrdo?ok
+?skip_timer
+
 	jsr	buffdo
-	jsr	bufcntdo
+	
+	; equivalent to jsr bufcntdo - but save time if we don't need to jsr
+	lda	mybcount+1
+	and #$f8
+	cmp	oldbufc
+	beq	?skip_bufcntdo
+	jsr	bufcntdo?ok
+?skip_bufcntdo
+
 	lda	didrush
 	beq	getno256
 	lda	rush
@@ -447,7 +464,7 @@ vt100_done_check_hi_chars
 	cmp	#32
 	bcc	trmode?cc
 trmode
-	jmp	regmode	; Self-modified address
+	jmp	regmode	; Self-modified address, depending on terminal parser state
 ?cc
 	ldx #>ctrlcode_jumptable
 	ldy #<ctrlcode_jumptable
@@ -645,32 +662,34 @@ notgrph
 ; handle the following control codes (any other control character is ignored)
 
 ctrlcode_jumptable
-	.byte $05
-	.word ctrlcode_05
-	.byte $07
-	.word ctrlcode_07
-	.byte $08
-	.word ctrlcode_08
-	.byte $09
-	.word ctrlcode_09
+; most commonly used first
 	.byte $0a
-	.word ctrlcode_0a
-	.byte $0b
-	.word ctrlcode_0b
-	.byte $0c
-	.word ctrlcode_0c
+	.word ctrlcode_0a	; LF
 	.byte $0d
-	.word ctrlcode_0d
-	.byte $0e
-	.word ctrlcode_0e
-	.byte $0f
-	.word ctrlcode_0f
-	.byte $18
-	.word ctrlcode_18
-	.byte $1a
-	.word ctrlcode_1a
+	.word ctrlcode_0d	; CR
 	.byte $1b
-	.word ctrlcode_1b
+	.word ctrlcode_1b	; ESC
+; less common codes in numeric order
+	.byte $05
+	.word ctrlcode_05	; ENQ
+	.byte $07
+	.word ctrlcode_07	; BEL
+	.byte $08
+	.word ctrlcode_08	; BS
+	.byte $09
+	.word ctrlcode_09	; TAB
+	.byte $0b
+	.word ctrlcode_0b	; VT
+	.byte $0c
+	.word ctrlcode_0c	; FF
+	.byte $0e
+	.word ctrlcode_0e	; G1
+	.byte $0f
+	.word ctrlcode_0f	; G0
+	.byte $18
+	.word ctrlcode_18	; Cancel
+	.byte $1a
+	.word ctrlcode_1a	; Cancel
 	.byte $ff	; default
 	.word ctrlcode_unused
 ctrlcode_jumptable_end
@@ -932,9 +951,10 @@ esccode_vt52_decanm
 
 esccode_brak	; '[' - start escape sequence with arguments (CSI)
 	lda	#255
-	sta	finnum
+	sta	finnum	; mark that we haven't received a number yet
 	lda	#0
 	sta	qmark	; mark that we didn't (yet) get a question mark character after '['
+	sta	csi_last_interm
 	ldy	#<brakpro_first_char
 	ldx	#>brakpro_first_char
 	jmp setnextmode
@@ -1270,9 +1290,14 @@ brakpro_first_char	; process first char after Esc [ (which may be a question mar
 
 brakpro			; Get numerical arguments and command after 'Esc ['
 	cmp	#'0		; is this a digit?
-	bcc	?not_digit
+	bcs	?not_param
+	; value is between $20-$2f, store it
+	sta csi_last_interm
+	rts
+?not_param
 	cmp	#'9+1
 	bcs	?not_digit
+	; we got a digit, 0-9
 	sec
 	sbc	#'0
 	sta	temp
@@ -1291,18 +1316,19 @@ brakpro			; Get numerical arguments and command after 'Esc ['
 	adc	temp	; and add new digit
 	sta	finnum
 	rts
-?not_digit		; not a digit, so the number is complete. add it to arguments stack
+?not_digit		; not a digit, so the number is complete. add it to arguments stack.
+	; in case of no args at all, a spurious 255 argument may be added to the stack. this doesn't matter.
 	tay
 	lda	finnum
 	ldx	numgot
 	sta	numstk,x
 	inc	numgot
-	lda	#255
-	sta	finnum
 	tya
 	cmp	#59		; was this character a semicolon?
 	bne	?notsemic
-	rts			; yes, we're done, wait for more arguments
+	lda	#255	; yes, we're done, wait for more arguments
+	sta	finnum
+	rts
 ?notsemic
 	; this is the command character. Jump according to whether sequence started with a question mark
 	ldx	qmark
@@ -1346,6 +1372,9 @@ csi_code_jumptable
 	.word csicode_bc
 	.byte 'm
 	.word csicode_sgr
+; private sequence (active only if '/' appeared as intermediate character beforehand)
+	.byte 't
+	.word csicode_icet_private
 ; VT-102 sequences
 	.byte 'P
 	.word csicode_dch
@@ -2211,6 +2240,43 @@ csicode_cbt				; Z - move backwards n tab stops
 ?done
 	stx	tx
 	jmp fincmnd_reset_seol
+
+; Handle private escape code - Esc [ .. / t
+csicode_icet_private
+	lda csi_last_interm
+	cmp #47		; make sure we got a '/'
+	beq ?ok
+	jmp fincmnd
+?ok
+	lda numstk	; switch according to first argument.
+	ldx #>icet_privcode_jumptable
+	ldy #<icet_privcode_jumptable
+	jmp parse_jumptable
+
+icet_privcode_jumptable
+	.byte 1
+	.word icet_privcode_vdelay
+; more to come.
+	.byte $ff	; default
+	.word fincmnd
+icet_privcode_jumptable_end
+
+	.if icet_privcode_jumptable_end - icet_privcode_jumptable > $100
+	.error icet_privcode_jumptable too big!
+	.endif
+
+icet_privcode_vdelay	; 1 - vdelay
+	CHECK_PARAMS 1,1,254
+	lda numstk+1
+?lp
+	pha
+	jsr	vdelayr
+	jsr	buffdo
+	pla
+	sec
+	sbc #1
+	bne ?lp
+	jmp fincmnd
 
 fincmnd_reset_seol
 	jsr	reset_seol
@@ -5059,37 +5125,35 @@ captbfdo
 
 bufcntdo
 	lda	mybcount+1
-	lsr	a
-	lsr	a
-	lsr	a
+	and #$f8	; drop 3 low bits
 	cmp	oldbufc
-	bne	bufcntok
+	bne	?ok
 	rts
-bufcntok
-	pha
+?ok
+	tay
 	lda	#14
-	ldx	#0
-bufdtfl
+	ldx	#7
+?lp1
 	sta	bufcntdt,x
-	inx
-	cpx	#8
-	bne	bufdtfl
-	pla
+	dex
+	bpl	?lp1
+	tya
 	sta	oldbufc
-	cmp	#0
-	beq	bufdtok
+	beq	?dtok
+	lsr	a
+	lsr	a
+	lsr	a
 	tax
 	cpx	#9
-	bcc	notbig12
+	bcc	?notbig
 	ldx	#8
-notbig12
+?notbig
 	lda	#27
-bufdtmk
+?dtmk
 	sta	bufcntdt-1,x
 	dex
-	cpx	#0
-	bne	bufdtmk
-bufdtok
+	bne	?dtmk
+?dtok
 	jsr	mkblkchr
 	ldx	#>bufcntpr
 	ldy	#<bufcntpr
@@ -6513,20 +6577,20 @@ rputstring
 	rts
 
 ; Jump to address according to jump table. Receives criterion in Accumulator, jump table hi/lo in X/Y.
+; Table must be less than 256 bytes long.
 parse_jumptable
 	sta temp
 	stx cntrh
 	sty cntrl
-?err
 	ldy #0
 ?lp
 	lda (cntrl),y
-	cmp #$ff	; this is the default (always jumps)
-	beq ?jump
 	cmp temp
 	beq ?jump
+	cmp #$ff	; this is the default (always jumps)
+	beq ?jump
 	iny
-	beq ?lp		; stick us in an infinite loop if we wrap around -- should never get here.
+;	beq ?lp		; stick us in an infinite loop if we wrap around -- should never get here.
 	iny
 	iny
 	bne ?lp		; will always branch.

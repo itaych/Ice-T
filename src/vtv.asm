@@ -52,7 +52,8 @@ gntodo		.ds 1
 qmark		.ds 1
 modedo		.ds 1
 ckeysmod	.ds 1
-finnum		.ds 1
+finnum		.ds 1	; currently parsed decimal number in Esc command sequence
+csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 numgot		.ds 1
 scrltop		.ds 1	; top of scrolling area, 1-24
 scrlbot		.ds 1	; bottom of scrolling area, 1-24
@@ -141,7 +142,7 @@ bank3		.ds 1
 bank4		.ds 1
 
 ; spare
-	.ds 3
+	.ds 2
 	
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"

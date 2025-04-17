@@ -31,6 +31,8 @@ Flow control can cause visual bugs or crashes, especially when entering dial men
 read time in spartados 4.x at startup (done)
 restore TDLINE at exit (done)
 charsets: just load direct to destination (done)
+don't touch bit 0 of PORTB. (done)
+macros. (done)
 
 file xfers: (done)
 	x/ymodem failed due to close3 (done)
@@ -56,14 +58,6 @@ file xfers: (done)
 	Altirra H: Rename (command 32) never returns an error, and incorrectly works on locked files. (fixed in 2.5 test 8)
 	Altirra Telnet doesn't identify as any terminal type. (fixed in 2.5 test 9)
 	
-macros (done): 12 macros of 64 chars each, Start+alphanumeric key (user selectable).
-	Options > under Dialing add "Macros...". Show 12 entries: for each entry show user key or '-' for blank.
-	Select entry. "Assign START+(A-Z, 0-9 or Ctrl-X to delete): x". Flash if already used. Space or Enter to accept (blank? flash!).
-	On to editor. Ctrl-keys allowed, show up as inverse. Empty text will remove macro.
-	For user selected keys this overrides "Meta" functionality of Start button.
-
-don't touch bit 0 of PORTB. (done)
-
 for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
 	
 Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen?
@@ -84,25 +78,23 @@ colors:
 
 easter egg: if april 1, add "terminal je taime" text to title screen.
 
-private extensions:
-	Esc [ 99 ; cmd ; arg1 ; .. ; argn {
+private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
+	Esc [ cmd ; arg1 ; .. ; argn / t          or, old idea was: Esc [ 99 ; cmd ; arg1 ; .. ; argn {
 
-	- cmd=1: enable Atari color values. arg1=0 (default) foreground, 1=background (spaces/new lines too). arg2=color or absent for no color (use whatever color is already set). Esc [ 0 m (reset) or setting any ANSI color or bold disables.
-	- cmd=2: n1;c1;c2;c3;c4;c5 [;n2;c1;c2;c3;c4;c5].. set all 5 colors for horizontal lines. row=0 means all rows. colors are even values, or: absent = no change; 1=repeat prev valid value (will be 0 if there was none).
-	- cmd=10: force scroll down color table by arg1 lines (1-24).
-	- cmd=11: force scroll up color table by arg1 lines (1-24).
-	- cmd=12: horizontal move colors left (for lines within scroll region)
-	- cmd=13: horizontal move colors right (for lines within scroll region)
+	- cmd=1: vdelay * arg1
+	- cmd=2: enable Atari color values. arg1=0 (default) foreground, 1=background (spaces/new lines too). arg2=color or absent for no color (use whatever color is already set). Esc [ 0 m (reset) or setting any ANSI color or bold disables.
+	- cmd=3: n1;c1;c2;c3;c4;c5 [;n2;c1;c2;c3;c4;c5].. set all 5 colors for horizontal lines. row=0 means all rows. colors are even values, or: absent = no change; 1=repeat prev valid value (will be 0 if there was none).
+	- cmd=4: force scroll down color table by arg1 lines (1-24).
+	- cmd=5: force scroll up color table by arg1 lines (1-24).
+	- cmd=6: horizontal move colors left (for lines within scroll region)
+	- cmd=7: horizontal move colors right (for lines within scroll region)
 	- cmd=20: set(1)/unset(0 or blank) scroll lock for color background.
 	- cmd=21: set/unset rotate for vertical scroll (if set new line will get colors of scrolled out line)
 	- cmd=22: set/unset rotate for horizontal scroll
-	- cmd=30: vdelay * arg1
 
 don't forget to generate new icet.dat for release!
 
-huge performance boost? run in gr.0 (mode 2) and use clever character sets instead of gr.8 (mode 15).
-
-known issues:
+known issues (prob. wontfix)
 double width does not support 8-bit chars.
 digraph characters are not correctly stored in text mirror, so may change when redrawing.
 areas containing nothing but the checkerboard character may be considered blank by insert/delete char routines.
@@ -136,60 +128,10 @@ cmp v2
 bcc ---> v1<v2
 bcs ---> v1>=v2
 
-
-
-------------
-Telnet Negotiation on Altirra:
-
-Ubuntu:  ff fd 18  ff fd 20  ff fd 23  ff fd 27
-	Start use: term tpye, term speed, X location, env.option
-Altirra: ff fc 18  ff fc 20  ff fc 23  ff fc 27             
-	Won't use any of the above
-Ubuntu:  ff fb 03  ff fd 01  ff fd 1f  ff fb 05  ff fd 21
-	Will use Supress GA, Start use Echo, 1f. Will use 05, Start use 21.
-Altirra: ff fd 03  ff fc 01  ff fc 1f  ff fe 05  ff fc 21
-	Start use Supress GA, Won't use Echo, 1f. Stop use 05. Won't use 21.
-Ubuntu:  ff fb 01                                         
-	Will use Echo.
-Altirra: ff fd 01            
-	Start use Echo.
-
-Telnet Negotiation on APE:
-
-Ubuntu:  ff fd 18  ff fd 20  ff fd 23  ff fd 27            
-	Start use: term type, term speed, X location, env.option
-APE:     ff fb 18  ff fc 20  ff fc 23  ff fc 27                                                
-	Will use term type. Won't use any of the others.
-Ubuntu:  ff fa 18 01 ff f0
-	Subnegotiate Term type, 1, end subnegotiation
-APE:     ff fa 18 00 56 54 31 30 30 ff f0           
-	Subnegotiate Term type, 0, "VT100", end subnegotiation
-Ubuntu:  ff fb 03  ff fd 01  ff fd 1f  ff fb 05  ff fd 21
-	Will use Supress GA, Start use Echo, 1f. Will use 05, Start use 21.
-APE:     ff fd 03  ff fc 1f  ff fe 05  ff fc 21
-	Start use Supress GA, Won't use 1f, Stop use 05, Won't use 21
-Ubuntu:  ff fb 01                                         
-	Will use Echo.
-APE:     ff fd 01                                         
-	Start use Echo.
-
-With MS Telnet:
-
-Ubuntu:  ff fd 18  ff fd 20  ff fd 23  ff fd 27
-	Start use: term type, term speed, X location, env.option
-MSTelnet:  ff fb 18 ff fb 1f  ff fc 20  ff fc 23  ff fb 27
-	Will use term type, window size, env. option, not others.
-Ubuntu:  ff fd 1f ff fa 27 01 ff f0 ff fa 18 01 ff f0
-	Start using window size, subneg environment, term type. 
-MSTelnet:  ff fa 1f 00 8c 00 32 ff f0
-	Subnegotiate window size.
-MSTelnet:  ff fa 27 00 ff f0 
-    Subnegotiate environment option: 00.
-           ff fa 18 00 41 4e 53 49 ff f0 (ANSI)
-    Terminal type, 0, ANSI.		
-Ubuntu:  ff fb 03 ff fd 01 ff fb 05 ff fd 21
-MSTelnet:  ff fd 03 ff fb 01 ff fe 05 ff fc 21
-Ubuntu:  ff fe 01 ff fb 01
-MSTelnet:  ff fc 01
-Ubuntu:  Ubuntu 13.10
-MSTelnet:  ff fd 01
+113 cycles per line in altirra's debugger.
+twilight.vt:
+view file: 30 seconds.
+alpha 7: 57 seconds.
+current: 47 seconds.
+extreme (rely on altirra's buffer, disable some jsr's): 27 seconds.
+hopefully altirra will fix status result?

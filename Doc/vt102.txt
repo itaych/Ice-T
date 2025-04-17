@@ -252,7 +252,7 @@ ASCII| Character in graphics mode
 Underscore (95): Blank
 Grave accent (96): Diamond
  a    Checkerboard
- b    Two small letters HT, in upper-left and lower-right corners of character
+ b    Two small letters ('digraph') HT, in upper-left and lower-right corners of character
  c    Letters FF
  d    Letters CR
  e    Letters LF
