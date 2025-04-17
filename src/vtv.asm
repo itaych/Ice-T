@@ -82,7 +82,7 @@ invhi		.ds 1
 nodoinv		.ds 1
 
 numofwin	.ds 1
-topx		.ds 1
+topx		.ds 1	; these 4 must not be separated
 topy		.ds 1
 botx		.ds 1
 boty		.ds 1
@@ -146,6 +146,8 @@ bank4		.ds 1
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
 	.endif
+
+; Note: it seems that area from $50 to $78 (inclusive) can also safely be used.
 
 ; Xmodem constants
 
@@ -211,7 +213,10 @@ zmd_zdle_ZRUB1	= $6d	; translate to rubout 0xff
 BIT_skip1byte	= $24
 BIT_skip2bytes	= $2c
 
-cfgnum	=	20
+cfgnum	=	20 ; size of configuration data. Correctness is checked.
+
+macronum =	12 ; number of macros
+macrosize =	64 ; size of each macro
 
 ; Bank 0 - Cyclic data buffer, X/Y/Zmodem buffer
 
@@ -222,11 +227,12 @@ buftop	=	$8000
 
 ; bitmap buffers that remember what was beneath a window
 wind1	=	$7a00	; 1.5k
+wind1_oob = wind1 + $600
 
 ; Bank 2 - Menus and data
 
-wind2	=	$7820	; 1k - moved up a bit from $7800 to make room for vt3.asm code
-wind3	=	$7c00	; 1k
+wind2	=	$7c00	; 1k
+wind2_oob = wind2 + $400
 
 ; Bank 3 - Backscroll buffer
 ; Bank 4 - Capture/ASCII Upload/File viewer buffer
@@ -282,17 +288,15 @@ z_read_from_buffpl	.ds 1
 	.error "* <> $8180!!"
 	.endif
 
-boldpm	=	$8180	; P/M underlay for bold/blink/color text.
-;boldp0	=	$8200
-;boldp1	=	$8280
-;boldp2	=	$8300
-;boldp3	=	$8380
+boldpm	=	$8180	; P/M underlay for bold/blink/color text. 5 players at $80 each, total $280 bytes
 
-minibuf	=	$8400	; used as R: input buffer (probably only by Atari 850)
-minibuf_end = $8500
+wind3	=	$8400	; 1k
+wind3_oob = wind3 + $400
 
-; spare space at $8500-$8c00
+minibuf	=	$8800	; used as R: input buffer (probably only by Atari 850)
+minibuf_end = $8900
 
+macro_data =	$8900	; Macro data. 64 bytes * 12 macros.
 chrtbll	=	$8c00	; lookup table to find character in character set
 chrtblh	=	$8c80
 ; charset =	$8d00	; main character set (defined in icet.asm)
@@ -336,7 +340,7 @@ screen	=	$9fb0
 
 ; at 'screen' is an unused line (as it crosses a 4K boundary) of 320 bytes
 	.bank
-	*=	$9fb0
+	*=	screen
 linadr	.ds	50
 numstk	.ds	$100
 rush	.ds	1
@@ -372,8 +376,12 @@ dlst2		.ds $103
 .endif
 
 lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
+
+; Macro key assignments. 12 bytes for 12 macros. 0-9 or A-Z (Ascii values, letters are upper case) or zero for no macro.
+macro_key_assign
+			.ds 12
 ; spare
-			.ds 21
+			.ds 9
 
 	.if	* <> chartemp+320
 	.error "not using full second line!!"
@@ -393,7 +401,7 @@ dlist	.ds $103	; display list
 ; PM color tables in Page 6.
 	.bank
 	*=	$600
-; spare
+; spare (page 6)
 	.ds 2
 ; skip 2 bytes to prevent some calculations from needing 16 bit math (we subtract 2 from array pointer)
 colortbl_0	.ds 24
@@ -402,7 +410,7 @@ colortbl_2	.ds 24
 colortbl_3	.ds 24
 colortbl_4	.ds 24
 
-; spare
+; spare (page 6)
 	.ds 134
 	
 	.if	* <> $700
@@ -412,6 +420,7 @@ colortbl_4	.ds 24
 ; System equates
 
 brkkey	=	$11
+keydef	=	$79
 lomem	=	743
 bcount	=	747
 iccom	=	$342
@@ -460,12 +469,13 @@ norhw
 	.byte	"Esc to exit or  "
 	.byte	"any key to retry"
 
-winbufs
-	.word	wind1
-	.word	wind2
-	.word	wind3
+winbufs_lo	.byte <wind1, <wind2, <wind3
+winbufs_hi	.byte >wind1, >wind2, >wind3
+
+winbufs_oob_hi .byte >wind1_oob, >wind2_oob, >wind3_oob
+
 winbanks
-	.byte	1, 2, 2
+	.byte	1, 2, 0
 
 postbl	.byte	$f0,$0f
 
@@ -520,6 +530,10 @@ flowctrl	.byte 1
 eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII
 ascdelay	.byte 2		; Delay (or prompt) between lines during ASCII upload
 
+	.if	*-cfgdat <> cfgnum
+	.error "cfgnum is wrong!!"
+	.endif
+	
 ; Translation table for graphical character set, ASCII 95-126 when enabled.
 graftabl
 	.byte	32,6,0,128,129,130,131,7,8

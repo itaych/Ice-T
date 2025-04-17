@@ -4429,54 +4429,94 @@ noctshft
 	lda	s764
 	tax
 	lda	keytab,x
-	bpl	norkey
-	jmp	spshkey
+	bne ?nozero		; a zero in keytab means ignore me
+	rts
+?nozero
+	bpl	normal_key
+	jmp	special_key
 
 ; Basic key pressed.
 
-; Check for caps-lock and change
-; char if necessary
+normal_key
 
-norkey
-	cmp	#65
-	bcc	ctk2
-	cmp	#91
-	bcs	ctk1
-	ldx	capslock
-	beq	ctk1
-	clc
-	adc	#32
-	jmp	ctk2
-ctk1
-	cmp	#97
-	bcc	ctk2
-	cmp	#123
-	bcs	ctk2
-	ldx	capslock
-	beq	ctk2
-	sec
-	sbc	#32
-ctk2
+; Check for caps-lock and flip case if necessary
+	tay
+	sta temp		; temp will hold upper-case version of character if it's a letter, original otherwise
+	and #$20^$FF	; clear case bit so we can quickly check whether this was a letter at all
+	cmp #'A
+	bcc ?nocaps
+	cmp #'Z+1
+	bcs ?nocaps
+	sta temp		; this is a letter, now converted to upper case. store in temp
+	ldx capslock	; do we need to flip it?
+	beq ?nocaps
+	tya			; recover original character, which is now known to be a letter
+	eor #$20	; flip case
+	.byte BIT_skip1byte	; skip the next instruction
+?nocaps
+	tya
 
-; Any alphabetical char has inverted its case if caps-lock is on.
-
-	cmp	#0
-	bne	oknoz
-	rts
-oknoz
-	ldx	53279  ;	 Start - Meta (Esc-char)
+	ldx	53279  ;	 Start - Meta (Esc-char) or Macro
 	cpx	#6
-	bne	oknostrt
-	ldx	#27
-	stx	outdat
-	sta	outdat+1
+	bne	?nostart
+	sta	outdat+1	; store Esc-char sequence
+	lda	#27
+	sta	outdat
+	; but before outputting, check if this character has a macro assigned to it.
+	; (temp = character converted to upper case)
+	lda temp
+	ldx #macronum-1
+?lp
+	cmp macro_key_assign,x
+	beq ?domacro
+	dex
+	bpl ?lp
+	bmi ?nomacro
+
+?domacro
+	stx temp
+	jsr	getkey	; sound a keyclick (we know there's a valid key in the buffer)
+	; Playback a macro! We have temp = macro number. Multiply by 64 and add to macro_data
+	lda #0
+	sta cntrl
+	lda temp
+	lsr a
+	ror cntrl
+	lsr a
+	ror cntrl
+	adc #>macro_data
+	sta cntrh
+	; output #macrosize bytes from cntrl/h, skipping null bytes. take care of local echo.
+	ldy #0
+?domacrolp
+	tya
+	pha
+	lda	localecho
+	beq	?ne
+	lda	(cntrl),y
+	jsr	putbufbk
+	pla
+	pha
+	tay
+?ne
+	lda	(cntrl),y
+	jsr	rputch
+	pla
+	tay
+	iny
+	cpy #macrosize
+	bcc ?domacrolp
+	rts
+
+?nomacro
 	lda	#2
 	sta	outnum
 	jmp	outputdat
-oknostrt
+?nostart
 	sta	outdat
 	lda	#1
 	sta	outnum
+
 outputdat
 	lda	53279  ;	 Select - set 8th bit
 	cmp	#5
@@ -4511,7 +4551,8 @@ outputdat
 	cpx	outnum
 	bcc	?lp
 	rts
-spshkey
+
+special_key
 	cmp	#kexit
 	bne	knoexit
 	jsr	getkey

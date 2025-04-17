@@ -314,6 +314,37 @@ setwrp			;  Set Auto-line-wrap
 ?n
 	jmp	bkset
 
+setmacros		; Define macros
+	; modify window to show currently assigned keys, or dashes for no key
+	ldx #0
+	ldy #0
+?lp
+	lda macro_key_assign,x
+	bne ?nodash
+	lda #'-		; place a dash for unassigned macros
+?nodash
+	sta setmacrosw+5,y
+	iny
+	iny
+	inx
+	cpx #macronum
+	bne ?lp
+	
+	ldx	#>setmacrosw
+	ldy	#<setmacrosw
+	jsr	drawwin
+	ldx	#>setmacrosd
+	ldy	#<setmacrosd
+	lda	#0
+	sta	mnucnt
+	jsr	menudo1
+	lda	menret
+	cmp	#255
+	bne ?ok
+	jmp	bkopt
+?ok
+	jmp ?ok
+
 setclk			; Set Keyclick type
 	ldx	#>setclkw
 	ldy	#<setclkw
@@ -665,7 +696,7 @@ savcfg			; Save configuration
 	sta	flowctrl	; setting for save
 
 	ldx	#$20
-	lda	#3
+	lda	#3			; open file
 	sta	iccom+$20
 	lda	#8
 	sta	icaux1+$20
@@ -676,12 +707,11 @@ savcfg			; Save configuration
 	lda	#>cfgname
 	sta	icbah+$20
 	jsr	ciov
-	cpy	#128
-	bcc	?e1
+	bpl ?ok
 	jmp	?er
-?e1
+?ok
 	ldx	#$20
-	lda	#11
+	lda	#11			; write main config values
 	sta	iccom+$20
 	lda	#<cfgdat
 	sta	icbal+$20
@@ -693,7 +723,7 @@ savcfg			; Save configuration
 	sta	icblh+$20
 	jsr	ciov
 	bmi	?er
-	lda	#11
+	lda	#11			; write dialer entries
 	sta	iccom+$20
 	lda	#<dialdat
 	sta	icbal+$20
@@ -706,14 +736,37 @@ savcfg			; Save configuration
 	lda	bank1
 	jsr	bankciov
 	bmi	?er
+	lda	#11			; write macro key assignments
+	sta	iccom+$20
+	lda	#<macro_key_assign
+	sta	icbal+$20
+	lda	#>macro_key_assign
+	sta	icbah+$20
+	lda	#macronum
+	sta	icbll+$20
+	lda	#0
+	sta	icblh+$20
+	jsr	ciov
+	bmi	?er
+	lda	#11			; write macro data
+	sta	iccom+$20
+	lda	#<macro_data
+	sta	icbal+$20
+	lda	#>macro_data
+	sta	icbah+$20
+	lda	#<(macrosize*macronum)
+	sta	icbll+$20
+	lda	#>(macrosize*macronum)
+	sta	icblh+$20
+	jsr	ciov
+	bmi	?er
 
-	ldx	#0
+	ldx	#cfgnum-1
 ?lp
 	lda	cfgdat,x
 	sta	savddat,x
-	inx
-	cpx	#cfgnum
-	bne	?lp
+	dex
+	bpl	?lp
 
 	lda	flowctrl	; Restore flow control
 	and	#1	; setting ("rush" off)

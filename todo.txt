@@ -56,11 +56,10 @@ file xfers: (done)
 	Altirra H: Rename (command 32) never returns an error, and incorrectly works on locked files. (fixed in 2.5 test 8)
 	Altirra Telnet doesn't identify as any terminal type. (fixed in 2.5 test 9)
 	
-macros: 16 macros of 64 chars each, Start+alphanumeric key (user selectable).
-	Options > under Dialing add "Macros...". Show 16 entries: for each entry show user key or '-' for blank.
-	Selecting an entry allows editing that macro. Ctrl-keys allowed, show up as inverse. Empty text to remove macro.
-	Enter closes edit window, opens "Bind to Start-__" - accept A-Z, 0-9 (flash if already in use) and Return.
-	Data table: 16 bytes + 1KB for macro data.
+macros: 12 macros of 64 chars each, Start+alphanumeric key (user selectable).
+	Options > under Dialing add "Macros...". Show 12 entries: for each entry show user key or '-' for blank.
+	Select entry. "Assign START+(A-Z, 0-9 or Ctrl-X to delete): x". Flash if already used. Space or Enter to accept (blank? flash!).
+	On to editor. Ctrl-keys allowed, show up as inverse. Empty text will remove macro.
 	For user selected keys this overrides "Meta" functionality of Start button.
 	
 Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen?
@@ -98,6 +97,8 @@ private extensions:
 	- cmd=30: vdelay * arg1
 
 don't forget to generate new icet.dat for release!
+
+huge performance boost: run in gr.0 (mode 2) and use clever character sets instead of gr.8 (mode 15).
 
 known issues:
 double width does not support 8-bit chars.

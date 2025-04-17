@@ -19,12 +19,6 @@ reset			; System reset goes here
 	sta	fastr
 	jsr	clrscrn
 	jsr	vdelay
-	lda	$79
-	bne	?r
-	lda	#$fe
-	sta	$79
-	sta	$7a
-?r
 	lda	#<reset
 	sta	2
 	lda	#>reset
@@ -70,13 +64,12 @@ norst
 	
 ;	lda	#1
 ;	sta	clock_update
-	ldx	#0
+	ldx	#cfgnum-1
 ?l
 	lda	savddat,x	; Restore saved config
 	sta	cfgdat,x
-	inx
-	cpx	#cfgnum
-	bne	?l
+	dex
+	bpl	?l
 
 	lda	bank0
 	sta	banksw
@@ -687,14 +680,10 @@ drawwin			; Window drawer
 ; that will be erased because of
 ; this window, into a buffer.
 
-	lda	numofwin
-	tay
-	asl	a
-	tax
-	lda	winbufs,x
+	ldy	numofwin
+	lda	winbufs_lo,y
 	sta	prfrom
-	inx
-	lda	winbufs,x
+	lda	winbufs_hi,y
 	sta	prfrom+1
 	lda	winbanks,y
 	tay
@@ -714,8 +703,8 @@ drawwin			; Window drawer
 	iny
 	cpy	#4
 	bne	?s
-	lda	prfrom
 	clc
+	lda	prfrom
 	adc	#4
 	sta	prfrom
 	bcc	wincpinit
@@ -786,8 +775,17 @@ winchng1
 	lda	topy
 	cmp	boty
 	bne	wincpinit
-	inc	numofwin
 
+	; sanity: make sure we haven't overflowed the window buffer.
+	ldy	numofwin
+	lda prfrom+1
+	cmp winbufs_oob_hi,y
+	bcc ?ok
+?i	jmp ?i	
+
+?ok	
+	inc	numofwin
+	
 	pla
 	sta	prfrom+1
 	pla
@@ -955,7 +953,8 @@ getkey			; Get key pressed
 	tay
 	lda #$ff	; clear BREAK key flag (or else it will be caught
 	sta brkkey	; by OS keyboard handler in standard keyclick mode)
-	lda	($79),y ; get translated value and keep it in A until return
+getkey_modify_keydef	; modified with value taken from KEYDEF at startup.
+	lda	$ffff,y ; get translated value and keep it in A until return
 	ldx	click	; check keyclick type
 	beq ?done_click
 	cpx #1
@@ -1360,13 +1359,10 @@ getscrn			; Close window
 	rts
 gtwin
 	dec	numofwin
-	lda	numofwin
-	tay
-	asl	a
-	tax
-	lda	winbufs,x
+	ldy	numofwin
+	lda	winbufs_lo,y
 	sta	prfrom
-	lda	winbufs+1,x
+	lda	winbufs_hi,y
 	sta	prfrom+1
 	lda	winbanks,y
 	tay
@@ -3206,12 +3202,17 @@ init
 	lda	bank0
 	sta	banksw
 	sta	banksv
-	lda	$79
-	bne	nofefe	; Fix key-table pointer
+	lda	keydef
+	bne	?nofefe	; Fix key-table pointer (for OS-B compatibility)
 	lda	#$fe
-	sta	$79
-	sta	$7a
-nofefe
+	sta	keydef
+	sta	keydef+1
+?nofefe
+	lda keydef
+	sta getkey_modify_keydef+1
+	lda keydef+1
+	sta getkey_modify_keydef+2
+	
 	lda	9
 	sta	rsttbl
 	lda	2
@@ -3254,18 +3255,22 @@ nofefe
 	cpx	#128
 	bne	?lp
 
+	; Clear dialing menu data
 	lda	bank1
 	sta	banksw
-	ldx	#0
-?lp1
 	lda	#0
+	tax
+?lp1
 	sta	dialdat,x
-	sta	dialdat+$100,x ; Clear dialing menu data
+	sta	dialdat+$100,x 
 	sta	dialdat+$200,x
 	sta	dialdat+$300,x
 	sta	dialdat+$400,x
 	sta	dialdat+$500,x
 	sta	dialdat+$540,x
+	sta macro_data,x		; also clear macro data (doesn't need bank 1 but why not use same loop)
+	sta macro_data+$100,x
+	sta macro_data+$200,x
 	inx
 	bne	?lp1
 	stx	580			; disable cold start on Reset
@@ -3494,10 +3499,25 @@ nofefe
 	sta cfgname
 ?no_use_h
 
-; Load in config file
+; Set defaults before loading config file. Dialer menu and macro data have been cleared previously.
+	ldx	#cfgnum-1
+?set_defaults_lp1
+	lda	cfgdat,x
+	sta	savddat,x
+	dex
+	bpl	?set_defaults_lp1
+	; clear macro key assignment table
+	lda #0
+	ldx #macronum-1
+?set_defaults_lp2
+	sta macro_key_assign,x
+	dex
+	bpl ?set_defaults_lp2
+
+; Load config file. If load fails then defaults will apply.
 	jsr	close2
 	ldx	#$20
-	lda	#3
+	lda	#3			; open file
 	sta	iccom+$20
 	lda	#4
 	sta	icaux1+$20
@@ -3508,20 +3528,9 @@ nofefe
 	lda	#>cfgname
 	sta	icbah+$20
 	jsr	ciov
-	cpy	#128
-	bcc	?initopok
-	jsr	close2
-	ldx	#0
-?interrlp
-	lda	cfgdat,x	; If no file available
-	sta	savddat,x	; set defaults
-	inx
-	cpx	#cfgnum
-	bne	?interrlp
-	jmp	?interr
-?initopok
+	bmi ?interr
 	ldx	#$20
-	lda	#7
+	lda	#7			; read main config values
 	sta	iccom+$20
 	lda	#<savddat
 	sta	icbal+$20
@@ -3532,7 +3541,7 @@ nofefe
 	lda	#0
 	sta	icblh+$20
 	jsr	ciov
-	lda	#7
+	lda	#7			; read dialer entries
 	sta	iccom+$20
 	lda	#<dialdat
 	sta	icbal+$20
@@ -3544,6 +3553,28 @@ nofefe
 	sta	icblh+$20
 	lda	bank1
 	jsr	bankciov
+	lda	#7			; read macro key assignments
+	sta	iccom+$20
+	lda	#<macro_key_assign
+	sta	icbal+$20
+	lda	#>macro_key_assign
+	sta	icbah+$20
+	lda	#macronum
+	sta	icbll+$20
+	lda	#0
+	sta	icblh+$20
+	jsr	ciov
+	lda	#7			; read macro data
+	sta	iccom+$20
+	lda	#<macro_data
+	sta	icbal+$20
+	lda	#>macro_data
+	sta	icbah+$20
+	lda	#<(macrosize*macronum)
+	sta	icbll+$20
+	lda	#>(macrosize*macronum)
+	sta	icblh+$20
+	jsr	ciov
 	jsr	close2
 ?interr
 
@@ -3642,6 +3673,7 @@ nofefe
 	inx
 	bne	?cr
 
+; init code ends here.
 	jmp	norst
 
 ; converts number in A to 2 decimal ASCII digits, at X/Y

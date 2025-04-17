@@ -106,8 +106,9 @@ settbl
 	.word	savcfg-1
 
 optmnu
-	.byte	20,1,37,11
+	.byte	20,1,37,12
 	.byte	+$80," Dialing...   "
+	.byte	" Macros       "
 	.byte	" Keyclick     "
 	.byte	" Special      "
 	.byte	" Background   "
@@ -117,11 +118,12 @@ optmnu
 	.byte	" Zero timer   "
 	.byte	" Reset term   "
 optmnudta
-	.byte	1,9,14
-	.byte	22,2,22,3,22,4
-	.byte	22,5,22,6,22,7,22,8,22,9,22,10
+	.byte	1,10,14
+	.byte	22,2,22,3,22,4,22,5,22,6
+	.byte	22,7,22,8,22,9,22,10,22,11
 opttbl
 	.word	dialing-1
+	.word	setmacros-1
 	.word	setclk-1
 	.word	setscr-1
 	.word	setcol-1
@@ -202,17 +204,34 @@ setwrpd
 	.byte	1,2,6
 	.byte	46,5,46,6
 
+setmacrosw
+	.byte	34,2,41,9
+	.byte	" - -"
+	.byte	" - -"
+	.byte	" - -"
+	.byte	" - -"
+	.byte	" - -"
+	.byte	" - -"
+setmacrosd
+	.byte	2,6,2
+	.byte	36,3,38,3
+	.byte	36,4,38,4
+	.byte	36,5,38,5
+	.byte	36,6,38,6
+	.byte	36,7,38,7
+	.byte	36,8,38,8
+
 setclkw
-	.byte	34,2,47,6
+	.byte	34,3,47,7
 	.byte	" None     "
 	.byte	" Simple   "
 	.byte	" Standard "
 setclkd
 	.byte	1,3,10
-	.byte	36,3,36,4,36,5
+	.byte	36,4,36,5,36,6
 
 setscrw
-	.byte	36,3,55,9
+	.byte	36,4,55,10
 	.byte	" None           "
 	.byte	" ANSI colors    "
 	.byte	" Bold text      "
@@ -220,10 +239,10 @@ setscrw
 	.byte	" Fine scrolling "
 setscrd
 	.byte	1,5,16
-	.byte	38,4,38,5,38,6,38,7,38,8
+	.byte	38,5,38,6,38,7,38,8,38,9
 
 setcolw
-	.byte	36,3,55,10
+	.byte	36,4,55,11
 	.byte	"Normal          "
 	.byte	" 0 1 2 3 4 5 6 7"
 	.byte	" 8 9 a b c d e f"
@@ -232,30 +251,30 @@ setcolw
 	.byte	" 8 9 a b c d e f"
 setcold
 	.byte	8,4,2
-	.byte	38,5,40,5,42,5,44,5
-	.byte	46,5,48,5,50,5,52,5
 	.byte	38,6,40,6,42,6,44,6
 	.byte	46,6,48,6,50,6,52,6
-	.byte	38,8,40,8,42,8,44,8
-	.byte	46,8,48,8,50,8,52,8
-	.byte	38,9,40,9,42,9,44,9
-	.byte	46,9,48,9,50,9,52,9
+	.byte	38,7,40,7,42,7,44,7
+	.byte	46,7,48,7,50,7,52,7
+	.byte	38,9,40,9,42,9,44,8
+	.byte	46,9,48,9,50,9,52,8
+	.byte	38,10,40,10,42,10,44,10
+	.byte	46,10,48,10,50,10,52,10
 
 seteitw
-	.byte	36,5,47,8
+	.byte	36,6,47,9
 	.byte	" Ascii  "
 	.byte	" IBM-PC "
 seteitd
 	.byte	1,2,8
-	.byte	38,6,38,7
+	.byte	38,7,38,8
 
 setcrsw
-	.byte	36,6,47,9
+	.byte	36,7,47,10
 	.byte	" Block  "
 	.byte	" Line   "
 setcrsd
 	.byte	1,2,8
-	.byte	38,7,38,8
+	.byte	38,8,38,9
 
 setdelw
 	.byte	46,6,61,9
@@ -279,15 +298,15 @@ savcfgn .byte	+$80,"     "
 
 
 setclow
-	.byte	36,7,45,9
+	.byte	36,8,45,10
 	.byte	"xx:xx "
 setclkpr
-	.byte	38,8,5
+	.byte	38,9,5
 	.byte	+$80,"xx:xx"
 	.byte	+$80,"000"
 
 settmrw
-	.byte	36,9,41,11
+	.byte	36,10,41,12
 	.byte	"Ok"
 
 xfrwin
