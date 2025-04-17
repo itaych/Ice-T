@@ -975,16 +975,18 @@ adcntrl
 ?ok
 	rts
 
+; general print character (for menus)
+
 print
 	lda	y
 	asl	a
 	tax
 	clc
 	lda	linadr,x
-	adc #<(39*7)
+	adc #40
 	sta	cntrl
 	lda	linadr+1,x
-	adc #>(39*7)
+	adc #0
 	sta	cntrh
 	ldy	#255
 	sty	pplc4+1
@@ -1029,30 +1031,28 @@ prcharok
 	sta	pplc2+1
 	eor #$ff
 	sta	pplc1+1
-	ldy #7
+	ldx #7
 prtlp
+	ldy yindextab,x
 	lda	(cntrl),y
 pplc1	and	#0	; ~postbl,x
-	sta	pplc5+1
-pplc3	lda	$ffff,y	; (prchar),y
+	sta	prchar ; now used as a temp variable
+pplc3	lda	$ffff,x	; (prchar),y
 pplc4	eor	#0	; temp
 pplc2	and	#0	; postbl,x
-pplc5	ora	#0
+	ora	prchar
 	sta	(cntrl),y
-	sec
-	lda	cntrl
-	sbc	#39
-	sta	cntrl
-	bcc	?ok
-	dey
-	bpl	prtlp
-	rts
-?ok
-	dec	cntrh
-	dey
-	bpl	prtlp
+	dex
+	bmi ?done
+	bne prtlp
+	dec cntrh
+	bne prtlp
+?done
 	rts
 
+yindextab ; table of y offsets
+	.byte 216,0,40,80,120,160,200,240
+	
 clrscrn			; Clear screen
 	ldx	#0
 ?mlp
@@ -1631,7 +1631,7 @@ mkblkchr		; Create block character
 	ldx	#7
 ?lp
 	lda	blkchr,x
-	sta	charset+728,x
+	sta	charset+(91*8),x
 	dex
 	bpl	?lp
 	lda	#27
@@ -1650,39 +1650,6 @@ buffifnd		; Status call in time-costly routines
 	tax
 	rts
 
-.if 0
-rgetch
-	ldx	#7		; get
-	stx	iccom+$20
-	ldx	#0
-	stx	icbll+$20
-	stx	icblh+$20
-	ldx	#$20
-	jmp	ciov
-rgetjmp	 jmp $ffff ; unused.
-
-rputch
-	ldx	#11		; put
-	stx	iccom+$20
-	ldx	#0
-	stx	icbll+$20
-	stx	icblh+$20
-	ldx	#$20
-	jmp	ciov
-rputjmp	jmp $ffff ; unused.
-
-rgetstat
-	ldx #13	; status
-	stx	iccom+$20
-	ldx	#0
-	stx	icbll+$20
-	stx	icblh+$20
-	ldx	#$20
-	jmp	ciov
-rstatjmp jmp $ffff ; unused
-
-.else
-
 ; For these calls we load $20 in X because some handlers look for information in IOCB even when called directly
 rgetch
 	ldx #$20
@@ -1695,8 +1662,6 @@ rputvector	jmp $ffff
 rgetstat
 	ldx #$20
 rstatvector	jmp $ffff
-
-.endif
 
 ;        -- Ice-T --
 ;  A VT-100 terminal emulator
@@ -1724,13 +1689,14 @@ brk_exit
 
 ; According to Altirra docs, frame frequency for NTSC = 59.9227 Hz, PAL = 49.8607 HZ.
 ; (Although older documentation states 59.92334 Hz)
+; Measured frequencies (on real hardware) are 59.92169 and 49.86365
 
-; Given trufreq = true frequency (59.9227 or 49.8607)
+; Given trufreq = true frequency (59.92169 or 49.86365)
 ; and cntfreq = counter frequency (60 or 50)
 ; then the correction = trufreq / (cntfreq-trufreq)
 
-dli_time_correct_ntsc = 775
-dli_time_correct_pal = 358
+dli_time_correct_ntsc = 765
+dli_time_correct_pal = 366
 
 dli
 	pha
@@ -1912,12 +1878,12 @@ vbi2
 ?vk
 	lda	#1
 	sta	nowvbi
-	lda	crsscrl
+	lda	crsscrl		; coarse scroll flag?
 	beq	?no
 	ldx	#2
 	ldy	#14
 ?lp
-	lda	linadr+1,x
+	lda	linadr+1,x	; update display list with line addresses
 	sta	dlist+1,y
 	lda	linadr,x
 	sta	dlist,y
@@ -2938,17 +2904,18 @@ rt8_weeknum = 7
 
 rt8_reg = $d5b8 
 
-rt8_temp .byte 0
+rt8_temp_1	.byte 0
+rt8_temp_2	.byte 0
 
 ; Detect whether hardware clock is available. Returns with A=0 for false, 1 for true.
 rt8_detect
 	ldx #rt8_weeknum
 	jsr rt8_read
 	eor #1 ; write a value different from what we read. change 1 bit to stay <= 9
-	sta rt8_temp
+	sta rt8_temp_1
 	jsr rt8_write
 	jsr rt8_read
-	cmp rt8_temp
+	cmp rt8_temp_1
 	bne ?no_rt8
 	eor #1 ; write original value back
 	jsr rt8_write
@@ -2979,7 +2946,11 @@ rt8_read
 	asl a
 	asl a
 	asl a
-	ora rt8_reg
+;	ora rt8_reg
+	sta rt8_temp_2
+	lda rt8_reg
+	and #$0f
+	ora rt8_temp_2
 	rts
 	
 ; writes to rt8 register X the BCD encoded value in A
@@ -3012,14 +2983,15 @@ endinit
 chsetinit
 	ldx	#0
 chsetinlp
-	lda	tmppcset,x	; Move chsets to
-	sta	pcset,x	; a safe place
+	lda	tmppcset,x		; Move chsets to
+	sta	pcset,x			; a safe place
 	lda	tmppcset+$100,x
 	sta	pcset+$100,x
 	lda	tmppcset+$200,x
 	sta	pcset+$200,x
 	lda	tmppcset+$300,x
 	sta	pcset+$300,x
+	
 	lda	tmpchset,x
 	sta	charset,x
 	lda	tmpchset+$100,x
@@ -3030,6 +3002,7 @@ chsetinlp
 	sta	charset+$300,x
 	inx
 	bne	chsetinlp
+	
 	ldx	#7
 dpcloop2
 	lda	#0
@@ -3042,8 +3015,8 @@ dpcloop2
 ?lp
 	lda	#bank1
 	sta	banksw
-	lda	$4000,x	; Do I need to load
-	cmp	svscrlms,x ; in the rest?
+	lda	$4000,x			; Do I need to load
+	cmp	svscrlms,x		; in the rest?
 	bne	?ok
 	lda	#bank2
 	sta	banksw
@@ -3055,7 +3028,7 @@ dpcloop2
 	bne	?lp
 	pla
 	pla
-	jmp	init	; No
+	jmp	init			; No, jump straight to init
 ?ok
 	lda	#bank0
 	sta	banksw
@@ -3241,8 +3214,41 @@ mktxlnadrs
 	sta	scrlsv+1
 ?ok
 
-	jsr	close2
+; SpartaDOS 2/3 or RealDOS: Fix pathname for configuration file and
+; default for file operations (thanks to fox-1 for this code).
 
+	lda $700		; DOS type detection
+	cmp #'R
+	beq ?realdos
+	cmp #'S
+	bne ?nosparta
+	lda $701
+	and #$f0
+	cmp #$40
+	bcs ?nosparta	; skip versions from 4.0 up (path fix is not needed)
+?realdos
+
+; push filename 1 byte forward
+	ldx #cfgname_end-cfgname-1
+?lp2
+	lda cfgname-1,x
+	sta cfgname,x
+	dex
+	bpl ?lp2
+; get current device and number from OS (directory path not needed)
+	ldy #33
+	lda ($0a), y	; COMTAB+33 contains first 2 chars of full path (e.g. "D2")
+	sta cfgname
+	sta pathnm
+	iny
+	lda ($0a), y
+	sta cfgname+1
+	sta pathnm+1;
+	lda #':
+	sta pathnm+2;
+?nosparta
+
+	jsr	close2
 	ldx	#$20
 	lda	#3
 	sta	iccom+$20	; Load in config file
@@ -3314,10 +3320,10 @@ interr
 	ldx	#4
 ?l3
 	clc
-	lda	?tb+5,x
+	lda	?tb_lo,x
 	adc	#<boldpm
 	sta	boldtbpl,x
-	lda	?tb,x
+	lda	?tb_hi,x
 	adc	#>boldpm
 	sta	boldtbph,x
 	dex
@@ -3443,8 +3449,10 @@ interr
 
 	jmp	norst
 
-?tb	.byte	0,0,1,1,2
-	.byte	0,$80,0,$80,0
+; offsets to each PM for bold (5 hi, 5 lo)
+
+?tb_hi	.byte	$00,$00,$01,$01,$02
+?tb_lo	.byte	$00,$80,$00,$80,$00
 
 ?vl	.ds	2
 ?acl	.ds	2

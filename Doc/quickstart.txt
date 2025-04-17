@@ -1,0 +1,39 @@
+Ice-T Quickstart guide
+----------------------
+Real men and real women use real hardware. Most of you however probably just
+want to get this running on your emulator with minimal hassle, so here is a
+quick start guide for users of the Altirra emulator under Windows.
+
+I assume you have a copy of Altirra (tested version was 2.30) and real Atari
+XL ROM files.
+In Altirra make the following settings under the System menu:
+Hardware > 65XE / 130XE.
+Firmware > 600XL / 800XL.
+Firmware > BASIC *not* checked.
+Memory Size > 128K (130XE).
+R-Time8 > checked.
+Serial Ports > Enable serial port emulation. Select 850 Interface Module.
+     Emulate Telnet Protocol. Allow outbound connections.
+
+Drag the icet.xex file icon onto the Altirra window. Ice-T should load
+correctly. At the title screen press Enter twice to enter terminal mode.
+
+At this point you should be able to type:
+
+atdI <hostname> <port>
+
+to establish a Telnet connection to any Internet host. Note that the 'I' must
+be in upper case, and that port 23 is the standard for Telnet. Try one of these:
+
+atdI irc.atarichat.net 800     (an IRC chat gateway)
+atdI www.atarinews.org 23      (the Atarinews.Org BBS. user: bbs, pw: bbs)
+
+Option and Select (F4/F3) can be used to scroll back through your history.
+Press Ctrl-1 to pause when text is scrolling too fast.
+You can close a connection with Ctrl-Shift-H (Hangup).
+Access the main menu with Shift-Esc.
+
+Note that since you've booted Ice-T without DOS, disk functionality will be
+unavailable so you can't save your settings or do any file operations.
+
+Enjoy :)

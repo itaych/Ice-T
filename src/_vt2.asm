@@ -3643,10 +3643,6 @@ gtky
 	and	#$3f
 	tax
 	lda	keytab,x
-	cmp #'d			; d - dump screen to disk
-	bne ?nodiskdump
-	jmp diskdumpscrn
-?nodiskdump
 	cmp	#'p			; p - print screen
 	bne	?noprtscrn
 	jmp	prntscrn
@@ -4029,63 +4025,12 @@ karrdo
 	jmp	outputdat
 knoarrow
 	rts
-	
-diskdumpscrn
-	lda	#1
-	sta	764
-	jsr	getkey	; sound a keyclick
-	lda #0
-	sta s764	; tell shared code that this is a dump to disk
-	
-	; generate filename from menu clock
-	ldx #5
-?lp
-	lda clock_offsets,x
-	tay
-	lda menuclk,y
-	and #$7F
-	sta diskdumpfname+2,x
-	dex
-	bpl ?lp
-
-	; generate full path+filename
-diskdumpfullfname = dialmem	; reuse dialer prompt buffer for this
-	
-	ldx	#0
-	ldy	#0
-?a
-	lda	pathnm,x
-	beq	?b
-	sta	diskdumpfullfname,y
-	inx
-	iny
-	cpx	#40
-	bne	?a
-?b
-	ldx	#0
-?c
-	lda	diskdumpfname,x
-	sta	diskdumpfullfname,y
-	inx
-	iny
-	cpx	#12
-	bne	?c
-	lda	#155
-	sta	diskdumpfullfname,y
-
-	ldx	#>diskdumpwin
-	ldy	#<diskdumpwin
-	jmp prntscrn_after_init
-	
 prntscrn
 	lda	#1
 	sta	764
 	jsr	getkey	; sound a keyclick
-	lda #1
-	sta s764	; tell shared code that this is a dump to printer
 	ldx	#>prntwin
 	ldy	#<prntwin
-prntscrn_after_init
 	jsr	drawwin	; draw 'printing' window
 	jsr	buffdo	; empty any incoming data from R: before closing
 	jsr	close2	; close #2
@@ -4097,22 +4042,13 @@ prntscrn_after_init
 	lda	#>scrnname
 	sta	icbah+$20
 	lda	#8
-	sta	icaux1+$20
+	sta	icaux1,x
 	lda	#0
-	sta	icaux2+$20
-
-	lda s764
-	bne ?nodisk1
-	lda	#<diskdumpfullfname
-	sta	icbal+$20
-	lda	#>diskdumpfullfname
-	sta	icbah+$20
-?nodisk1
-
-	jsr	ciov	; open #2,8,0,"P:" or <diskdumpfullfname>
+	sta	icaux2,x
+	jsr	ciov	; open #2,8,0,"P:"
 	cpy	#128
 	bcs	?err
-	
+
 	lda	#1
 	sta	y
 ?mlp
@@ -4124,12 +4060,9 @@ prntscrn_after_init
 	lda	(ersl),y
 	cpy	#80
 	bne	?n8
-	lda	#155	; add EOL at end of line
+	lda	#155
 ?n8
-	ldx s764
-	beq ?n2		; skip conversions for disk output
-	
-	cmp	#32		; Some conversion for printers..
+	cmp	#32   ; Some conversion..
 	bcs	?o3
 	lda	#32
 ?o3
@@ -4145,9 +4078,10 @@ prntscrn_after_init
 	stx	iccom+$20
 	ldx	#0
 	stx	icbll+$20
+	ldx	#0
 	stx	icblh+$20
 	ldx	#$20
-	jsr	ciov	; put #2,<a>
+	jsr	ciov	; put #2,A
 	tya
 	tax
 	pla
@@ -4175,12 +4109,6 @@ prntscrn_after_init
 	sta	prnterr3+2
 	ldx	#>prnterr1
 	ldy	#<prnterr1
-	
-	lda s764
-	bne ?nodisk2
-	ldx	#>diskdumperr1
-	ldy	#<diskdumperr1
-?nodisk2
 	jsr	prmesg
 	ldx	#>prnterr2
 	ldy	#<prnterr2
@@ -5698,10 +5626,6 @@ dialdat	.ds	80*20
 dialmem	.ds	88
 
 mini1
-
-	.if	mini1 > $8000
-	.error "mini1>$8000!!"
-	.endif
 
 ; Move all of the above crap into
 ; banked memory

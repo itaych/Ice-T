@@ -8,9 +8,8 @@
 tmpchset
 	.incbin	../fonts/vt.fnt		; VT100 character set
 tmppcset
-	.incbin	../fonts/vtheb2d.fnt	; Hebrew character set
-
-; vtibm.fnt for standard PC, vtheb2d.fnt for Hebrew
+	.incbin	../fonts/vtibm.fnt	; Extended (>128) character set
+;	.incbin	../fonts/vtheb2d.fnt	; Hebrew character set
 
 	.bank
 	*=	$2e2		; Move charset to safe

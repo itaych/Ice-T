@@ -1,9 +1,9 @@
 
  I c e - T  XE --  Telecommunications software for the Atari 8-bit.
 
- by Itay Chamiel - (c)1993-2012
+ by Itay Chamiel - (c)1993-2013
 
- Version 2.73 - April 14, 2012
+ Version 2.74 - September 25, 2013
 
  Email: itaych@gmail.com
 
@@ -20,7 +20,7 @@ Features:
 * Auto-dialer, with a directory of up to 20 numbers
 * Built in text file viewer
 * Fine scroll
-* Print screen
+* Print screen and screen dump to file.
 
 48K USERS - There is an older, less capable version supporting all machines
 with less than 128K, including the 800. It should be available at your
@@ -30,13 +30,39 @@ on to a new version for the more capable 128K machines.
 
 Version history:
 
+2.74 - September 25, 2013
+----
+Minor speed improvement in text rendering thanks to Jon Halliday (author of
+The Last Word).
+Screen dump to disk added.
+R-Time 8 cartridge support was buggy, fixed.
+Minor improvement to clock accuracy (when no RT8 present).
+RS232.COM automatic loading is now only attempted under MyDOS.
+SpartaDOS 3.x: Added automatic disable for TDLINE if it is on. (SDX users,
+sorry but I couldn't get this to work.)
+SpartaDOS 3.x: The configuration file ICET.DAT will now be correctly loaded
+from the current path. Also the default current path in the Mini-DOS will
+also point to the current path.
+SpartaDOS X: Ice-T must be loaded with the "X" command. A reminder is shown if
+you did not.
+Mini-DOS: Path will now accept any single-letter (or letter and number) device
+type, so you can use files on things like H:. Also '\' is now allowed as a
+directory separator.
+File Viewer: Fixed EOL parser, should work with Unix/Windows/ATASCII files.
+VT100 emulator: Minor tweaks to font; Underline now ignored for mode 3 (top
+half of double height row) text; Fixed the bug discovered at the release of
+2.72 (see below) involving scrolling portions of the screen in boldface mode;
+Fixed bug that caused double-width/height lines to misbehave when scrolling
+upwards. Bold text is now enabled by default.
+With these fixes the VT100 'torture test' now passes. 
+
 2.73 - April 14, 2012
 ----
 A bug in the way I called the OS keyboard handler in order to generate
 keyclicks caused an endless stream of 'j' characters to appear when
 "standard" keyclick was enabled, under certain circumstances. Thanks
-to Avery Lee (author of the Altirra emulator) for pinpointing the cause of
-this bug.
+to Avery Lee (aka phaeron, author of the Altirra emulator) for pinpointing
+the cause of this bug.
 
 R-Time 8 cartridge supported for clock that is displayed in the menu.
 Even without R-Time 8, clock and timer are now far more accurate, particularly
@@ -138,8 +164,9 @@ emulated platform, I did not get around to trying to fix it.
 
 In April 2005 I decided to bring the source code out of the old Atari disk
 images and convert them to files that could be edited and assembled on a
-modern machine; I chose ATasm as the assembler and managed to get it to create
-a binary executable identical to the 1997 release.
+modern machine; I chose ATasm as the assembler and (thanks to its author,
+who added a special build option at my request) managed to get it to create
+an executable bitwise-identical to the 1997 release.
 
 In October 2007, addressing fresh complaints about the aforementioned bug on
 the Atariage forums, I cleaned up and released the source code to the forum in
@@ -158,15 +185,15 @@ section of the Altirra emulator help file and found a pleasant surprise:
 
 With this information I decided that 15 years was enough and that it was time
 to fix this old problem, along with a few other minor annoyances, and release
-a new version; 2.73 is the result.
+a new version; 2.73 was the result, with subsequent versions being mostly bug
+fixes or minor feature additions.
 
 Future development will depend on the level of interest of the users. Thanks
 to accurate emulators with advanced debugging capabilities, fast cross-
 assemblers running on modern hardware and the availability of all relevant
 documentation online, it is now easier than ever before to develop for the
 Atari 8-bit. Unfortunately, there are very few users still using Ice-T and so
-at this point I doubt there will be any further development except for bug
-fixes.
+at this point I doubt there will be any further significant development.
 
 I am always happy to hear from people using my software; my email address will
 hopefully remain correct for the forseeable future.
@@ -179,17 +206,28 @@ Some interfaces already have such a handler built in, and don't need any
 software to install them. The 850, P:R: connection, and anything else that
 hooks up through the SIO or joystick ports, definitely needs such a file.
 
-Included with this disk are a number of such handlers. BOOT850.HND is for the
+Included with this disk are a number of such handlers. ATARI850.HND is for the
 850 interface. The other .HND files were taken from the Bobterm archive, and
 are included for your convenience - I credit Bob Puff for collecting these.
 
-Once you know which file you need, rename it to RS232.COM. Ice-T will
-automatically load this file when loading, but only if it is actually
-needed (if there is no R: device already available). You will
-also have the option of removing this handler from memory when quitting
+For MyDOS users, Ice-T is capable of loading the R: handler automatically if
+it is needed. Rename the appropriate file to RS232.COM and make sure it is
+located in the 'current' path (D:) when Ice-T is loading.
+
+SpartaDOS users are advised to create a batch file that will load the R:
+handler, then load Ice-T. SDX users must disable TDLINE and use 'X' to load
 the program.
 
-If you are in doubt first try running without renaming any file.
+For other DOSes (such as Atari DOS) there is no easy solution other than to
+load the R: handler manually each time, rename it to AUTORUN.SYS or prepend it
+to the Ice-T executable.
+
+If you are using APE to connect to Internet hosts, use the ATARI850.HND
+handler. In APE's (R:) Internet Modem settings, make sure to select "Identify
+as VT100" or "Refuse Negotiation" for best results. If you do not do this (or
+are using an older version of APE that doesn't have this option) the Telnet
+client will identify as a VT-52 causing incorrect control codes to be sent and
+garbage to be displayed on the screen with most destinations.
 
 If you happen to be upgrading from an old (pre-2.7) version, make sure there
 is no ICET.DAT file on your disk or in the "D:" directory.
@@ -197,9 +235,10 @@ Older configuration files are not compatible with the newer software.
 
 Make sure your interface and/or modem are ON and load ICET.COM.
 
-A brief memory and device-handler test will be performed during load
-time. If you don't have 128K free, or if an R: handler couldn't be found
-or loaded, a notice will appear, and you will be put back to DOS.
+A brief memory and device-handler test will be performed during load time. If
+you don't have 128K free, or if something is occupying the low 48K of RAM, or
+if an R: handler couldn't be found or loaded, a notice will appear, and you
+will be put back to DOS.
 
 Loading time will be considerably shorter than normal if you had already
 loaded in Ice-T before. Your scrollback buffer will be preserved if you had
@@ -207,7 +246,7 @@ used "Quit" to terminate the program (as opposed to a coldstart or power
 cycle).
 
 You should now be looking at the title screen. If you see the message "Can't
-open port!", it means that the r: (serial port) device is not responding
+open port!", it means that the R: (serial port) device is not responding
 properly. Try again, perhaps with a different R: handler file.
 
 Hit any key to enter the main menu.
@@ -223,14 +262,18 @@ to get back to the title screen if you get stuck for whatever reason.
 This program disables the "Attract" mode, that causes the screen
 colors to change a few minutes after the last time a key was pressed,
 protecting the image from "burning in". Therefore, don't leave this
-program on for long intervals without the display changing. If a wait is
+program on for extended intervals without the display changing. If a wait is
 necessary, turn your monitor off.
 
 Note that in this document the prefix '^' may be used instead of "Control".
 
 Navigating in menus
 -------------------
-You control the highlighted bar with the arrow keys (with or without holding
+The menu system design was inspired by the user interfaces of 1990s era PC-DOS
+plain text applications such as Norton Commander, with the main menu bar on
+top of the screen and windows that drop down from the current selection
+casting shadows on the background.
+You may move the highlighted bar with the arrow keys (with or without holding
 down Control). You make a selection with the Spacebar or with <Return>, and
 back off into the previous menu without changing anything by pressing <Esc>.
 Shift-Esc will, in most menus, bring you back to the terminal.
@@ -293,16 +336,15 @@ incorrectly displayed as bold. However in most cases boldfaced words are
 separated from normal words by at least one space, so this should usually
 have no visible effect.
 Since player/missile graphics require additional DMA time for ANTIC, this will
-cause a minor performance hit, but only when bold characters are actually
-visible on the screen.
+cause a minor performance hit, however effort has been made to disable this
+DMA when no bold characters are actually visible on the screen.
 
 * Blink - enables support for blinking characters.
 This is internally identical to bold, except that the PMs are
 black (obscuring the blinking characters), and alternate on/off every
-half second. (When they are off, player DMA is disabled for performance
-reasons.)
+half second.
 
-A real VT-100 emulator is able to display both bold and blinking characters,
+A real VT-100 terminal is able to display both bold and blinking characters,
 but due to the Atari's limitations only one or the other is possible at a time.
 
 * Fine Scroll - enables fine scrolling in the terminal and file viewer.
@@ -333,8 +375,6 @@ R-Time 8 clock if available, otherwise 12:00).
 Use the arrows and number keys to change the setting.
 For example, if the time is 10:48 you just type "1048" and you're done.
 If it says 10:47, you press "->" 3 times (or "<-" once) and type 8.
-The screen will flash if you type in an invalid number, and in some cases this
-might cause problems, but nothing to get annoyed at.
 The clock cycles at 12:59 to 1:00. There is no AM/PM display.
 Pressing Return will set the time. Note that the R-Time 8 internal clock is
 not updated with the new time.
@@ -355,12 +395,13 @@ modem and remote host.
 Baud rate: Set the communications speed between your computer and your
 modem. 14.4kbaud users should select 19.2k. Also, 850 users should note
 that this interface doesn't support 19.2k, so selecting it is the same
-as choosing 9600.
+as choosing 9600. Emulators will throttle the data rate according to this
+setting, so set it to the maximum.
 
 Local Echo: When on, every character you type in Terminal will be sent to
 your host, and also sent directly to the VT100 processor, echoing what
 you typed. This option should be used with systems that don't automatically
-echo what you type back to you.
+echo what you type back to you. The recommended setting is 'off'.
 
 Stop bits: Normally set to 1.
 
@@ -500,7 +541,8 @@ None - File transferred as-is. Good for binary transfers.
        translated properly.
  LF  - LF -> EOL, CR dropped.
 Either - Either code is translated to EOL. Don't use this if CR/LF is
-used in the original file, since you'll have two EOLs between each line.
+used in the original file, since you'll end up with two EOLs between each
+line.
 
 U/L EOL trans.: Upload EOL translation for ASCII-upload.
 EOL -> CR/LF - EOL translated to the CR/LF pair.
@@ -534,8 +576,8 @@ a disk file, or to discard it. Note that this *appends* the buffer's
 contents after the end of the currently existing file. This can be used
 to capture lots of data into one file, with a save being done once in
 a while to make room in the buffer.
-Any data coming in *during* the disk operation will be lost, so make sure
-nothing does.
+Any data coming in *during* the disk operation will be lost, however, so make
+sure nothing does.
 
 ASCII upload - Send a file to the remote host, with no protocol.
 You can add a delay between every line sent, or cause the upload to wait for a
@@ -658,7 +700,7 @@ A "quick-pause" mode is entered by pressing Option to scroll back,
 when in normal terminal mode. While viewing the backscroll, any incoming
 data will bring you back to the main screen. This is useful if you're
 waiting for something and wish to read previous screens while waiting,
-knowing that you'll know about it as soon as it happens.
+knowing that you'll see it as soon as it happens.
 
 Note, that only lines that get scrolled out of the top line get saved in this
 history buffer. If you're scrolling a lower portion of the screen (which
@@ -675,6 +717,13 @@ apart. ANSI graphics characters will not be printed, but characters above
 128 (in PC characters mode) will be, and are supported by most printers.
 Backscrolling will not affect the printout; Only the main screen gets
 printed.
+
+Screen-dump to disk (^Shift-D):
+Will dump the screen's contents to a file in the current path. The file will
+be named SChhmmss.TXT, where hhmmss are the hours, minutes and secods of the
+current time as displayed in the menu. In case of conflict the previous file
+will be overwritten. The lines in the output file are separated by ATASCII EOL
+characters.
 
 Hang-up (^Shift-H):
 Causes the modem to hang up by waiting 1.5 seconds, sending a "+++", waiting
@@ -713,15 +762,16 @@ Break or ^Esc  Send break
 Caps           Toggle Caps lock (indicated in status line)
 Shift-Caps     Set caps lock to on
 ^Shift-P       Print screen
+^Shift-D       Dump screen to file
 ^Shift-H       Hang up
-^Shift-S       Obscure internal speed test
+^Shift-S       Internal speed test used for development (hit any key to stop)
 
 Numeric keypad emulation:
 Codes sent depend on setting of Num-lock, which is indicated in
 the status-line, and is controlled by a code sent from host.
 
 The following used with ^Shift:
-0-9    -  Numeric-keypad 0-9
+0-9     -  Numeric-keypad 0-9
 Comma, period, minus, <Return> - Numeric keypad equivalents
 Q,W,E,R - PF1,2,3,4 respectively
 
@@ -750,20 +800,26 @@ Special-purpose ASCII characters:
 Acknowledgments
 ---------------
 I'd like to thank the following people for their contributions:
+
+Jeff McWilliams, for lending a hand in upgrading my stock 130XE to the
+powerful machine used in development;
 Clay Halliwell, for direct competition in the form of FlickerTerm80, as well
-as giving me several ideas and help with various optimizations;
-Bill Kendrick, for testing and ideas;
-John Harris, for writing the MAE assembler/editor used for the majority of
+as giving me several ideas (such as bold/blink support) and help with various
+optimizations;
+Bill Kendrick, for testing, ideas and moral support;
+John Harris, author of the MAE assembler/editor used for the majority of
 development;
-Russ Gilbert, for helping me with CRC;
-Tom Drake, for bunches of help;
+Russ Gilbert, for help with the CRC error checking;
+Tom Drake, for help and feedback;
 Mark Schmelzenbach, for the ATasm assembler, and even adding an option at my
 request;
 Avery Lee (of Virtualdub and Altirra fame), for solving a 15 year old bug and
-motivating me to release a fix.
+motivating me to release a fix;
+Steven Tucker, author of APE, for the excellent R: proxy, allowing the Atari
+running Ice-T to act as a Telnet client.
 
 Enjoy Ice-T!
 
 Itay Chamiel
 Jerusalem, Israel
---------------------------
+---------------

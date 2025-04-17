@@ -2,12 +2,13 @@
 Here's a description of the events that take place during program load:
 
 vtin.asm loads at $3000 and immediately executes a brief system check.
-	If R: handler is loaded by routine, information regarding removing it is stored at $8000-2.
 	If diagnostics fail, program load is aborted and control is returned to DOS.
+	If an R: device is not found, an attempt is made to load a handler from D:RS232.COM. If it is successfully loaded,
+	information regarding removing it is stored at $8000-2.
 vtv.asm loads data starting at $2651. This was the value of LOMEM on my machine, with R: handler and Hyper-E:
 	accelerator installed. This file contains variable declarations and data tables.
 vt1.asm continues loading where vtv.asm finished. This is the main program code.
-	Note that vt1.asm code does not cross $4000 (into bank-selected RAM), this is tested during assembly.
+	Note that vt1.asm code does not cross $4000 (into bank-selected RAM), this is verified at assembly time.
 	A routine "chsetinit" is loaded at $8003. Also the main program entry code "init" is loaded after that.
 	Note that this code will get overwritten after it is run.
 Two font files are loaded at current counter, after init routines. (Two files are needed because a standard font contains

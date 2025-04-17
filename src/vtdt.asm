@@ -8,7 +8,7 @@
 
 ; All menu-related data tables
 
-escdat	.byte	"<Esc>!"
+escdat	.byte	"<Esc>!"			; used by text file viewer to display non-printable characters
 ctldat	.byte	"<Ctrl-F>!"
 vewdat	.byte	155, "Blabber!"
 
@@ -524,6 +524,10 @@ crclotab
 
 mini2
 
+	.if	mini2 > $8000
+	.error "mini2>$8000!!"
+	.endif
+
 ; End of menus
 
 ; Move all of the above crap into
@@ -532,5 +536,3 @@ mini2
 	.bank
 	*=	$2e2
 	.word	inittrm
-
-

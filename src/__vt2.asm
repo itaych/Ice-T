@@ -2510,20 +2510,41 @@ boldbok
 	sta	?p2+2
 	lda	boldwr,y	; get bitmask of bit to enable in PM
 	sta	?p1+1
-	lda	boldscb,x	; Do we have any scroll data (marking highest and lowest known bold area for this PM)?
+	lda	boldscb,x	; Do we have any scroll data (marking highest and lowest bold area for this PM)?
 	cmp	#255
 	bne	?ns
 	lda	y			; No, create data
-	sta	boldsct,x
-	sta	boldscb,x
+	sec
+	sbc	#1
+	bne	?s1
+	lda	#1
+?s1
+	sta	boldsct,x	; place y-1 (but not lower than 1) in top value
+	lda	y
+	cmp	#24
+	beq	?s2
+	clc
+	adc	#1
+?s2
+	sta	boldscb,x	; place top+1 (but not higher than 24) in bottom value
 	jmp	?sk
 ?ns
 	lda	y	; Update existing scroll data
+	sec
+	sbc	#1
+	bne	?s3
+	lda	#1
+?s3
 	cmp	boldsct,x
 	bcs	?s4
 	sta	boldsct,x
 ?s4
 	lda	y
+	cmp	#24
+	beq	?s5
+	clc
+	adc	#1
+?s5
 	cmp	boldscb,x
 	bcc	?sk
 	sta	boldscb,x
@@ -2756,13 +2777,10 @@ doscroldn
 	lda	#1
 	sta	crsscrl
 
-	lda	isbold		; bold disabled? we're done.
+	lda	isbold	; Scroll boldface info DOWN
 	bne	?db
 	rts
 ?db
-
-; Scroll boldface info DOWN
-
 	ldx	#4
 ?mlp
 	lda	boldypm,x	; Anything in this PM? (1 of 5)
@@ -2781,13 +2799,18 @@ doscroldn
 	sta	cntrh
 	adc	#0
 	sta	prfrom+1
-	
-	ldy #1			; scrolling down.
-	jsr prep_boldface_scroll
-	beq ?mlp_skip	; nothing to do for this PM
-	cmp #255		; is this PM being emptied?
-	bne ?sb2		; No.
-	lda	#0			; Yes - mark this PM as empty.
+	lda boldscb,x	; Is lowest-bold above top of scroll range?
+	cmp scrltop
+	bcc ?mlp_skip	; Yes - nothing to do for this PM
+	lda	scrlbot		; Is lowest-bold below bottom of scroll range?
+	cmp	boldscb,x
+	bcc	?sb2		; Yes - scroll within range only
+	lda	boldscb,x	; No - scroll till bold bottom
+	dec	boldscb,x	; Bottom goes up by one line..
+	cmp	#1			; Got to the top?
+	bne	?sb2		; No.
+	pha				; Yes - mark this PM as empty.
+	lda	#0
 	sta	boldypm,x
 	lda	#255
 	sta	boldscb,x
@@ -2801,27 +2824,47 @@ doscroldn
 	bpl	?sb4
 	cmp	#0
 	bne	?sb5
+	jsr	boldclr		; Yep - switch 'em off
+	pla				; and quit
 	pla
-	jmp	boldclr		; Yep - switch 'em off and quit
+	rts
 ?sb5
 	pla
 	tax
+	pla
 ?sb2
-	ldy prep_boldface_scroll_ret2_scroll_bot
+	tay
 	lda	boldytb,y
-	sta	s764		; lower limit of this scroll operation
+	sta	s764
 
-	ldy prep_boldface_scroll_ret1_scroll_top
+	lda	scrltop		; Top of bold in range?
+	cmp	boldsct,x
+	beq	?st4
+	bcs	?st2
+?st4
+	lda	boldsct,x
+	cmp	#1
+	beq	?st2
+	dec	boldsct,x
+?st2
+	sta	temp
+	tay
+	lda	boldytb,y
+	tay
+	cmp	s764
+	beq	?er
+	ldy	temp		; Enlarge scroll portion a bit if
+	cpy	scrltop		; there's room (prevents a bug)
+	beq	?tk
+	dey
+?tk
 	lda	boldytb,y
 	tay
 
-	cpy s764
-	beq ?end		; nothing to scroll (just one line so blank it)
-	
 ?lp
 	lda	(prfrom),y	; Scroll it!
 	cmp	(cntrl),y
-	beq	?lk			; no need to copy if data is the same..
+	beq	?lk
 	sta	(cntrl),y
 	iny
 	sta	(cntrl),y
@@ -2832,7 +2875,7 @@ doscroldn
 	iny
 	cpy	s764
 	bcc	?lp
-	bcs	?end
+	bcs	?er
 ?lk
 	iny
 	iny
@@ -2840,7 +2883,7 @@ doscroldn
 	iny
 	cpy	s764
 	bcc	?lp
-?end
+?er
 	lda	#0
 	sta	(cntrl),y
 	iny
@@ -2849,7 +2892,7 @@ doscroldn
 	sta	(cntrl),y
 	iny
 	sta	(cntrl),y
-
+?el
 	dex
 	bmi	?en
 	jmp	?mlp
@@ -2992,13 +3035,10 @@ scrlup			; SCROLL UP
 	lda	#1
 	sta	crsscrl
 
-	lda	isbold	; bold disabled? we're done.
+	lda	isbold	; Scroll boldface info UP
 	bne	?db
 	rts
 ?db
-
-; Scroll boldface info UP
-
 	ldx	#4
 ?mlp
 	lda	boldypm,x	; Anything in this PM? (1 of 5)
@@ -3012,18 +3052,31 @@ scrlup			; SCROLL UP
 	sta	cntrl
 	sec
 	sbc	#4
-	sta	prfrom		; Address - 4 also needed
+	sta	prfrom		; Address-4 also needed
 	lda	boldtbph,x
 	sta	cntrh
 	sbc	#0
 	sta	prfrom+1
 
-	ldy #0			; scrolling up.
-	jsr prep_boldface_scroll
-	beq ?mlp_skip	; nothing to do for this PM
-	cmp #255		; is this PM being emptied?
-	bne ?st2		; No.
-	lda	#0			; Yes - mark this PM as empty.
+	lda	boldscb,x
+	sta	temp
+
+	lda boldsct,x	; Is highest-bold below bottom of scroll range?
+	cmp scrlbot
+	beq ?mlp_noskip
+	bcs ?mlp_skip	; Yes - nothing to do for this PM
+?mlp_noskip
+	lda	scrltop		; Is highest-bold above top of scroll range?
+	cmp	boldsct,x
+	beq	?st1
+	bcs	?st2		; Yes - scroll within range only
+?st1
+	lda	boldsct,x	; No - scroll till bold top
+	inc	boldsct,x	; Top gets one line lower...
+	cmp	#24			; Got to the bottom?
+	bne	?st2		; No.
+	pha				; Yes - mark this PM as empty.
+	lda	#0
 	sta	boldypm,x
 	lda	#255
 	sta	boldscb,x
@@ -3036,32 +3089,57 @@ scrlup			; SCROLL UP
 	dex
 	bpl	?st4
 	cmp	#0
-	bne	?st5
+	bne	?st3
+	jsr	boldclr		; Yep - switch 'em off
+	pla				; and quit
 	pla
-	jmp	boldclr		; Yep - switch 'em off and quit
-?st5
+	rts
+?st3
 	pla
 	tax
+	pla
 ?st2
-	ldy prep_boldface_scroll_ret1_scroll_top
-	lda	boldytb,y
-	clc
-	adc #3
-	sta	s764		; upper limit of this scroll operation
-
-	ldy prep_boldface_scroll_ret2_scroll_bot
-	lda	boldytb,y
-	clc
-	adc #3
 	tay
+	lda	boldytb,y
+	clc
+	adc	#3
+	sta	s764
 
-	cpy s764
-	beq ?end		; nothing to scroll (just one line so blank it)
-
+	lda	scrlbot		; Top of bold in range?
+	cmp	temp		; boldscb,x may have changed,
+	bcc	?sb			; so use temp
+	lda	temp
+	cmp	#24
+	beq	?sb
+	pha
+	lda	boldscb,x
+	tay
+	pla
+	cpy	#255
+	beq	?sb
+	inc	boldscb,x
+?sb
+	sta	temp
+	tay
+	lda	boldytb,y
+	clc
+	adc	#3
+	tay
+	cmp	s764
+	beq	?er
+	ldy	temp	; Enlarge scrolling portion a bit if
+	cpy	scrlbot	; possible (prevents a bug)
+	beq	?bk
+	iny
+?bk
+	lda	boldytb,y
+	clc
+	adc	#3
+	tay
 ?lp
 	lda	(prfrom),y	; Scroll it!
 	cmp	(cntrl),y
-	beq	?lk			; no need to copy if data is the same..
+	beq	?lk
 	sta	(cntrl),y
 	dey
 	sta	(cntrl),y
@@ -3071,18 +3149,19 @@ scrlup			; SCROLL UP
 	sta	(cntrl),y
 	dey
 	cpy	s764
-	beq	?end
+	beq	?er
 	bcs	?lp
-	bcc	?end
+	bcc	?er
 ?lk
 	dey
 	dey
 	dey
 	dey
+;	cpy	s764	; (who wrote this code? 2-12-97)
 	cpy	s764
-	beq	?end
+	beq	?er
 	bcs	?lp
-?end
+?er
 	lda	#0
 	sta	(cntrl),y
 	dey
@@ -3091,166 +3170,12 @@ scrlup			; SCROLL UP
 	sta	(cntrl),y
 	dey
 	sta	(cntrl),y
-
+?el
 	dex
 	bmi	?en
 	jmp	?mlp
 ?en
 	rts
-
-; prepare for scrolling of a single boldface PM. Takes into account current highest and lowest line where known bold data exists
-; and current screen scroll boundaries. Used for upwards or downwards scrolling. All line numbers are expected to be 1-24.
-;
-; There are 5 different possible relationships between active bold area (boldsct to boldscb) and scroll area (scrltop to scrlbot):
-;
-; (1)   (2)   (3)   (4)   (5)   (6)
-;
-; S B   S B   S B   S B   S B   S B
-;                   
-; T       T   T       T   T       T
-; |       |   |       |   |       |
-; |       |   | T   T |   | T   T |
-; B       B   | |   | |   B |   | B
-;             | |   | |     |   |
-;   T   T     | B   B |     B   B
-;   |   |     |       |   
-;   |   |     |       |  
-;   B   B     B       B   
-;
-; expects PM number (0-4) in X register.
-; expects 1 if scrolling down, 0 if up, in Y register.
-; returns 0 in A (and Z flag up) if no scroll operation is needed (cases 1-2).
-; returns 255 if PM is to be cleared entirely.
-; returns 1 normally.
-; updates boldsct and boldscb as needed.
-; returns actual scrolling boundaries for this pm in prep_boldface_scroll_ret1_scroll_top and
-;  prep_boldface_scroll_ret2_scroll_bot.
-
-prep_boldface_scroll_ret1_scroll_top .byte 0
-prep_boldface_scroll_ret2_scroll_bot .byte 0
-prep_boldface_scroll_var1_update_top .byte 0
-prep_boldface_scroll_var1_update_bot .byte 0
-
-prep_boldface_scroll
-
-; eliminate cases 1-2.
-; if (scrlbot < boldsct) or (boldscb < scrltop) return 0.
-
-	lda scrlbot
-	cmp boldsct,x
-	bcs ?no1
-	lda #0
-	rts
-?no1
-	lda boldscb,x
-	cmp scrltop
-	bcs ?no2
-	lda #0
-	rts
-?no2
-
-; let's start by assuming case 3. set scroll region naively.
-
-	lda boldsct,x
-	sta prep_boldface_scroll_ret1_scroll_top
-	lda boldscb,x
-	sta prep_boldface_scroll_ret2_scroll_bot
-	lda #1
-	sta prep_boldface_scroll_var1_update_top
-	sta prep_boldface_scroll_var1_update_bot
-	
-; now check for cases 4-6, that is, top or bottom or both of scrolling area are beyond bounds of screen scrolling area.
-
-; if (prep_boldface_scroll_ret2_scroll_bot > scrlbot) then fix bottom, and remember not to update bottom later
-; because lowermost bold character is not being scrolled.
-
-	lda scrlbot
-	cmp prep_boldface_scroll_ret2_scroll_bot
-	bcs ?no3
-	sta prep_boldface_scroll_ret2_scroll_bot
-	lda #0
-	sta prep_boldface_scroll_var1_update_bot
-	
-; if (scrltop > prep_boldface_scroll_ret1_scroll_top) then fix top, and remember not to update top later
-; because uppermost known bold character is not being moved.
-
-?no3
-	lda prep_boldface_scroll_ret1_scroll_top
-	cmp scrltop
-	bcs ?no4
-	lda scrltop
-	sta prep_boldface_scroll_ret1_scroll_top
-	lda #0
-	sta prep_boldface_scroll_var1_update_top
-?no4
-
-; done setting scroll boundaries. there are 2 tasks to do now, which are done differently depending on whether we're scrolling up or down.
-
-; 1. add one line to scrolling region
-; scroll region should include one line above when scrolling down or one line below when scrolling up.
-; (or else upper/lower bold line will be erased rather than scrolled.)
-; take care not to go out of bounds though.
-
-; 2. update highest/lowest known bold character for this PM.
-
-	tya
-	beq ?up
-	; we're scrolling down
-
-	; step 1: add a line above if possible.
-	lda prep_boldface_scroll_ret1_scroll_top
-	cmp scrltop
-	beq ?no5 ; if top is already at top of scrollable area, don't do anything.
-	dec prep_boldface_scroll_ret1_scroll_top
-?no5	
-	; step 2: update boldsct/boldscb.
-	lda prep_boldface_scroll_var1_update_top
-	beq ?no6
-	lda boldsct,x
-	cmp scrltop
-	beq ?no6
-	dec boldsct,x
-?no6
-	lda prep_boldface_scroll_var1_update_bot
-	beq ?no7
-	lda boldscb,x
-	cmp boldsct,x	; if top=bottom, that means this scroll operation will completely clear this PM.
-	beq ?clear
-	dec boldscb,x
-?no7
-	jmp ?done
-?up
-	; scrolling up. 
-	
-	; step 1: add line below if possible.
-	lda prep_boldface_scroll_ret2_scroll_bot
-	cmp scrlbot
-	beq ?no8
-	inc prep_boldface_scroll_ret2_scroll_bot
-?no8
-	; step 2: update boldsct/boldscb.
-	lda prep_boldface_scroll_var1_update_bot
-	beq ?no9
-	lda boldscb,x
-	cmp scrlbot
-	beq ?no9
-	inc boldscb,x
-?no9
-	lda prep_boldface_scroll_var1_update_top
-	beq ?done
-	lda boldsct,x
-	cmp boldscb,x	; if top=bottom, that means this scroll operation will completely clear this PM.
-	beq ?clear
-	inc boldsct, x
-
-?done
-	lda #1
-	rts
-?clear
-	lda #255
-	rts
-
-; ************************************************************************************************************
 
 ersline
 	lda	ersl
@@ -3636,21 +3561,17 @@ gtky
 	sta	s764
 	and	#$c0
 	cmp	#$c0
-	beq	?ctshft
+	beq	ctshft
 	jmp	noctshft
-?ctshft				; ctrl-shift held down
+ctshft				; ctrl-shift held down
 	lda	s764
 	and	#$3f
+	cmp	#10			; keyboard code for 'P'?
+	bne	noprtscrn
+	jmp	prntscrn
+noprtscrn
 	tax
 	lda	keytab,x
-	cmp #'d			; d - dump screen to disk
-	bne ?nodiskdump
-	jmp diskdumpscrn
-?nodiskdump
-	cmp	#'p			; p - print screen
-	bne	?noprtscrn
-	jmp	prntscrn
-?noprtscrn
 	cmp	#'h			; h - hangup
 	bne	?nh
 	jmp	hangup
@@ -4029,66 +3950,15 @@ karrdo
 	jmp	outputdat
 knoarrow
 	rts
-	
-diskdumpscrn
-	lda	#1
-	sta	764
-	jsr	getkey	; sound a keyclick
-	lda #0
-	sta s764	; tell shared code that this is a dump to disk
-	
-	; generate filename from menu clock
-	ldx #5
-?lp
-	lda clock_offsets,x
-	tay
-	lda menuclk,y
-	and #$7F
-	sta diskdumpfname+2,x
-	dex
-	bpl ?lp
-
-	; generate full path+filename
-diskdumpfullfname = dialmem	; reuse dialer prompt buffer for this
-	
-	ldx	#0
-	ldy	#0
-?a
-	lda	pathnm,x
-	beq	?b
-	sta	diskdumpfullfname,y
-	inx
-	iny
-	cpx	#40
-	bne	?a
-?b
-	ldx	#0
-?c
-	lda	diskdumpfname,x
-	sta	diskdumpfullfname,y
-	inx
-	iny
-	cpx	#12
-	bne	?c
-	lda	#155
-	sta	diskdumpfullfname,y
-
-	ldx	#>diskdumpwin
-	ldy	#<diskdumpwin
-	jmp prntscrn_after_init
-	
 prntscrn
 	lda	#1
 	sta	764
-	jsr	getkey	; sound a keyclick
-	lda #1
-	sta s764	; tell shared code that this is a dump to printer
+	jsr	getkey
 	ldx	#>prntwin
 	ldy	#<prntwin
-prntscrn_after_init
-	jsr	drawwin	; draw 'printing' window
-	jsr	buffdo	; empty any incoming data from R: before closing
-	jsr	close2	; close #2
+	jsr	drawwin
+	jsr	buffdo
+	jsr	close2
 	ldx	#$20
 	lda	#3
 	sta	iccom+$20
@@ -4097,22 +3967,13 @@ prntscrn_after_init
 	lda	#>scrnname
 	sta	icbah+$20
 	lda	#8
-	sta	icaux1+$20
+	sta	icaux1,x
 	lda	#0
-	sta	icaux2+$20
-
-	lda s764
-	bne ?nodisk1
-	lda	#<diskdumpfullfname
-	sta	icbal+$20
-	lda	#>diskdumpfullfname
-	sta	icbah+$20
-?nodisk1
-
-	jsr	ciov	; open #2,8,0,"P:" or <diskdumpfullfname>
+	sta	icaux2,x
+	jsr	ciov
 	cpy	#128
 	bcs	?err
-	
+
 	lda	#1
 	sta	y
 ?mlp
@@ -4124,12 +3985,9 @@ prntscrn_after_init
 	lda	(ersl),y
 	cpy	#80
 	bne	?n8
-	lda	#155	; add EOL at end of line
+	lda	#155
 ?n8
-	ldx s764
-	beq ?n2		; skip conversions for disk output
-	
-	cmp	#32		; Some conversion for printers..
+	cmp	#32   ; Some conversion..
 	bcs	?o3
 	lda	#32
 ?o3
@@ -4145,9 +4003,10 @@ prntscrn_after_init
 	stx	iccom+$20
 	ldx	#0
 	stx	icbll+$20
+	ldx	#0
 	stx	icblh+$20
 	ldx	#$20
-	jsr	ciov	; put #2,<a>
+	jsr	ciov
 	tya
 	tax
 	pla
@@ -4162,8 +4021,8 @@ prntscrn_after_init
 	lda	y
 	cmp	#25
 	bne	?mlp
-	jsr	ropen	; closes #2 and reopens R:
-	jmp	getscrn	; restores screen, removing prompt window
+	jsr	ropen
+	jmp	getscrn
 
 ?err
 	jsr	number
@@ -4175,12 +4034,6 @@ prntscrn_after_init
 	sta	prnterr3+2
 	ldx	#>prnterr1
 	ldy	#<prnterr1
-	
-	lda s764
-	bne ?nodisk2
-	ldx	#>diskdumperr1
-	ldy	#<diskdumperr1
-?nodisk2
 	jsr	prmesg
 	ldx	#>prnterr2
 	ldy	#<prnterr2
@@ -5698,10 +5551,6 @@ dialdat	.ds	80*20
 dialmem	.ds	88
 
 mini1
-
-	.if	mini1 > $8000
-	.error "mini1>$8000!!"
-	.endif
 
 ; Move all of the above crap into
 ; banked memory

@@ -56,8 +56,8 @@ finnum		.ds 1
 numgot		.ds 1
 digitgot	.ds 1
 gogetdg		.ds 1
-scrltop		.ds 1
-scrlbot		.ds 1
+scrltop		.ds 1	; top of scrolling area, 1-24
+scrlbot		.ds 1	; bottom of scrolling area, 1-24
 tx			.ds 1
 ty			.ds 1
 flashcnt	.ds 1
@@ -68,7 +68,7 @@ dobell		.ds 1
 doclick		.ds 1
 capslock	.ds 1
 s764		.ds 1
-outnum		.ds 1
+outnum		.ds 1	; number of bytes to output.
 outdat		.ds 3
 
 noplcs		.ds 1
@@ -267,7 +267,7 @@ diltmp2	.ds	1
 chartemp	.ds 8
 cprd		.ds 8
 dlst2		.ds $103
-lnsizdat	.ds 24
+lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
 block		.ds 1
 putbt		.ds 1
 retry		.ds 1
@@ -296,7 +296,7 @@ setvbv	=	$e45c
 sysvbv	=	$e45f
 xitvbv	=	$e462
 kbcode	=	$d209
-banksw	=	$d301
+banksw	=	$d301	; PORTB
 
 bank0	=	$ff
 bank1	=	$e3
@@ -343,6 +343,7 @@ xchars
 sname	.byte	"S:"
 rname	.byte	"R:", 155
 
+; path name prompt
 	.byte	~11,36,5,40
 pathnm
 	.byte	"D:", 0, 0
@@ -350,29 +351,35 @@ pathnm
 	.byte	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	.byte	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
+; file name prompt
 	.byte	~11,55,3,12
 flname
-	.byte	"TEMP.FIL", 0, 0, 0, 0
+	.byte	"ICET.TXT", 0, 0, 0, 0
 
+; path/file to configuration data file.
+; Under SpartaDOS 2/3 the 'D' is replaced with 2 bytes (such as D2) so we
+; leave 1 extra byte for string to grow.
 cfgname
-	.byte	"D:ICET.DAT", 155
+	.byte	"D:ICET.DAT", 155, 0
+cfgname_end
 
+; Ascii-wait for prompt
 	.byte	0,75,10,1
 ascprc
-	.byte	0	; Ascii-wait for prompt
+	.byte	0
 
 cfgdat
 
-baudrate	.byte 12
+baudrate	.byte 15	; baud rate, 8=300 baud, 15=19.2k 
 stopbits	.byte 0
 localecho	.byte 0
 click		.byte 2
 curssiz		.byte 6
 finescrol	.byte 0
-boldallw	.byte 0	; Enable boldface
+boldallw	.byte 1		; Enable boldface
 autowrap	.byte 1
 delchr		.byte 0
-bckgrnd		.byte 0 ; Regular (0) or inverse (1) screen
+bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
 bckcolr		.byte 0
 eoltrns		.byte 1
 ansiflt		.byte 0
@@ -444,6 +451,17 @@ prnterr2
 	.byte	+$80, " "
 prnterr3
 	.byte	+$80, "   . Hit key  "
+
+diskdumpwin
+	.byte	30,7,49,10
+	.byte	" Saving screen  "
+	.byte	"to "
+diskdumpfname
+	.byte	"SCxxxxxx.TXT "
+
+diskdumperr1
+	.byte	32,8,15
+	.byte	+$80, "  Disk error   "
 
 keytab
 
@@ -536,11 +554,12 @@ tilmesg1
 	.byte	"Ice-T __"
 tilmesg2
 	.byte	(80-75)/2,8,75
-	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2012 Itay Chamiel."
+	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2013 Itay Chamiel."
 tilmesg3
-	.byte	(80-55)/2,10,55
+	.byte	(80-59)/2,10,59
 svscrlms
-	.byte	"Version 2.73, April 14, 2012. Contact: itaych@gmail.com"
+	.byte	"Version 2.74, September 25, 2013. Contact: itaych@gmail.com"
+;	.byte	"Version 2.74b5              Contact: itaych@gmail.com"
 .if 1
 tilmesg4
 	.byte	(80-75)/2,13,71
@@ -551,22 +570,13 @@ tilmesg5
 .else
 tilmesg4
 	.byte	2,12,76
-	.byte	"This software is Sha"
-	.byte	"reware, and may be f"
-	.byte	"reely distributed. F"
-	.byte	"or registration,"
+	.byte	"This software is Shareware, and may be freely distributed. For registration,"
 tilmesg5
 	.byte	3,13,72
-	.byte	"send $25 to Itay "
-	.byte	"Chamiel, 9-A Narkis "
-	.byte	"St, Apt 13, Jer"
-	.byte	"usalem 92461 Israel."
+	.byte	"send $25 to Itay Chamiel, 9-A Narkis St, Apt 13, Jerusalem 92461 Israel."
 tilmesg6
 	.byte	1,14,79
-	.byte	"Help support further"
-	.byte	" Atari 8-bit develop"
-	.byte	"ment by registering."
-	.byte	" Thanks in advance!"
+	.byte	"Help support further Atari 8-bit development by registering. Thanks in advance!"
 .endif
 
 xelogo

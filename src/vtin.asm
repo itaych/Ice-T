@@ -19,40 +19,66 @@ check
 	sta	82			; set margin to 0
 	lda	#255
 	sta	764			; clear keyboard buffer
-;	ldx	#0
-;?lp
-;	txa
-;	pha
-;	lda	testmsg,x
-;	ldx	#11
-;	stx	iccom
-;	ldx	#0
-;	stx	icbll
-;	stx	icblh
-;	jsr	ciov
-;	pla
-;	tax
-;	inx
-;	cpx	#okmsg-testmsg
-;	bne	?lp
-	ldx	topmem		; Check for free 48K by writing to top of memory and checking for same value when read
-	lda	#1
-	sta	topmem
-	lda	topmem
-	stx	topmem
-	cmp	#1
-	bne	membad
-	lda	#128
-	sta	topmem
-	lda	topmem
-	stx	topmem
-	cmp	#128
-	beq	memok
+
+	ldx	#>okmsg2	; Print a blank line
+	ldy	#<okmsg2
+	jsr	prnt_line
+
+	
+; $0700 : "S" = SpartaDOS (any), "R" = RealDOS, "M" = MyDOS
+; $0701 : $32 = SpartaDOS 3.2, $40 = SpartaDOS X 4.0, $10 = RealDOS 1.0
+; $0702 : $02 = Revision 2 (Sparta-Dos X only)
+
+; SpartaDOS 2/3: Disable TDLINE (time/date at top of screen) (thanks Fox-1)
+
+	lda $700 		; DOS type detection
+	cmp #'S
+	bne ?nosparta
+	lda $701
+	and #$f0
+	cmp #$40
+	bcs ?nosparta	; skip versions from 4.0 up (this crashes on SDX)
+
+	lda banksw
+	pha
+	and #$fe
+	sta banksw
+	ldy #$00 ; $00/$01 to turn Off/On TD Line display
+	jsr $ffc6 ; TDLINE Vector
+	pla
+	sta banksw
+
+?nosparta
+
+; Check for free 48K by writing to top of memory and checking for same value when read
+
+	lda topmem
+	tax
+	eor #$ff
+	sta topmem
+	cmp topmem
+	bne membad
+	stx topmem
+	jmp	memok
 membad
 	jsr	prntbad		; Error - base 48k not free
 	ldx	#>bd48
 	ldy	#<bd48
-	jsr	prntin
+	jsr	prnt_line
+
+; Test if SpartaDOS X is running - if so, tell user to run Ice-T with "X" command (which frees lower 48K).
+
+	lda $700
+	cmp #'S
+	bne memok
+	lda $701
+	and #$f0
+	cmp #$40
+	bne memok
+	ldx #>sdx_usex
+	ldy	#<sdx_usex
+	jsr	prnt_line
+
 memok
 	lda	#bank0		; Test for 128K banked memory
 	sta	banksw
@@ -70,13 +96,13 @@ memok
 	jsr	prntbad
 	ldx	#>bnkbd
 	ldy	#<bnkbd
-	jsr	prntin
+	jsr	prnt_line
 bankok
 
 ; This code checks for the presence of an R: device in HATABS. If it doesn't exist it attempts to load
-; a handler from the file RS232.COM.
+; a handler from the file RS232.COM (MyDOS only).
 
-; The following bit may run twice, counter ?rr1 remembers which iteration we are.
+; The following section may run twice, counter ?rr1 remembers which iteration we are.
 
 	ldx	#0
 ?lp1
@@ -92,19 +118,21 @@ bankok
 	lda	?rr1
 	cmp	#2
 	beq	?rb			; second iteration? indicate failure
+
+	lda $700		; Try loading RS232.COM if we are in MyDOS
+	cmp #'M
+	bne ?rb
+
 	lda	lomem		; remember lomem value
 	sta	$8001
 	lda	lomem+1
 	sta	$8002
-	ldx	#>okmsg2	; Print a blank line
-	ldy	#<okmsg2
-	jsr	prntin
 	ldx	#$30
 	lda	#12			; Close channel #3
 	sta	iccom+$30
 	jsr	ciov
 	ldx	#$30
-	lda	#39			; MyDOS command to load and execute file (maybe should have used 40 for SpartaDOS compat?)
+	lda	#40			; XIO command to load and execute file (39 also works in MyDOS)
 	sta	iccom+$30
 	lda	#>fnme
 	sta	icbah+$30
@@ -122,16 +150,15 @@ bankok
 ?rb
 	jsr	prntbad
 	lda	?rr2
-	cmp	#128		; was there an error loading the R: handler file?
-	bcc	?nrd
+	bpl	?nrd		; was there an error loading the R: handler file?
 	ldx	#>rhndbd1	; yes - indicate that we couldn't load the file
 	ldy	#<rhndbd1
-	jsr	prntin
+	jsr	prnt_null_terminated
 	jmp	?ok1
 ?nrd
 	ldx	#>rhndbd	; no - indicate that hardware is probably not ready
 	ldy	#<rhndbd
-	jsr	prntin
+	jsr	prnt_line
 ?ok1
 	stx	$8000		; remember offset to R: handler (if it wasn't found, this just writes a junk value)
 
@@ -140,17 +167,12 @@ bankok
 	
 ; No, display failure and quit.
 
-	tax
-	lda	#11			; output a character..
-	sta	iccom
-	txa
-	sta	icbll
-	sta	icblh
-	lda	#155		; ...and it shall be an EOL character
-	jsr	ciov
+	ldx	#>okmsg2	; Print a blank line
+	ldy	#<okmsg2
+	jsr	prnt_line
 	ldx	#>retdsmsg	; display "hit any key to return to DOS"
 	ldy	#<retdsmsg
-	jsr	prntin
+	jsr	prnt_line
 ?lp
 	lda	764			; wait for keypress
 	cmp	#255
@@ -166,45 +188,26 @@ bankok
 
 ; Passed, display success and let rest of program load
 
-	pla
-	sta	82			; restore margin setting
-	ldx	#>okmsg2
-	ldy	#<okmsg2
-	jsr	prntin
 	ldx	#>okmsg
 	ldy	#<okmsg
-	jmp	prntin		; output "loading ice-t..." and exit
-
+	jsr	prnt_line	; output "loading ice-t..." and exit
+	pla
+	sta	82			; restore margin setting
+	rts
+	
 ; display initial error message, taking care not to show it more than once
 
 prntbad
-	lda	badtext		; zeroing the first byte is flag that message has already been shown
-	cmp	#0
-	beq	?end
-	ldx	#0			; output message one char at a time
-?lp
-	txa
-	pha				; save loop index
-	lda	badtext,x
-	ldx	#11			; output single character
-	stx	iccom
-	ldx	#0			; chan #0
-	stx	icbll		; length 0
-	stx	icblh
-	jsr	ciov
-	pla
-	tax				; recover loop index
-	inx
-	cpx	#bd48-badtext
-	bne	?lp
+	ldx	#>badtext
+	ldy	#<badtext
+	jsr	prnt_null_terminated
 	lda	#0
-	sta	badtext		; set flag so this message is not displayed again
-?end
+	sta	badtext		; change to null string so this message is not displayed again
 	rts
 	
 ; print a line ending with EOL
 
-prntin
+prnt_line
 	stx	icbah		; x/y contain address of line
 	sty	icbal
 	ldx	#0
@@ -215,23 +218,53 @@ prntin
 	stx	icblh
 	jmp	ciov
 
+; print a null-terminated string
+
+prnt_null_terminated
+	sty $80
+	stx $81
+	ldy #0
+?lp
+	lda	($80),y
+	beq ?end
+	tax
+	tya
+	pha				; save loop index
+	txa
+	ldx	#11			; output single character
+	stx	iccom
+	ldx	#0			; chan #0
+	stx	icbll		; length 0
+	stx	icblh
+	jsr	ciov
+	pla
+	tay				; recover loop index
+	iny
+	bne	?lp	
+?end
+	rts
+
 okmsg
 	.byte	"Loading Ice-T.."
-okmsg2
+okmsg2				; used to print a blank line
 	.byte	155
 badtext
 	.byte	"Ice-T requires a 128K computer, with no", 155
-	.byte	"cartridges active. You also have to", 155
-	.byte	"rename your R: handler to RS232.COM.", 155, 155
-	.byte	"The following conditions were not met:", 155, 155
+	.byte	"cartridges active and a serial port (R:", 155
+	.byte	"device) available.", 155
+	.byte	"The following conditions were not met:", 155, 155, 0
 bd48
 	.byte	"* Base 48K not free!", 155
+sdx_usex
+	.byte	"* SDX users: use 'X' to launch Ice-T.", 155
 bnkbd
 	.byte	"* No banked memory!", 155
 rhndbd
-	.byte	"* No R: - Interface not ready!", 155
+	.byte	"* R: device not found!", 155
 rhndbd1
 	.byte	"* No R: - Can't load R: handler file!", 155
+	.byte	"(If your serial interface requires an", 155
+	.byte	"R: driver, rename it to RS232.COM.)", 155, 0
 retdsmsg
 	.byte	"Hit any key to return to DOS..", 155
 fnme

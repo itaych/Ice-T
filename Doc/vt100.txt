@@ -11,7 +11,7 @@ Conventions used:
 Esc    - the ASCII character 27
 ^      - Control.
 spaces - shown only for clarity. They are not part of the commands.
-__     - Decimal number from 0 to 255 (can be any number of digits: 001, 01, 1
+__     - Decimal number from 0 to 254 (can be any number of digits: 001, 01, 1
 are the same).
 
 "Can scroll" means that if the cursor cannot move up or down without passing
@@ -25,7 +25,7 @@ The VT100 commands are case-sensitive. C is not the same as c.
 
 Commands with parameters look like this:
 Esc [ __ ; __ ; __ ; ....... ; __ x (where x is a different letter for each
-command). Ice-T allows up to 255 numbers to be received in one command,  but
+command). Ice-T allows up to 255 values to be received in one command, but
 most commands will only be affected by the first one or two values.
 All such commands have defaults which are used if no parameters are
 received, or if less are received than expected.
@@ -119,9 +119,9 @@ Parameter          Set           Reset
  5 - screen color  Reverse-vid   Normal
  7 - autowrap      On            Off
 Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
- Select graphic rendition:
- 0 - Normal      5 - Blink
- 4 - Underline   7 - Reverse video   8 - Invisible (writes blank spaces)
+ Select rendition mode(s) for text, parsed in the order they appear:
+ 0 - Reset to normal   1 - Boldface        4 - Underline
+ 5 - Blink             7 - Reverse video   8 - Invisible (writes blank spaces)
 Esc [ __ n  (none --> 5)
             Device Status Report. Response depends on parameter:
             5: response is "ready" - Esc [0n

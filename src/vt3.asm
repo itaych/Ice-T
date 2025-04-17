@@ -1271,8 +1271,7 @@ filren			; Rename file
 	pha
 	jsr	ropen
 	pla
-	cmp	#128
-	bcs	?er
+	bmi	?er
 	jmp	bkfil
 ?er
 	tay
@@ -1302,12 +1301,14 @@ filpth			; Change disk path
 	ldy	#<pathnm
 	jsr	doprompt
 
+; convert to upper case
+
 	ldx	#39
 ?c
-	lda	pathnm,x
-	cmp	#97
+	lda	pathnm,x	
+	cmp	#'a
 	bcc	?o
-	cmp	#123
+	cmp	#'z+1
 	bcs	?o
 	sec
 	sbc	#32
@@ -1316,18 +1317,44 @@ filpth			; Change disk path
 	dex
 	bpl	?c
 
-	lda	pathnm
-	cmp	#68
-	beq	?d
-	ldx	#38
+; It must start with X: or Xn:, else prepend 'D:'
+
+	lda pathnm
+	cmp #'A
+	bcc ?pathbad_start
+	cmp	#'Z+1
+	bcs	?pathbad_start
+	
+	lda pathnm+1
+	beq ?pathgood_start		; nothing? accept it, a ':' will be appended later
+	cmp #':
+	beq ?pathgood_start
+	cmp #'0
+	bcc ?pathbad_start
+	cmp	#'9+1
+	bcs	?pathbad_start
+	
+	lda pathnm+2
+	beq ?pathgood_start		; nothing? accept it, a ':' will be appended later
+	cmp #':
+	beq ?pathgood_start
+
+?pathbad_start		; tests failed, prepend 'D:'
+	ldx	#37
 ?dl
 	lda	pathnm,x
-	sta	pathnm+1,x
+	sta	pathnm+2,x
 	dex
 	bpl	?dl
-	lda	#68
+	lda	#'D
 	sta	pathnm
-?d
+	lda	#':
+	sta	pathnm+1
+
+?pathgood_start
+
+; Make sure last character is a ':' or a '>' or '\', else append a ':'
+
 	ldx	#39
 ?l
 	lda	pathnm,x
@@ -1335,16 +1362,18 @@ filpth			; Change disk path
 	dex
 	bpl	?l
 ?z
-	cmp	#58
+	cmp	#':
 	beq	?x
-	cmp	#62
+	cmp	#'>
+	beq	?x
+	cmp	#'\
 	beq	?x
 	inx
 	cpx	#40
 	bne	?n
 	ldx	#39
 ?n
-	lda	#58
+	lda	#':		; add a ':' if no valid terminator found
 	sta	pathnm,x
 ?x
 	jsr	prepflnm
@@ -1925,12 +1954,12 @@ viewloop
 	jsr	ldaprfrm
 	cmp	#155
 	bne	?ret
-	jsr	ret
+	jsr	ret		; ATASCII EOL
 	jmp	?x
 ?ret
 	cmp	#127
 	bne	?tab
-	ldx	x
+	ldx	x		; ATASCII TAB
 ?tblp
 	inx
 	cpx	#79
@@ -1948,18 +1977,17 @@ viewloop
 ?tab
 	cmp	#13
 	bne	?ncr
-	jsr	ret
+;	jsr	ret		; CR - do nothing
 	jmp	?x
 ?ncr
 	cmp	#10
 	bne	?nlf
-	lda	#0
-	sta	x
+	jsr	ret		; LF - consider as CR+LF
 	jmp	?x
 ?nlf
 	cmp	#8
 	bne	?ndel
-	lda	x
+	lda	x		; DEL - move 1 char to the left
 	beq	?dlb
 	dec	x
 ?dlb
@@ -1967,30 +1995,30 @@ viewloop
 ?ndel
 	cmp	#9
 	bne	?natb
-	ldx	x
+	ldx	x		; ASCII TAB
 	jmp	?tblp
 ?natb
 	pha
-	and	#127
-	cmp	#32
-	bcs	?nct
+	and	#$7F
+	cmp	#32		; ignoring high bit, is this character >= 32?
+	bcs	?nct	; If so, it's not a control character, go display it
 	cmp	#27
 	bne	?nesc
-	ldx	#5
+	ldx	#5		; Is it Esc (27)?
 ?elp
-	lda	escdat,x
+	lda	escdat,x	; copy <esc> string
 	sta	vewdat,x
 	dex
 	bpl	?elp
 	jmp	?spprt
 ?nesc
-	clc
+	clc				; create <ctrl-x> string where 'x' is character+64
 	adc	#64
 	sta	ctldat+6
 	ldx	#8
 ?ctlp
 	lda	ctldat,x
-	tay
+	tay				; inverse entire <ctrl-x> string if original char was inverse
 	pla
 	pha
 	rol	a
@@ -2001,15 +2029,15 @@ viewloop
 	sta	vewdat,x
 	dex
 	bpl	?ctlp
-?spprt
+?spprt				; print out string, terminated with '!', created in vewdat
 	pla
 	ldx	#0
 ?splp
 	lda	vewdat,x
-	cmp	#33	; !
-	beq	?ensp
-	cmp	#33+128
-	beq	?ensp
+	cmp	#33			; '!' character? we're done
+	beq	?x
+	cmp	#33+128		; inverse '!' - also done
+	beq	?x
 	sta	prchar
 	stx	topx
 	jsr	print
@@ -2022,8 +2050,6 @@ viewloop
 	ldx	topx
 	inx
 	jmp	?splp
-?ensp
-	jmp	?x
 
 ?nct
 	pla
