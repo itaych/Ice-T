@@ -3147,8 +3147,10 @@ macro_find_data
 
 endinit
 
-	.if	endinit >= $4000
-	.error "endinit>$4000!!"
+bytes_free_below_banked_memory = banked_memory_bottom - endinit	; for diagnostics
+
+	.if	endinit >= banked_memory_bottom
+	.error "vt1 code overflows into banked memory!!"
 	.endif
 
 ; Initialization routines (run once, then get overwritten)

@@ -7,6 +7,9 @@
 ; This is the first portion of the program that loads and executes. It checks that your computer
 ; has enough memory, no cartridges installed, and a valid R: handler available.
 
+; Note: this code makes use of the standard E: text output, therefore take extra care not to use
+; zero-page locations below $80 such as 'cntrl'.
+
 topmem	=	$bfff
 bnkmem	=	$4000
 
@@ -23,14 +26,13 @@ system_checkup
 	ora bankselect_vals,x
 	sta bank0,x
 	dex
-	bpl ?lp
+	bpl ?lp		; x=$ff when exiting this loop
 
 	lda lmargn
 	pha
-	lda #0
-	sta lmargn			; set margin to 0
-	lda #255
-	sta kbd_ch			; clear keyboard buffer
+	stx kbd_ch			; clear keyboard buffer (x=$ff)
+	inx
+	stx lmargn			; set margin to 0
 
 	ldx #>okmsg2	; Print a blank line
 	ldy #<okmsg2
@@ -182,7 +184,7 @@ check_r_handler
 ; $0702 : $02 = Revision 2 (Sparta-Dos X only)
 
 	lda #0
-	sta banked_memory_top+3		; flag that remembers to re-enable TDLINE (SDX 4.4+ only)
+	sta banked_memory_top+3		; whether to re-enable TDLINE when exiting (SDX 4.4+ only)
 
 	lda $700 		; DOS type detection
 	cmp #'S
@@ -208,7 +210,7 @@ jfsymbol = $07eb
 	ldy #$00        ;$00 - off, $01 - on
 ?ptr	jsr undefined_addr	; self modified
 	jsr jext_off
-	inc banked_memory_top+3
+	inc banked_memory_top+3		; flag was 0, set to 1
 	jmp ?nosparta
 ; symbol name, space-padded to 8 characters
 ?sym	.byte "I_TDON  "
@@ -266,11 +268,11 @@ prnt_line
 ; print a null-terminated string
 
 prnt_null_terminated
-	sty cntrl
-	stx cntrh
+	sty chrcnt
+	stx chrcnt+1
 	ldy #0
 ?lp
-	lda (cntrl),y
+	lda (chrcnt),y
 	beq ?end
 	tax
 	tya

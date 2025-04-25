@@ -611,13 +611,14 @@ attnst	.ds	32	; Zmodem Attn string
 crchitab	.ds	256
 crclotab	.ds	256
 
-mini2
+end_bank_2
+bytes_free_bank_2 = wind2 - end_bank_2	; for diagnostics
 
-	.if	mini2 > $8000
-	.error "mini2>$8000!!"
+	.if	end_bank_2 > $8000
+	.error "end_bank_2>$8000!!"
 	.endif
-	.if	mini2 > wind2
-	.error "mini2>wind2!!"
+	.if	end_bank_2 > wind2
+	.error "end_bank_2>wind2!!"
 	.endif
 
 ; End of menus

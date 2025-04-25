@@ -854,8 +854,8 @@ development;
 Russ Gilbert, for help with the CRC error checking and beta testing across a
 wide variety of hardware configurations;
 Tom Drake, for help and feedback;
-Mark Schmelzenbach, for the ATasm assembler, and even adding an option at my
-request;
+Mark Schmelzenbach, for the ATasm assembler, and adding the -mae option at my
+request; and to Peter Hinz for further ATasm updates and bugfixes.
 Avery Lee (of Virtualdub and Altirra fame), for solving a 15 year old bug and
 motivating me to release a fix;
 Steven Tucker, author of APE, for the excellent R: proxy, allowing the Atari

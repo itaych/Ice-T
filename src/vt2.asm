@@ -1807,7 +1807,7 @@ cpr2
 dsrno6
 	jmp fincmnd
 
-csicode_decreqtparm	; x - DECREQTPARM – Request Terminal Parameters
+csicode_decreqtparm	; x - DECREQTPARM - Request Terminal Parameters
 	CHECK_PARAMS 0,0,255
 	lda numstk
 	cmp #2
@@ -6569,13 +6569,14 @@ dialmem	.ds	88
 
 macro_parser_output = dialmem
 
-mini1
+end_bank_1
+bytes_free_bank_1 = wind1 - end_bank_1	; for diagnostics
 
-	.if	mini1 > $8000
-	.error "mini1>$8000!!"
+	.if	end_bank_1 > $8000
+	.error "end_bank_1>$8000!!"
 	.endif
-	.if	mini1 > wind1
-	.error "mini1>wind1!!"
+	.if	end_bank_1 > wind1
+	.error "end_bank_1>wind1!!"
 	.endif
 
 ; Move all of the above crap into banked memory
@@ -6597,7 +6598,7 @@ chbnk1  ldx bank1	; this value is modified to bank2 for second iteration
 	bne intrmlp
 	inc cntrh
 	lda cntrh
-chbnk2  cmp #>mini1
+chbnk2  cmp #>end_bank_1
 	bcc intrmlp
 	beq intrmlp
 	lda bank0
@@ -6606,7 +6607,7 @@ chbnk2  cmp #>mini1
 ; self-modify code so next time it does bank 2 rather than 1
 	lda #bank2	; This changes "ldx bank1" to "ldx bank2"
 	sta chbnk1+1
-	lda #>mini2	; Changes "cmp #>mini1" to "cmp #>mini2"
+	lda #>end_bank_2	; Changes "cmp #>end_bank_1" to "cmp #>end_bank_2"
 	sta chbnk2+1
 	rts
 
