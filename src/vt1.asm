@@ -58,7 +58,7 @@ init_continued
 ?no0
 	cmp #$13
 	bcc ?no_over12
-	sed			; and you better believe it
+	sed			; never thought I'd actually use this instruction
 	sec
 	sbc #$12
 	cld
@@ -98,13 +98,13 @@ init_continued
 	sta ?dlist_lines,y
 	sta linadr_l,x	; also store address to line lookup table
 	clc
-	adc #<(40*8)
+	adc #<(40*8)	; 8 lines of 40 bytes each (mode 15)
 	sta cntrl
 	iny
 	lda cntrh
 	sta ?dlist_lines,y
 	sta linadr_h,x	; line lookup table, hi byte
-	adc #>320
+	adc #>(40*8)
 	sta cntrh
 	iny
 	ldx #6		; to create 7 mode lines
@@ -247,6 +247,7 @@ init_continued
 	jsr resttrm	; reset terminal settings
 
 	; Display title screen
+COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 
 	lda color4
 	sta color3
@@ -262,8 +263,6 @@ init_continued
 	lda #1			; color mode
 	sta boldallw
 	jsr boldclr
-;	lda #1
-;	sta boldypm
 
 	lda #16	; Write "Ice-T" in big letters
 	sta x
@@ -276,7 +275,11 @@ init_continued
 	sta lnsizdat+5
 	lda bank1	; for printerm
 	sta banksw
-	lda #1		; set bold (+(4*2) for color)
+.if COLORED_TITLE_SCREEN
+	lda #1+(4*2)		; set bold (+(4*2) for color)
+.else
+	lda #1			; set bold
+.endif
 	sta boldface
 	ldx #0
 ?p
@@ -297,14 +300,16 @@ init_continued
 	inx
 	cpx #8
 	bne ?p
-;	lda #1+(2*2)	; color for Icesoft logo
-;	sta boldface
-	lda #17		; Make Icesoft logo bold
+.if COLORED_TITLE_SCREEN
+	lda #1+(2*2)	; color for Icesoft logo
+	sta boldface
+.endif
+	lda #17			; Make Icesoft logo bold by printing underscores where the logo will be drawn later.
 	sta x
 	lda #17
 	sta y
 ?p2
-	lda #'_		; just print underscores for now; the logo will be drawn later.
+	lda #'_
 	sta prchar
 	jsr printerm
 	inc x
@@ -312,20 +317,22 @@ init_continued
 	cmp #22
 	bne ?p2
 
-;	lda #1+(1*2)	; color for tilmesg2
-;	sta boldface
-;	lda #(80-75)/2	; emphasize tilmesg2 too with same underscore trick
-;	sta x
-;	lda #8
-;	sta y
-;?p3
-;	lda #'_
-;	sta prchar
-;	jsr printerm
-;	inc x
-;	lda x
-;	cmp #(80-75)/2+75
-;	bne ?p3
+.if COLORED_TITLE_SCREEN
+	lda #1+(1*2)	; color for tilmesg2
+	sta boldface
+	lda #(80-75)/2	; emphasize tilmesg2 too with same underscore trick
+	sta x
+	lda #8
+	sta y
+?p3
+	lda #'_
+	sta prchar
+	jsr printerm
+	inc x
+	lda x
+	cmp #(80-75)/2+75
+	bne ?p3
+.endif
 
 	lda bank2		; Most title data is in bank 2
 	sta banksw
@@ -3275,7 +3282,7 @@ initial_program_entry
 ;	sta clock_update
 ;	sta timer_1sec
 
-	;; detect PAL or NTSC machine
+	; detect PAL or NTSC machine
 	ldx #60
 	lda pal_flag	; PAL/NTSC indicator
 	and #$e			; check bits 1-3

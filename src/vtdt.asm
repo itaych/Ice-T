@@ -551,12 +551,9 @@ xmdtop1
 	.byte	"File transfer |"
 
 ymgwin
-	.byte	16,11,65,14
-;	.byte	" WARNING: Ymodem-G will cause a system crash  "
-;	.byte	" if both modem and disk drive are connected   "
-;	.byte	" through the serial port.    (Esc to abort!)  "
-	.byte	" WARNING: Ymodem-G will fail or crash with    "
-	.byte	" most hardware configurations. (Esc to abort) "
+	.byte	16,11,57,14
+	.byte	" WARNING: Ymodem-G may fail or crash  "
+	.byte	" on most setups. Press Esc to abort.  "
 xmdlwn
 	.byte	24,7,55,14
 	.byte	" Xmodem download (Esc-abort)"

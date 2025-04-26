@@ -247,6 +247,8 @@ backscroll_top		= $7fc0		; enough for 204 lines of 80 bytes each (remainder is 6
  
 ; Bank 4 - Capture/ASCII Upload/File viewer buffer
 
+; Define memory above banked area
+
 	.bank
 	*=	$8000
 
@@ -553,13 +555,13 @@ norhw
 	.byte	"Esc to exit or  "
 	.byte	"any key to retry"
 
-winbufs_lo	.byte <wind1, <wind3, <wind2
+; "wind" buffers are bitmap buffers that remember what was beneath a menu window.
+winbufs_lo	.byte <wind1, <wind3, <wind2	; addresses of three buffers
 winbufs_hi	.byte >wind1, >wind3, >wind2
 
-winbufs_oob_hi .byte >wind1_oob, >wind3_oob, >wind2_oob
+winbufs_oob_hi .byte >wind1_oob, >wind3_oob, >wind2_oob	; size limits of these buffers
 
-winbanks
-	.byte	1, 0, 2
+winbanks	.byte	1, 0, 2	; which bank holds which buffer (wind3 is 0 but not actually in banked memory)
 
 postbl	.byte	$f0,$0f
 
