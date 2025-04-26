@@ -509,7 +509,13 @@ random	=	$d20a	; read a pseudorandom value
 skstat	=	$d20f	; for checking if Shift key is pressed
 ; PIA
 portb	=	$d301	; PORTB, used for bank switching
+
+.if .def AXLON_SUPPORT
+banksw	=	$cfff	; Axlon memory bank switch register
+.else
 banksw	=	portb
+.endif
+
 ; ANTIC
 dmactl	=	$d400	; DMA control
 dlistl	=	$d402	; Display list pointer

@@ -18,12 +18,24 @@ bnkmem	=	$4000
 
 system_checkup
 
-; determine bank select values which will be used by Ice-T. We don't want to touch bit 0 of PORTB.
+; Determine bank select values which will be used by Ice-T.
 	ldx #4
 ?lp
-	lda banksw	; PORTB
-	and #$01
-	ora bankselect_vals,x
+.if .def AXLON_SUPPORT
+	txa		; For the Axlon memory board, values are simply 0 for the 'main' bank and 1-4 for the extra banks.
+	nop		; Add some nops to prevent any changes to code size and locations from the regular build
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+.else
+	; We don't want to modify bit 0 of PORTB, to ensure compatibility with systems that enable OS RAM, such as MyBIOS.
+	lda banksw				; get the current value of PORTB
+	and #$01				; keep just bit 0
+	ora bankselect_vals,x	; and get the rest of the bits from our preset list of bank select values.
+.endif
 	sta bank0,x
 	dex
 	bpl ?lp		; x=$ff when exiting this loop
