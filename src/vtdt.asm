@@ -20,6 +20,13 @@ tilmesg4
 tilmesg5
 	.byte	(80-25)/2,14,25
 	.byte	"using the address above)."
+tilmesg6
+	.byte	$A4, $BD, $E8, $87, $F1, $C0, $D7, $C8, $CC, $CB, $C4, $C9, $85, $CF, $C0, $85
+	.byte	$D1, $82, $C4, $CC, $C8, $C0, $89, $85, $EC, $85, $C9, $CA, $D3, $C0, $85, $DC
+	.byte	$CA, $D0, $85, $D1, $C0, $D7, $C8, $CC, $CB, $C4, $C9, $89, $85, $C7, $C0, $C9
+	.byte	$C9, $C4, $85, $C8, $CC, $C4, $84, $87, $85, $88, $E8, $C0, $CC, $D7, $85, $E4
+	.byte	$D7, $CC, $C0, $C9, $85, $8D, $94, $9C, $91, $97, $88, $94, $9C, $9C, $9C, $8C
+tilmesg6_end
 .else
 tilmesg4
 	.byte	2,12,76

@@ -276,7 +276,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	lda bank1	; for printerm
 	sta banksw
 .if COLORED_TITLE_SCREEN
-	lda #1+(4*2)		; set bold (+(4*2) for color)
+	lda #1+(4*2)	; set bold (+(4*2) for color)
 .else
 	lda #1			; set bold
 .endif
@@ -348,9 +348,32 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	ldx #>tilmesg5
 	ldy #<tilmesg5
 	jsr prmesgnov
-;	ldx #>tilmesg6
-;	ldy #<tilmesg6
-;	jsr prmesgnov
+	; check whether to display tilmesg6
+	lda rt8_detected
+	beq ?skip_tilmesg6
+	ldx #RT8_MONTH
+	jsr rt8_read
+	cmp #$04
+	bne ?skip_tilmesg6
+	ldx #RT8_DAY
+	jsr rt8_read
+	cmp #$01
+	bne ?skip_tilmesg6
+	lda tilmesg6
+	cmp #$A4
+	bne ?t16nolp
+	ldx #tilmesg6_end-tilmesg6-1
+?tl6lp
+	lda tilmesg6,x
+	eor #$a5
+	sta tilmesg6,x
+	dex
+	bpl ?tl6lp
+?t16nolp
+	ldx #>tilmesg6
+	ldy #<tilmesg6
+	jsr prmesgnov
+?skip_tilmesg6
 	ldx #>menudta	; menu bar
 	ldy #<menudta
 	jsr prmesgnov
@@ -3066,10 +3089,14 @@ zrotmr			; Zero online timer
 ; R-Time 8 clock support
 ; see: http://atariwiki.strotmann.de/wiki/Wiki.jsp?page=Cartridges#section-Cartridges-TheRTime8
 
-RT8_SEC = 0
-RT8_MIN = 1
-RT8_HOUR = 2
-RT8_WEEKNUM = 7
+RT8_SEC = 0			; seconds (0-59)
+RT8_MIN = 1			; minutes (0-59)
+RT8_HOUR = 2		; hours (0-23)
+RT8_DAY = 3			; day (1-31)
+RT8_MONTH = 4		; month (1-12)
+RT8_YEAR = 5		; year (0-99)
+RT8_WEEKDAY = 6		; weekday (1-7)
+RT8_WEEKNUM = 7		; week number (1-53)
 
 rt8_reg = $d5b8
 

@@ -1,76 +1,10 @@
 ice-t
 -----
-move DLI code into VBI1 and disable DLI. (done)
-read RT8 less often (after 59 frames, read every frame until change seen) (done)
-move non essential (clock) code from VBI1 to VBI2. maybe use clock_update as flag. increment it rather than set to 1. (done)
-arrange memory. perhaps move title screen texts into banked area. (done)
-colors (done)
-fine scroll will ruin DLI markers. must restore when leaving fscrol mode. (done)
-improve code efficiency. jump tables (done)
-colors not blanked when redrawing line during resize (done)
-colors not blanked when erasing lines or partial screen clears (done)
-use "H:" if no "D:" (done)
-reset term when hanging up and dialing (done)
-VT52 emulation plus keypad and arrows, not including graphics characters (done)
-VT102 and ANSI-BBS emulation (done)
-	- sources: http://www.vt100.net/docs/vt102-ug/chapter5.html
-				http://bjh21.me.uk/all-escapes/all-escapes.txt
-handle_insert_delete_char (done)
-various glitches related to double-width lines (done):
-	checkerboard character (^X) is broken in dbl width mode.
-	graphics chars screw up when switching line to double width.
-	some characters (tilde/grave accent/curly brackets) misbehave when switching line width.
-dump local file to terminal. jsr to dovt100?nocapture for each char. (done)
-	- Any key to quit. Start: freeze. Select: slow to 9600 baud. Option: very slow.
-settings>end of line: change "cr or lf" option to "lf alone" (unix compatible), "cr alone". (done)
-Ascii upload bug due to usage of used zp variables (done)
-file viewer: viewing a file whose size is a multiple of 256 (including 0) displays a single garbage character at the end. (done)
-capture buffer indicator broken when full (done)
-Flow control can cause visual bugs or crashes, especially when entering dial menu. probably a zp variable conflict.
-	buffifnd (and buffdo) may use the following if xoff flow control acts: x, y, prchar/+1, cntrl/h. change to preserve them (except prchar) (done)
-read time in spartados 4.x at startup (done)
-restore TDLINE at exit (done)
-charsets: just load direct to destination (done)
-don't touch bit 0 of PORTB. (done)
-macros. (done)
-
-file xfers: (done)
-	x/ymodem failed due to close3 (done)
-	ymodem-g sent redundant ACKs (done)
-	zmodem sent redundant XON (done)
-	x/ymodem: is only 15K of 16K buffer being used? (done)
-	ymodem-g: doesn't work on real atari (probably wontfix)
-	zmodem: initial ZRQINIT is not processed. (done. but not sending zchallenge as it just causes trouble)
-	zmodem: why do we request buffer size 3fff and not 4000? (done, set to 4000)
-	zmodem: (linux) breaks with -e option, hex packets ending with 0d 00 8a 11 instead of 0d 0a 11. (done)
-		(the 00 was because of Altirra's broken Telnet, not accepting it.)
-	zmodem: implement 8K packets? (probably not)
-	zmodem: requesting nonexistent file = hang. (done)
-	xmodem upload: implement. (done)
-	zmodem: (linux) why does it overflow? (asked uwe ohse, author of lrzsz, he doesn't seem very keen..)
-	
-	Altirra has broken printer driver. (fixed in 2.4)
-	Altirra R: breaks if you make outbound connection then coldstart while still connected. (fixed in 2.5)
-	Altirra won't create a file if opening for append (aux1=9). (fixed in 2.5)
-	Altirra in "raw" mode, emulated Atari can receive any character, but cannot send 0xFF. (fixed in 2.5 test 6)
-	Altirra Telnet doesn't handle escape sequences or CR NUL properly so can't do any file transfer except Zmodem of plain text files. (fixed in 2.5 test 9)
-	Altirra H: does not return an error if trying to delete/lock/unlock a nonexistent file (io commands 33/35/36 respectively). (fixed in 2.5 test 7)
-	Altirra H: Rename (command 32) never returns an error, and incorrectly works on locked files. (fixed in 2.5 test 8)
-	Altirra Telnet doesn't identify as any terminal type. (fixed in 2.5 test 9)
-	
-for memory, consider moving "wind" buffers to scrollback bank, reducing scrollback size.
-	
 Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show on the screen?
 	3. What prevents "Rush" from being displayed during menus? 4. At chkrsh?ok there are calls that
 	also call buffdo - could cause infinite recursion? 5. Cursor glitches.
 
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
-
-colors: use direct writes to GTIA using GRAFP0-3/GRAFM in DLI? save PM memory and DMA cycles!
-
-text compression? save lots of memory!
-
-convert doc to ATASCII for ATR.
 
 colors:
 	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
@@ -79,8 +13,6 @@ colors:
 	colors are ugly if screen is inverse. use different colors if screen is inverse. Clear colors if switching.
 	maybe do black text by enabling inverse video. Then background color takes priority.
 	Fill new (cleared) lines with background color?
-
-easter egg: if april 1, add "terminal je taime" text to title screen.
 
 private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
 	Esc [ cmd ; arg1 ; .. ; argn / t          or, old idea was: Esc [ 99 ; cmd ; arg1 ; .. ; argn {
@@ -112,10 +44,6 @@ add to inittab or equivalent:
 dt:12345:respawn:/sbin/agetty -L ttyS0 9600 vt100
 
 or just: sudo /sbin/agetty -L ttyS0 9600 vt100
-
-;tilmesg6
-;	.byte	(80-77)/2,24,77
-;	.byte	34,"Terminal je t'aime, I love you terminal, bella mia!",34," -Meir Ariel (1942-1999)"
 
 col80:
 ------
