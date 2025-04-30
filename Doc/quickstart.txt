@@ -1,17 +1,18 @@
 Ice-T Quickstart guide
 ----------------------
-Real men and real women use real hardware. Many of you however probably just want to get this running on your emulator with minimal hassle, so here is a quick start guide for users of the Altirra emulator under Windows.
+For those of you who don't have a real Atari handy and just want to get this running on an emulator with minimal hassle, here is a quick start guide for users of the Altirra emulator under Windows.
 
-These instructions correspond to the menus of Altirra 3.90 test 32. They are known to work after resetting all of Altirra's settings, so if in doubt: Tools > Options > Settings > Reset All Settings and restart Altirra.
-Now choose Profiles > XL/XE Computer, then perform the following changes under the System > Configure System dialog:
+These instructions correspond to the menus of Altirra 4.31. They are known to work after resetting all of Altirra's settings, so if in doubt: Tools > Options > Settings > Reset All Settings and restart Altirra.
+Now choose System > Profiles > XL/XE Computer, then perform the following changes under the System > Configure System dialog:
 Computer > System: 65XE / 130XE.
 Computer > Firmware > Uncheck "Enable BASIC".
-Computer > Memory type: 128K (130XE).
+Computer > Memory > Memory type: 128K (130XE).
 Outputs > Video > Artifacting mode: None.
 Peripherals > Devices > Add > Cartridge devices > R-Time 8
 Peripherals > Devices > Add > Serial I/O bus devices > 850 Interface Module. Leave default options.
-Click the Serial Port, then Add > Modem. Uncheck "automatic CR/LF conversion". Negotiate terminal type: vt102. Set Network simulation to "Disabled" unless you actually want to hear 1990's style simulated modem sounds when connecting.
-In the main menu bar, View > Overscan Mode > select Indicator Margin. 
+Click on "Serial Ports", then Add > Modem. Uncheck "automatic CR/LF conversion". Negotiate terminal type: vt102 (this is a setting you may want to experiment with later). Set Network simulation to "Disabled" unless you actually want to hear 1990's style simulated modem sounds when connecting.
+Optional: if you want to be able to save settings to disk and perform file operations, Peripherals > Devices > Add > High-level emulation (HLE) devices > Host device (H:). For H1: path choose a folder on your PC where you would want files to be saved. Uncheck "Read only". Filename mode: Use long file names.
+Finally, in the main menu bar, View > Overscan Mode > select Indicator Margin.
 
 Drag the icet.xex file icon onto the Altirra window; a box saying "Boot image" will appear - drop the icon onto that; Ice-T should load correctly. At the title screen press Enter twice to enter Terminal mode. You should now be able to type:
 
@@ -22,11 +23,13 @@ to establish a Telnet connection to any Internet host. Port 23 is the standard f
 atdi irc.atarichat.net 800     (an IRC chat gateway)
 atdi www.atarinews.org         (the Atarinews.Org BBS. user: bbs, pw: bbs)
 
+Some Internet hosts do not expect to be contacted by a VT100 emulator and will not be fully compatible. If you're doing something like directly connecting to port 80 of a web server, you may need to press Ctrl-J where you'd expect to press Enter.
+
 Option and Select (F4/F3) can be used to scroll back through your history.
 Press Ctrl-1 to pause if text is scrolling too fast.
 You can close a connection with Ctrl-Shift-H (Hangup).
 Access the main menu with Shift-Esc.
 
-Note that since you've booted Ice-T without DOS, disk functionality will be unavailable so you can't save your settings or do any file operations. Boot from the disk image instead if you need that.
+If you have enabled the H: device you may perform file download operations. Zmodem downloads are easiest because they will start automatically with no special action. Files downloaded will be stored to the folder you have specified.
 
 Enjoy :)

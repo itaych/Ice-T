@@ -393,7 +393,7 @@ lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
 
 ; Macro key assignments. 12 bytes for 12 macros + 4 reserved. 0-9 or A-Z (Ascii values, letters are upper case) or zero for no macro.
 macro_key_assign
-			.ds 16
+			.ds macronum_rsvd
 ; spare
 			.ds 5
 
@@ -601,26 +601,27 @@ ascprc
 
 cfgdat	; Configuration data (size: cfgnum) stored to configuration file.
 
-baudrate	.byte 15	; baud rate, 8=300 baud, 15=19.2k
-stopbits	.byte 0
-localecho	.byte 0
-click		.byte 2
-curssiz		.byte 6
-finescrol	.byte 0		; Enable fine scroll (0=disabled, 4=enabled)
-boldallw	.byte 1		; Enable boldface (0=disabled, 1=color, 2=bold only, 3=blink)
-autowrap	.byte 1
-delchr		.byte 0
-bckgrnd		.byte 0 	; Regular (0) or inverse (1) screen
-bckcolr		.byte 0
-eoltrns		.byte 0		; EOL translation for incoming files
-ansiflt		.byte 0
-ueltrns		.byte 3		; upload EOL translation.
-ansibbs		.byte 0		; VT-102 (0), ANSI-BBS (1), VT-52 (2)
-eitbit		.byte 1
-fastr		.byte 2
-flowctrl	.byte 1
-eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII
-ascdelay	.byte 2		; Delay (or prompt) between lines during ASCII upload
+baudrate	.byte 15	; Serial port baud rate: 8-15 for 300, 600, 1200, 1800, 2400, 4800, 9600, 19200 baud respectively.
+stopbits	.byte 0		; Serial port stop bits: 0 for 1, 128 for 2.
+localecho	.byte 0		; Local Echo: 0 for off, 1 for on.
+click		.byte 2		; Key click type: 0 for no click, 1 for single write to console speaker register, 2 for Atari OS keyclick.
+curssiz		.byte 6		; Cursor size: 0 for a block, 6 for underline.
+finescrol	.byte 0		; Enable fine scroll: 0 to disable, 4 to enable. Only one of finescrol or boldallw may be nonzero.
+boldallw	.byte 1		; Enable additional graphics: 0 to disable, 1 for ANSI colors, 2 for bold only, 3 to enable blinking text.
+autowrap	.byte 1		; Wrap around at edge of screen. 1 to enable (normal behavior), 0 to disable.
+delchr		.byte 0		; Code to send when pressing the backspace key. 0 for 0x7f (DEL), 1 for 0x08 (^H, BS)
+bckgrnd		.byte 0 	; Screen display mode: 0 for light text on dark background, 1 for reverse.
+bckcolr		.byte 0		; Hue of screen background, 0-15.
+eoltrns		.byte 0		; Downloaded files EOL translation. 0-3 for None/CR/LF/Either. See documentation for details.
+ansiflt		.byte 0		; Strip ANSI codes from captured files. 0 for no effect, 1 to activate filtering.
+ueltrns		.byte 3		; EOL translation for ASCII uploads. 0-3 for CRLF/CR/LF/None. See documentation for details.
+ansibbs		.byte 0		; Terminal emulation: 0 for VT-102, 1 for ANSI-BBS, 2 for VT-52.
+eitbit		.byte 1		; Enables PC graphical character set for values 128 and above: 0 to disable, 1 to enable.
+fastr		.byte 2		; Frequency of status calls to serial port device. 0 for normal, 1 for medium, 2 for constant.
+flowctrl	.byte 1		; Flow control method: 0-3 for None, Xon/Xoff, "Rush", Both.
+eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII (0x9b)
+ascdelay	.byte 2		; In ASCII upload: 0 for no delay between lines, 1-7 for some delay, higher value waits for that character
+						; to arrive from the remote side. Delay values are 1/60 sec, 1/10 sec, 1.5 sec, 1/2 sec, 1 sec, 1.5 sec, 2 sec.
 
 	.if	*-cfgdat <> cfgnum
 	.error "cfgnum is wrong!!"
