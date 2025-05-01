@@ -1992,7 +1992,7 @@ sgrlp
 	jmp fincmnd
 ?ok
 	lda numstk,y
-	beq sgrmd0
+	beq sgrmd0	; arg 0 or 255 (indicating there was no argument) will reset the rendition parameters
 	cmp #255
 	bne sgrmdno0
 sgrmd0
@@ -2003,9 +2003,9 @@ sgrmd0
 	sta boldface
 	jmp sgrlp
 sgrmdno0
-	cmp #1
+	cmp #1			; bold
 	bne ?n1
-	lda boldallw	; bold
+	lda boldallw	; is bold allowed? must be 1 or 2 to proceed
 	beq ?nb
 	cmp #3
 	bcs ?nb
@@ -2015,9 +2015,9 @@ sgrmdno0
 ?nb
 	jmp sgrlp
 ?n1
-	cmp #22
+	cmp #22			; normal intensity (bold off)
 	bne ?n22
-	lda boldallw	; normal intensity (bold off)
+	lda boldallw	; is bold allowed? must be 1 or 2 to proceed
 	beq ?nb22
 	cmp #3
 	bcs ?nb22
@@ -2027,36 +2027,47 @@ sgrmdno0
 ?nb22
 	jmp sgrlp
 ?n22
-	cmp #4
-	bne sgrmdno4	; underline
+	cmp #4			; underline
+	bne sgrmdno4
 	lda #1
 	sta undrln
 	jmp sgrlp
 sgrmdno4
-	cmp #5
-	bne sgrmdno5	; blink
-	lda boldallw
+	cmp #5			; blink
+	bne sgrmdno5
+	lda boldallw	; is bold allowed? must be 3 to proceed
 	cmp #3
 	bne ?nl
 	lda #1
-	sta boldface
+	sta boldface	; blink and bold are implemented in mostly the same way so no difference here
 ?nl
 	jmp sgrlp
 sgrmdno5
-	cmp #7
-	bne sgrmdno7	; inverse
+	cmp #7			; inverse text
+	bne sgrmdno7
 	lda #1
 	sta revvid
 	jmp sgrlp
 sgrmdno7
-	cmp #8
-	bne sgrmdno8	; invisible
-sgrsetinvsbl
+	cmp #8			; invisible
+	bne sgrmdno8
 	lda #1
 	sta invsbl
+?done
 	jmp sgrlp
 sgrmdno8
-	cmp #39			; change 39 (default) to 37
+	ldx boldallw	; everything from here on handles ANSI colors, so boldallw must be 1 to proceed
+	cpx #1
+	bne sgrmdno7?done
+	; if we ever support 38 or 48, check for them here.
+	dex				; set x=0. Indicates not to force bold later.
+	cmp #90
+	bcc ?no90
+	;sec			; not needed since c is already set
+	sbc #90-30		; convert values 90-107 to 30-47
+	inx				; and set x=1 to force bold.
+?no90
+	cmp #39			; change 39 (set default color) to 37 (white)
 	bne ?no39
 	lda #37
 ?no39
@@ -2072,12 +2083,18 @@ sgrmdno8
 	lda #0			; change color 7 (white) to 0. color 0 (black) is treated as white.
 ?nowhite
 	asl a			; boldface = (boldface & 1) | (color << 1)
+	cpx #1			; but if X=1 we force bit 0 to on (boldface)
+	bne ?noforcebold
+	ora #$01
+	bne ?setboldface	; always jumps
+?noforcebold
 	tax
 	lda boldface
 	and #$01
 	sta boldface
 	txa
 	ora boldface
+?setboldface
 	sta boldface
 	jmp sgrlp
 ?nocolor

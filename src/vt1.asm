@@ -2630,41 +2630,28 @@ screenget		; Refresh screen
 	lsr eitbit
 	rts
 
-number			; Hex -> decimal number
-	lda #176
+number			; Convert value in Y register to 3-digit decimal number, in inverse ASCII (high bit set) at 'numb'
+	lda #'0+128
 	sta numb
 	sta numb+1
-	sta numb+2
 	tya
-	cmp #200
-	bcc chk100
-	sec
-	sbc #200
-	tay
-	lda #178
-	sta numb
-	jmp chk10s
-chk100
+?lp1
 	cmp #100
-	bcc chk10s
-	sec
+	bcc ?done_hundreds
+	; sec				; we know c is already set
 	sbc #100
-	tay
-	lda #177
-	sta numb
-chk10s
-	tya
+	inc numb
+	bne ?lp1			; always branches
+?done_hundreds
 	cmp #10
-	bcc chk1s
-	sec
+	bcc ?done_tens
+	; sec				; we know c is already set
 	sbc #10
-	tay
 	inc numb+1
-	jmp chk10s
-chk1s
-	tya
+	bne ?done_hundreds	; always branches
+?done_tens
 	clc
-	adc #176
+	adc #'0+128
 	sta numb+2
 	rts
 
@@ -2676,7 +2663,7 @@ erslineraw_a	; Erase line in screen (line number in accumulator)
 	sta cntrh
 erslineraw		; Erase line in screen (at cntrl)
 	lda #$ff
-filline_custom_value
+filline_custom_value	; Fill line at cntrl with value in Accumulator
 	ldy #0
 ?a
 	sta (cntrl),y	; unroll both loops a bit (must be power of 2)
@@ -3268,7 +3255,7 @@ initial_program_entry
 	adc #64
 	bcc ?ok
 ?do
-	sec
+	;sec	; c is already set
 	sbc #32
 ?ok
 	asl a

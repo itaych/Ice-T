@@ -1,5 +1,7 @@
 ; Ice-T main source file!
 
+; For best results set tab width to 4 spaces when viewing.
+
 ; Include the following parts to assemble the complete program:
 
 	.include vtin.asm	; System test

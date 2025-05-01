@@ -41,22 +41,22 @@ vt52mode	.ds 1	; VT-52 mode (host controlled)
 numlock		.ds 1
 wrpmode		.ds 1
 insertmode	.ds 1
-undrln		.ds 1
-revvid		.ds 1
-invsbl		.ds 1
-boldface	.ds 1	; terminal currently set to write new characters in bold/blink (PM underlay) mode
-gntodo		.ds 1
-qmark		.ds 1
+undrln		.ds 1	; terminal currently set to write new characters in underline mode
+revvid		.ds 1	; terminal currently set to write new characters in inverse mode
+invsbl		.ds 1	; terminal currently set to write new characters in invisible mode
+boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/blink (PM underlay) mode. Bits 1-3: color. 
+gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two options ws received.
+qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1
 ckeysmod	.ds 1
 finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
-numgot		.ds 1
+numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 holdch		.ds 1	; OS reserved - must equal $7c
 scrltop		.ds 1	; top of scrolling area, 1-24
 scrlbot		.ds 1	; bottom of scrolling area, 1-24
-origin_mode	.ds 1	; Origin mode
+origin_mode	.ds 1	; Whether VT-100 Origin mode is enabled
 tx			.ds 1
 ty			.ds 1
 flashcnt	.ds 1
@@ -132,6 +132,8 @@ vframes_per_sec	.ds 1	; 50/60 depending on video system
 clock_cnt		.ds 1	; count increases each video frame
 time_correct_cnt .ds 2	; counter to correct slight time drift
 
+numb		.ds	3		; for converting numbers to human readable form
+
 ; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
 ; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
 bank0		.ds 1
@@ -141,7 +143,7 @@ bank3		.ds 1
 bank4		.ds 1
 
 ; spare
-	.ds 47
+	.ds 44
 
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
@@ -356,7 +358,7 @@ screen	=	$9fb0
 	*=	screen
 linadr_l	.ds	25	; address of each line in display bitmap, lo byte
 linadr_h	.ds	25	; address of each line in display bitmap, hi byte
-numstk	.ds	$100
+numstk	.ds	$100	; when terminal reads a sequence of the form Esc [ n ; n .. the values are stored here.
 rush	.ds	1
 didrush	.ds	1
 crsscrl .ds 1
@@ -365,9 +367,10 @@ looklim .ds 1
 capture .ds 1
 captold .ds 1
 captplc .ds 2
-numb	.ds	3
 diltmp1	.ds	1
 diltmp2	.ds	1
+; spare
+		.ds 3
 
 	.if	* <> screen+320
 	.error "not using full line!!"
