@@ -45,7 +45,7 @@ undrln		.ds 1	; terminal currently set to write new characters in underline mode
 revvid		.ds 1	; terminal currently set to write new characters in inverse mode
 invsbl		.ds 1	; terminal currently set to write new characters in invisible mode
 boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/blink (PM underlay) mode. Bits 1-3: color.
-					; Bit 4: color was set as foreground.
+					; Bit 4: color was set as background.
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1

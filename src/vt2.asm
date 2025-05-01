@@ -2081,21 +2081,20 @@ sgrmdno8
 	bne ?nowhite
 	lda #0			; change color 7 (white) to 0. color 0 (black) is treated as white.
 ?nowhite
-	ora #$08		; Set bit 3, about to be shifted left to bit 4, to indicate we are setting a foreground color.
-?forecolor
-	asl a			; boldface = (boldface & 1) | (color << 1)
-	cpx #1			; but if X=1 we force bit 0 to on (boldface)
-	bne ?noforcebold
-	ora #$01
-	bne ?setboldface	; always jumps
-?noforcebold
-	tax
+	sta temp			; x register holds the force bold flag, y register holds loop index, can't push to stack because we may exit
 	lda boldface
-	and #$01
+	and #$10			; check the background color bit
+	bne ?nobackcolor	; if the background is set, we won't set the foreground
+	lda temp
+?forecolor
+	asl a			; boldface = (boldface & 0x11) | (color << 1) | x_register
+	sta temp
+	lda boldface
+	and #$11
 	sta boldface
 	txa
+	ora temp
 	ora boldface
-?setboldface
 	sta boldface
 	jmp sgrlp
 ?nocolor
@@ -2108,11 +2107,11 @@ sgrmdno8
 	cmp #48
 	bcs ?nobackcolor
 	; 40-47 or 49: set background color. Behaves similarly to foreground color.
-	sta temp			; x register holds the force bold flag, y register holds loop index, can't push to stack because we may exit
-	lda boldface
-	and #$10			; If there is already a foreground color set, ignore.
-	bne ?nobackcolor
-	lda temp
+	pha					; x register holds the force bold flag, y register holds loop index
+	txa
+	ora #$10			; set the background color bit in the x register
+	tax
+	pla
 	sec
 	sbc #40
 	cmp #7				; change color 7 (white) to 0.
@@ -3145,7 +3144,7 @@ boldbok
 	lda boldcolrtables_hi,x
 	sta ?coloraddr+2
 	lda boldface
-	and #$0f				; we don't want the foreground-indicator bit
+	and #$0f				; we don't want the background/foreground indicator bit
 	tay
 	lda bold2color_xlate,y
 	sta ?colorval+1
