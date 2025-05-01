@@ -34,7 +34,7 @@
 
 #define	ZPAD		0x2a		/* pad character; begins frames */
 #define	ZDLE		0x18		/* ctrl-x zmodem escape */
-#define	ZDLEE		0x58		/* escaped ZDLE */	
+#define	ZDLEE		0x58		/* escaped ZDLE */
 
 #define	ZBIN		0x41		/* binary frame indicator (CRC16) */
 #define	ZHEX		0x42		/* hex frame indicator */
@@ -67,8 +67,8 @@
 #define	ZFERR		0x0c		/* fatal read or write error detected (?) */
 #define	ZCRC		0x0d		/* request for file CRC and response (?) */
 #define	ZCHALLENGE	0x0e		/* security challenge (r->s) */
-#define	ZCOMPL		0x0f		/* request is complete (?) */	
-#define	ZCAN		0x10		/* pseudo frame; 
+#define	ZCOMPL		0x0f		/* request is complete (?) */
+#define	ZCAN		0x10		/* pseudo frame;
 								   other end cancelled session with 5* CAN */
 #define	ZFREECNT	0x11		/* request free bytes on file system (s->r) */
 #define	ZCOMMAND	0x12		/* issue command (s->r) */

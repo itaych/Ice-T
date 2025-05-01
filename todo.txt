@@ -88,3 +88,5 @@ bcs ---> v1>=v2
 # delete last commit, keep changes locally
 git reset HEAD~1
 git push -f # origin <branch>
+--
+regexp for finding trailing whitespaces: [ \t]+$

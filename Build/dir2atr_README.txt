@@ -6,7 +6,7 @@ This program is proteced under the terms of the GNU General Public
 License, version 2. Please read LICENSE for further details.
 
 Visit http://www.horus.com/~hias/atari/ for new versions.
-  
+
 dir2atr
 =======
 
@@ -40,7 +40,7 @@ Options:
     names in PICONAME.TXT. So, for example a file 'Boulder Dash.com'
     on your PC will show up as 'Boulder Dash' in MyPicoDos.
 
--b <dostype> create a bootable image. 
+-b <dostype> create a bootable image.
 
 Bootable Images:
 

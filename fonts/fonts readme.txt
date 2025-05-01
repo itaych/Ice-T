@@ -1,6 +1,6 @@
 
 vt.fnt - Standard ASCII character set, plus graphics characters and a few extras needed for the terminal emulation.
-		Note that this font is in Atari's standard order: ASCII 32-95, then 0-31, then 96-127. 
+		Note that this font is in Atari's standard order: ASCII 32-95, then 0-31, then 96-127.
 
 vtibm.fnt - characters 128-255 as found on a standard IBM-PC compatible - needed for ANSI-BBS, which uses many of the
 		graphics characters.

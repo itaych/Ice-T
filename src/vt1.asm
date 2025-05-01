@@ -494,7 +494,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	jsr setcolors	; Set screen colors
 	lda #nmien_DLI_ENABLE
 	sta nmien
-	lda #$2e	; normal playfield, PM DMA, double line resolution, DMA enable 
+	lda #$2e	; normal playfield, PM DMA, double line resolution, DMA enable
 	sta sdmctl	; Show screen
 	jsr ropen	; Open serial port
 	lda #1
@@ -1945,7 +1945,7 @@ vbi2
 	bmi ?noflash	; always branches
 	; show PMs for blink
 ?bn
-	lda #$2e		; normal playfield, PM DMA, double line resolution, DMA enable 
+	lda #$2e		; normal playfield, PM DMA, double line resolution, DMA enable
 	sta sdmctl
 	sta dmactl
 	lda #3
@@ -3194,7 +3194,7 @@ initial_program_entry
 	sta sdmctl
 	sta color4
 	jsr vdelay
-	; move information stored by system_checkup to remrhan for safekeeping 
+	; move information stored by system_checkup to remrhan for safekeeping
 	lda banked_memory_top
 	sta remrhan
 	lda banked_memory_top+1

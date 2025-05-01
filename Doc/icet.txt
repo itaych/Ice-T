@@ -77,7 +77,7 @@ half of double height row) text; Fixed the bug discovered at the release of
 2.72 (see below) involving scrolling portions of the screen in boldface mode;
 Fixed bug that caused double-width/height lines to misbehave when scrolling
 upwards. Bold text is now enabled by default.
-With these fixes the VT100 'torture test' now passes. 
+With these fixes the VT100 'torture test' now passes.
 
 2.73 - April 14, 2012
 ----
@@ -330,9 +330,9 @@ bottom of the list.
 R - Remove this entry.
 
 The dialing string is ATD, and then whatever you entered as the number. If you
-just enter a number, it will be dialed either in pulse or tone mode depending 
-on your modem's default. If this is not the mode you require, you can either 
-change the modem's default (consult the modem's documentation to learn how), 
+just enter a number, it will be dialed either in pulse or tone mode depending
+on your modem's default. If this is not the mode you require, you can either
+change the modem's default (consult the modem's documentation to learn how),
 or simply prefix your numbers with 'T' for tone or 'P' for pulse.
 
 If you are running Ice-T on an Atari800 derivative or Altirra emulator you may
@@ -564,8 +564,8 @@ Also note that all names are displayed and entered in lower case.
 
 D/L EOL trans.: Download EOL translation, for capture and protocol transfers.
 None - File transferred as-is. Good for binary transfers.
- CR  - CR turns into an ATASCII EOL, LF is dropped. This is recommended for 
-       most common (Unix or Windows) text formats, since CR/LF pairs are 
+ CR  - CR turns into an ATASCII EOL, LF is dropped. This is recommended for
+       most common (Unix or Windows) text formats, since CR/LF pairs are
        translated properly.
  LF  - LF -> EOL, CR dropped.
 Either - Either code is translated to EOL. Don't use this if CR/LF is

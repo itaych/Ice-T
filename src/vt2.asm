@@ -2061,7 +2061,7 @@ sgrmdno8
 	bne sgrmdno7?done
 	; if we ever support 38 or 48, check for them here.
 	dex				; set x=0. Indicates not to force bold later.
-	cmp #90			; values 90-107 are similar to 30-47, except we not only change color but also set the bold bit. 
+	cmp #90			; values 90-107 are similar to 30-47, except we not only change color but also set the bold bit.
 	bcc ?no90
 	;sec			; not needed since c is already set
 	sbc #90-30		; convert values 90-107 to 30-47

@@ -155,7 +155,7 @@ bank4		.ds 1
 	.if holdch <> $7c
 	.error "holdch is wrong"
 	.endif
-	
+
 ; Xmodem constants
 
 xmd_SOH  =	$01
@@ -247,7 +247,7 @@ wind2_oob = wind2 + $500
 
 backscroll_bottom	= $4000
 backscroll_top		= $7fc0		; enough for 204 lines of 80 bytes each (remainder is 64 bytes. The upper 46 bytes are used to save scrollback info in case user exits and reruns the program.)
- 
+
 ; Bank 4 - Capture/ASCII Upload/File viewer buffer
 
 ; Define memory above banked area
@@ -471,7 +471,7 @@ color3	=	$2c7	; Color of fifth player
 color4	=	$2c8	; ANTIC mode 15: border color
 dos_runad	=	$2e0	; When executable load is complete, runs at this vector
 dos_initad	=	$2e2	; During executable load, whenever this vector is updated the loader will jsr to this vector
-bcount	=	$2eb	; DVSTAT+1. When serial port is open in concurrent mode, after a STATUS command this word holds the amount of data in the input buffer 
+bcount	=	$2eb	; DVSTAT+1. When serial port is open in concurrent mode, after a STATUS command this word holds the amount of data in the input buffer
 memlo	=	$2e7	; Pointer to bottom of free memory
 kbd_ch	=	$2fc	; Internal hardware value for the last key pressed, $FF means nothing was pressed. Use keydef to convert code to ASCII.
 ctrl1flag	=	$2ff	; ctrl-1 (pause) flag
