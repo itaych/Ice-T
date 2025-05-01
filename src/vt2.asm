@@ -2678,23 +2678,23 @@ printerm
 ; 3 - x2 width, double height, lower half
 
 	ldy y
-	lda txlinadr_l-1,y
+	lda txlinadr_l-1,y	; put location of destination text-mirror line in 'ersl'
 	sta ersl
 	lda txlinadr_h-1,y
 	sta ersl+1
-	lda linadr_l,y
+	lda linadr_l,y		; put location of destination bitmap line in 'cntrl/h'
 	sta cntrl
 	lda linadr_h,y
 	sta cntrh
-	ldx prchar
+	ldx prchar			; x register holds character to print
 	lda invsbl
-	beq ?noinv		; 'invisible' mode: change to space
+	beq ?noinv			; 'invisible' mode: change to space
 	ldx #32
 ?noinv
 	tya
-	beq ?notxprn_jmp	; if y=0 no need to handle text mirror
-	lda lnsizdat-1,y
-	beq ptxreg
+	beq ?notxprn_jmp	; if y=0 no need to handle text mirror. double-hop jump because notxprn is too far
+	lda lnsizdat-1,y	; is this line double size?
+	beq ptxreg			; branch if normal size.
 
 ; Text mirror - double-size text
 
@@ -2725,74 +2725,77 @@ printerm
 ?no_inverse
 
 	; after storing in text mirror, perform a few translations needed for double-width
-	cpx #96				; grave accent
-	bne ?no96
-	ldx #30
+	ldy #?translate_tbl_to-?translate_tbl_from-1
+	txa
+?translate_lp
+	cmp ?translate_tbl_from,y
+	beq ?translate_match
+	dey
+	bpl ?translate_lp
+	bmi notxprn		; always branches
+?translate_match
+	ldx ?translate_tbl_to,y
 ?notxprn_jmp
-	jmp notxprn
-?no96
-	cpx #123			; open curly brace
-	bne ?no123
-	ldx #28
-	bne notxprn
-?no123
-	cpx #125			; close curly brace
-	bne ?no125
-	ldx #29
-	bne notxprn
-?no125
-	cpx #126			; tilde
-	bne notxprn
-	ldx #31
-	bne notxprn			; always branches
+	bpl notxprn		; always branches
+
+; translate some double-width characters: open curly brace, close curly brace, grave accent, tilde
+?translate_tbl_from	.byte 123, 125, 96, 126
+?translate_tbl_to	.byte 28,  29,  30, 31
 
 ; Text mirror - normal-size text
-; bold/unbold is also handled here (todo: why is this different from dbl size logic?)
+; bold/unbold is also handled here (note that double-size has its own, simpler logic later because it doesn't have the
+; issue where we sometimes avoid displaying a space character as bold).
 ptxreg
 	ldy x
 	lda (ersl),y
 	sta outdat	; remember character we're overwriting
-	cpx #32
-	bne ?db		; Space character: no bold/unbold as this may pointlessly ruin an adjacent character.
-	lda undrln	; but if Underlined/Inverse/Bold change to 255 so we know it's there if it needs to be overwritten later
-	ora revvid	; (255 is also a blank character. Was 127 in the past, but is now used for block character.)
-	beq ?snb
-	ldx #255
-?db
+	cpx #32		; writing a space: we might want to not bold/unbold at all as this may ruin the color of an adjacent character.
+	bne ?not_writing_space
+	cmp #32		; but if we're overwriting a non-space, we do want to handle bold.
+	bne ?overwriting_non_space
 	lda boldface
-	beq ?ndb
+	and #$10	; also if a background color is set,
+	ora undrln	; also if underline is on,
+	ora revvid	; and also if inverse is on.
+	beq ?skip_bold_char_in_x
+?overwriting_non_space
+	ldx #255	; change to 255 so we know it's there if it needs to be overwritten later (255 is also a blank character).
+?not_writing_space
+	lda boldface
+	beq ?bold_off
 	txa
 	pha
 	jsr dobold
 	ldy x
 	pla
-	jmp ?sb
-?snb
+	jmp ?skip_bold
+?skip_bold_char_in_x
 	txa
-	jmp ?sb
-?ndb
+	jmp ?skip_bold
+?bold_off
 	txa
 	ldx isbold
-	beq ?sb
+	beq ?skip_bold
 	pha
 	jsr unbold
 	ldy x
 	pla
-?sb
-	sta (ersl),y
+?skip_bold
+	sta (ersl),y	; write character to text mirror.
 	tax
-	lda revvid
-	beq notxprn
-	lda eitbit
-	bne notxprn
+	; in case of reverse video set bit 7.
+	lda revvid		; is reverse video mode on?
+	beq notxprn		; no, we're done.
+	lda eitbit		; are values with bit 7 set considered extended PC characters?
+	bne notxprn		; yes, so we can't set inverse in text mirror.
 	txa
-	ora #128
+	ora #128		; set bit 7.
 	sta (ersl),y
 
 ; done with text mirror
 
 notxprn
-	lda rush
+	lda rush	; if "rush" is off or y=0 (status bar), proceed. Else we're done.
 	beq ignrsh
 	lda y
 	beq ignrsh
@@ -2802,8 +2805,8 @@ ignrsh
 	txa
 	bpl nopcchar
 	; character >= 128 - this is part of the PC character set.
-	sty prchar+1
 	; multiply by 8 to find location in character set
+	sty prchar+1
 	asl a
 	asl a
 	rol prchar+1
@@ -2848,9 +2851,9 @@ prt1
 	tax
 	lda x
 	lsr a
-	clc
 
 	; add 40 bytes so offsets will be <256 (for first 7 iterations)
+	clc
 	adc #40 ; this will never cause a carry
 	adc cntrl
 	sta cntrl
@@ -2964,7 +2967,7 @@ psiznot0
 	lda #0
 	tax
 	tay
-	lda temp
+	lda temp	; line size was previously saved here
 	cmp #3
 	beq psiz3
 	cmp #2
