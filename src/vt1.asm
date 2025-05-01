@@ -276,7 +276,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	lda bank1	; for printerm
 	sta banksw
 .if COLORED_TITLE_SCREEN
-	lda #1+(4*2)	; set bold (+(4*2) for color)
+	lda #1+(4*2)	; set bold (+(4*2) for blue color)
 .else
 	lda #1			; set bold
 .endif
@@ -301,7 +301,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	cpx #8
 	bne ?p
 .if COLORED_TITLE_SCREEN
-	lda #1+(2*2)	; color for Icesoft logo
+	lda #1+(2*2)	; green color for Icesoft logo
 	sta boldface
 .endif
 	lda #17			; Make Icesoft logo bold by printing underscores where the logo will be drawn later.
@@ -318,7 +318,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	bne ?p2
 
 .if COLORED_TITLE_SCREEN
-	lda #1+(1*2)	; color for tilmesg2
+	lda #1+(1*2)	; red color for tilmesg2
 	sta boldface
 	lda #(80-75)/2	; emphasize tilmesg2 too with same underscore trick
 	sta x
@@ -1274,7 +1274,7 @@ prmesgnov
 ropen			; Sub to open R: (uses config)
 	jsr gropen
 	bpl ropok
-	jsr boldclr	; clear boldface display because it interferes with error window
+	jsr boldclr	; clear boldface display because it may interfere with error window
 	ldx #>norhw
 	ldy #<norhw
 	jsr drawwin
@@ -2847,10 +2847,10 @@ setcolors		; Set color registers
 	lda boldallw
 	cmp #3
 	bne ?nbl
-	lda color1
+	lda color1	; blink - copy color of background (lit pixels) to color 3, which will affect all PMs, so they will hide text
 	sta color3
 ?nbl
-	lda color3
+	lda color3	; blink/bold - copy color3 (merged Missile = 5th Player) to all Players.
 	ldx #3
 ?p
 	sta pcolr0,x
@@ -2880,7 +2880,7 @@ boldon			; Enable PMs. return value of boldallw in Y.
 	lda #$2e	; normal playfield, PM DMA, double line resolution, DMA enable
 	sta sdmctl
 	sta dmactl
-	cpy #1		; color enabled? turn on DLI
+	cpy #1		; color enabled (ANSI mode)? turn on DLI
 	bne ?o
 	jsr update_colors_line0
 	lda #nmien_DLI_ENABLE
@@ -2954,9 +2954,7 @@ boldclr			; Clear boldface PMs
 	sta colortbl_0,x
 	dex
 	bpl ?clp
-
-	lda banksv
-	sta banksw
+	bmi staoutdt?done	; always branch
 
 ; Various routines for accessing banked memory from
 ; code also within a bank
@@ -2964,6 +2962,7 @@ boldclr			; Clear boldface PMs
 staoutdt
 	stx banksw
 	sta (outdat),y
+?done
 	ldx banksv
 	stx banksw
 	rts
@@ -3600,10 +3599,6 @@ initial_program_entry
 	ldx #7
 ?l0
 	sta boldwr,x	; running 1's
-	tay
-	eor #$ff
-	sta boldwri,x	; running 0's
-	tya
 	asl a
 	dex
 	bpl ?l0

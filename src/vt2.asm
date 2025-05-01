@@ -1038,11 +1038,12 @@ esccode_decrc	; 8 - restore above
 esccode_decid	; Z - send ID string
 	ldx #>?data
 	ldy #<?data
-	lda #5
+	lda #?data_end-?data
 	jsr rputstring
 	jmp fincmnd
 ?data
 	.byte	27,  "[?6c"
+?data_end
 
 esccode_hts		; H - set tab at this position.
 	ldx tx
@@ -1157,7 +1158,7 @@ changesize_templine = numstk+$80
 	jsr chklnsiz
 	pla
 	ldx ty
-	stx y
+	stx y			; 'y' will hold the line number we are handling
 	dex
 	tay
 	lda sizes,y		; translate command to internal size value
@@ -1226,10 +1227,9 @@ szprloop				; redraw line
 	sta revvid
 ?s
 	inc x
-	lda x
-	tax
+	ldx x
 szprchng
-	cmp #80				; value is modified to actual number of columns
+	cpx #80				; value is modified to actual number of columns
 	bne szprloop
 	pla 				; restore attributes
 	sta undrln
@@ -2061,11 +2061,11 @@ sgrmdno8
 	bne sgrmdno7?done
 	; if we ever support 38 or 48, check for them here.
 	dex				; set x=0. Indicates not to force bold later.
-	cmp #90
+	cmp #90			; values 90-107 are similar to 30-47, except we not only change color but also set the bold bit. 
 	bcc ?no90
 	;sec			; not needed since c is already set
 	sbc #90-30		; convert values 90-107 to 30-47
-	inx				; and set x=1 to force bold.
+	inx				; but set x=1 as an indicator to force bold.
 ?no90
 	cmp #39			; change 39 (set default color) to 37 (white)
 	bne ?no39
@@ -2077,11 +2077,12 @@ sgrmdno8
 	bcs ?nocolor
 	sec 			; ANSI colors 31-37
 	sbc #30
-?forecolor
 	cmp #7
 	bne ?nowhite
 	lda #0			; change color 7 (white) to 0. color 0 (black) is treated as white.
 ?nowhite
+	ora #$08		; Set bit 3, about to be shifted left to bit 4, to indicate we are setting a foreground color.
+?forecolor
 	asl a			; boldface = (boldface & 1) | (color << 1)
 	cpx #1			; but if X=1 we force bit 0 to on (boldface)
 	bne ?noforcebold
@@ -2106,14 +2107,18 @@ sgrmdno8
 	bcc ?nobackcolor
 	cmp #48
 	bcs ?nobackcolor
-	tax
-	lda boldface		; set background color. If there is a foreground color set, ignore.
-	lsr a				; otherwise, treat as new foreground color.
+	; 40-47 or 49: set background color. Behaves similarly to foreground color.
+	sta temp			; x register holds the force bold flag, y register holds loop index, can't push to stack because we may exit
+	lda boldface
+	and #$10			; If there is already a foreground color set, ignore.
 	bne ?nobackcolor
-	txa
+	lda temp
 	sec
 	sbc #40
-	jmp ?forecolor
+	cmp #7				; change color 7 (white) to 0.
+	bne ?forecolor
+	lda #0
+	beq ?forecolor		; always jumps
 ?nobackcolor
 	jmp sgrlp
 
@@ -3091,7 +3096,7 @@ dblchar
 ; sanity check to make sure lnsizdat table is not corrupt
 chklnsiz
 	ldx #23
-chklnslp
+?lp
 	lda lnsizdat,x
 	cmp #4
 	bcc ?ok
@@ -3099,7 +3104,7 @@ chklnslp
 	sta lnsizdat,x
 ?ok
 	dex
-	bpl chklnslp
+	bpl ?lp
 	rts
 
 ; Boldface stuff in vt22.asm
@@ -3116,16 +3121,15 @@ chklnslp
 
 doboldbig		; Highlight a wide character: skip right shift because we have 40 text columns
 	lda x
-	bpl boldbok	; this will always branch
-
+	bpl boldbok	; always branch
 dobold			; Highlight a character
 	lda x
 	lsr a		; We have 80 text columns but only 40 boldface columns, so divide by 2
 boldbok
 	tax
-	and #7		; this chooses the position within one PM
+	and #7		; this chooses the position within one PM, put in Y
 	tay
-	lda boldpmus,x	; convert column to PM number
+	lda boldpmus,x	; convert column to PM number, put in X
 	tax
 	lda #1
 	sta boldypm,x	; flag that this PM now contains lit pixels
@@ -3140,17 +3144,19 @@ boldbok
 	sta ?coloraddr+1
 	lda boldcolrtables_hi,x
 	sta ?coloraddr+2
-	ldy boldface
+	lda boldface
+	and #$0f				; we don't want the foreground-indicator bit
+	tay
 	lda bold2color_xlate,y
 	sta ?colorval+1
 	ldy y
 	dey
-	bmi ?colordone
+	bmi ?colordone			; we only update colors in lines 1-24
 ?colorval	lda #$ff
 ?coloraddr	sta undefined_addr,y
 	cpy #0
 	bne ?colordone
-	jsr update_colors_line0
+	jsr update_colors_line0	; colors for top line are written to the standard color shadow registers, not updated by DLI.
 ?colordone
 	pla
 	tay
@@ -3205,14 +3211,14 @@ boldbok
 	bpl ?p2
 	rts
 
-; this code is similar to dobold above, except there is no updating of scroll data.
-; this is because even after removing a bold character we can make no assumptions about whether there are
-; any other bold characters nearby.
-unboldbig
+; Un-highlight a character.
+; this code is similar to dobold/doboldbig above, except there is no handling of colors and no updating of scroll data.
+; We don't update scroll data because even after removing a bold character we can make no assumptions about whether there are
+; any other bold characters in the area, particularly above or below (which would be quite cumbersome to check).
+unboldbig		; 40-column mode
 	lda x
-	bpl bolduok
-
-unbold			; Un-highlight this character
+	bpl bolduok	; always branch
+unbold			; 80-column mode
 	lda x
 	lsr a
 bolduok
@@ -3229,7 +3235,8 @@ bolduok
 	lda boldtbph,x
 	sta ?p+2
 	sta ?p2+2
-	lda boldwri,y
+	lda boldwr,y
+	eor #255		; reverse the bitmask since we are erasing a bit
 	sta ?p1+1
 	ldx y
 	lda boldytb,x
@@ -6572,7 +6579,6 @@ boldpmus	.ds 40	; convert column number to PM number (0-4)
 boldtbpl	.ds 5	; low-byte pointer to each player data
 boldtbph	.ds 5	; high
 boldwr		.ds 8	; table containing running 1's: $80, $40, .. , $02, $01
-boldwri		.ds 8	; same as boldwr but inverted (running 0's)
 boldytb		.ds 25	; converts line number to vertical offset within PM
 
 ; Bold - Dynamic data:

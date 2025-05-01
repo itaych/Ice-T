@@ -7,12 +7,10 @@ Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show o
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 
 colors:
-	spaces should generate colors if background color is set. add flag bit to 'boldface' variable. see ptxreg.
+	spaces should generate colors if background color is set. see ptxreg.
 		however space should always bold/unbold if overwriting an existing char!
 		that should fix emacs tetris.
-	colors are ugly if screen is inverse. use different colors if screen is inverse. Clear colors if switching.
-	maybe do black text by enabling inverse video. Then background color takes priority.
-	Fill new (cleared) lines with background color?
+	Fill new (cleared) lines with background color. Prob. only new lines that scroll in.
 
 more colors: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html - search "(SGR)".
 90-107. 38;5, 38;2, and add a private 38;9 to allow atari colors.

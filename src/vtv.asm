@@ -44,8 +44,9 @@ insertmode	.ds 1
 undrln		.ds 1	; terminal currently set to write new characters in underline mode
 revvid		.ds 1	; terminal currently set to write new characters in inverse mode
 invsbl		.ds 1	; terminal currently set to write new characters in invisible mode
-boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/blink (PM underlay) mode. Bits 1-3: color. 
-gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two options ws received.
+boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/blink (PM underlay) mode. Bits 1-3: color.
+					; Bit 4: color was set as foreground.
+gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1
 ckeysmod	.ds 1
@@ -94,7 +95,7 @@ look		.ds 1
 lookln		.ds 2
 lookln2		.ds 2
 
-nextln		.ds 2
+nextln		.ds 2	; when fine scrolling, this is an extra, off-screen line that will scroll in next
 nextlnt		.ds 2
 fscroldn	.ds 1
 fscrolup	.ds 1
@@ -329,6 +330,8 @@ clock_flag_seconds	.ds 1	; VBI1 tells VBI2 to increase clock by this many second
 timer_1sec	.ds 1
 timer_10sec	.ds 1
 brkkey_enable	.ds 1	; enables generating a keyboard code when BREAK key detected.
+
+; Current terminal settings saved by Esc-7 and restored by Esc-8
 savgrn		.ds 4
 savcursx	.ds 1
 savcursy	.ds 1
@@ -336,6 +339,7 @@ savorgn		.ds 1
 savg0		.ds 1
 savg1		.ds 1
 savchs		.ds 1
+
 online		.ds 1		; whether we are online (connected through dialer)
 mnplace		.ds 1
 remrhan		.ds 4		; Information on whether R: handler was loaded by us, and how to unload it when exiting
@@ -658,7 +662,7 @@ szlen	.byte	80,40,40,40
 ; Note that the screen is actually set up such that the background is color 1 (set bits) and
 ; text is color 0 (0 bits) so that the boldface PMs "shine" through. So, the foreground and
 ; background colors are reversed.
-; Values are stored in color registers 709 (bitmap set bits), 710 (bitmap 0 bits), 711 (PMs), 712 (border)
+; Values are stored in color registers 709 (background - bitmap set bits), 710 (text - bitmap 0 bits), 711 (PMs), 712 (border)
 sccolors
 	.byte	0,10,14,2	; Light text on dark background
 	.byte	14,4,0,12	; Dark text on light background

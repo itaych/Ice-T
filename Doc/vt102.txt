@@ -144,7 +144,7 @@ Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
          (30 should be black but due to display limitations considered white)
  39 - default foreground color (white)
  40-47 - background color - ignored if a foreground color is set, otherwise
-         treated as foreground color.
+         behaves the same as setting foreground color.
  49 - default background color.
  90-97 - same as 30-37 but bold is also turned on.
  100-107 - same as 40-47 but bold is also turned on.

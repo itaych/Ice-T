@@ -177,7 +177,7 @@ bkset2
 
 ; Configure terminal parameters:
 
-setbps			;  Set Baud Rate
+setbps			; Set Baud Rate
 	ldx #>setbpsw
 	ldy #<setbpsw
 	jsr drawwin
@@ -534,16 +534,16 @@ setscr			; Special effects department
 	sta finescrol
 	sta boldallw
 	sta boldface
-	jmp ?n
+	beq ?n	; always jump
 ?nz
 	cmp #4
 	beq ?n1
 	cmp boldallw
-	beq ?bl
+	beq ?bl				; don't do anything if selected value is the same as last
 	sta boldallw
 	lda #0
 	sta finescrol
-	sta boldface
+	sta boldface		; reset boldface status, as we may be changing from allow bold to allow blink or back
 	jsr set_dlist_dli	; re-set DLI bits in display list, as fine scroll may have moved them
 	jsr boldclr
 ?bl
@@ -554,7 +554,7 @@ setscr			; Special effects department
 	sta boldallw
 	sta boldface
 	jsr boldoff
-	lda nextln
+	lda nextln			; in preparation for fine scroll mode, clear nextln (the off-screen line that will scroll in next)
 	sta cntrl
 	lda nextln+1
 	sta cntrh
