@@ -85,27 +85,29 @@ mntbjmp
 	.word	xfer-1
 
 setmnu
-	.byte	30,1,47,12
+	.byte	30,1,47,13
 	.byte	+$80," Baud rate    "
 	.byte	" Local echo   "
 	.byte	" Stop bits    "
 	.byte	" Auto wrap    "
 	.byte	" Emulation    "
+	.byte   " Return sends "
 	.byte	" Delete sends "
 	.byte	" End of line  "
 	.byte	" Status calls "
 	.byte	" Flow control "
 	.byte	" Save config  "
 setmnudta
-	.byte	1,10,14
+	.byte	1,11,14
 	.byte	32,2,32,3,32,4,32,5,32,6,32,7
-	.byte	32,8,32,9,32,10,32,11
+	.byte	32,8,32,9,32,10,32,11,32,12
 settbl
 	.word	setbps-1
 	.word	setloc-1
 	.word	setbts-1
 	.word	setwrp-1
 	.word	setans-1
+	.word	setret-1
 	.word	setdel-1
 	.word	seteol-1
 	.word	setfst-1
@@ -141,13 +143,13 @@ opttbl
 	.word	rsttrm-1
 
 setbpsw
-	.byte	48,1,75,4
+	.byte	44,1,71,4
 	.byte	"  300   600  1200  1800 "
 	.byte	" 2400  4800  9600  19.2 "
 setbpsd
 	.byte	4,2,6
-	.byte	50, 2, 56, 2, 62, 2, 68, 2
-	.byte	50, 3, 56, 3, 62, 3, 68, 3
+	.byte	46, 2, 52, 2, 58, 2, 64, 2
+	.byte	46, 3, 52, 3, 58, 3, 64, 3
 
 setlocw
 	.byte	44,2,53,5
@@ -167,33 +169,33 @@ setansd
 	.byte	46,6,46,7,46,8
 
 seteolw
-	.byte	46,7,59,12
+	.byte	46,8,59,13
 	.byte	" CR + LF  "
 	.byte	" LF alone "
 	.byte	" CR alone "
 	.byte	" ATASCII  "
 seteold
 	.byte	1,4,10
-	.byte	48,8,48,9,48,10,48,11
+	.byte	48,9,48,10,48,11,48,12
 
 setfstw
-	.byte	46,8,59,12
+	.byte	46,9,59,13
 	.byte	" Normal   "
 	.byte	" Medium   "
 	.byte	" Constant "
 setfstd
 	.byte	1,3,10
-	.byte	48,9,48,10,48,11
+	.byte	48,10,48,11,48,12
 
 setflww
-	.byte	46,9,59,14
+	.byte	46,10,59,15
 	.byte	" None     "
 	.byte	" Xon/Xoff "
 	.byte	" ",34,"Rush",34,"   "
 	.byte	" Both     "
 setflwd
 	.byte	1,4,10
-	.byte	48,10,48,11,48,12,48,13
+	.byte	48,11,48,12,48,13,48,14
 
 setbtsw
 	.byte	44,3,55,6
@@ -296,16 +298,27 @@ setcrsd
 	.byte	1,2,8
 	.byte	38,8,38,9
 
+setretw
+	.byte	46,6,59,11
+	.byte	" Default  "
+	.byte	" $0D CR   "
+	.byte	" $0A LF   "
+	.byte	" $9B Ret  "
+setretd
+	.byte	1,4,10
+	.byte	48,7,48,8,48,9,49,10
+
 setdelw
-	.byte	46,6,61,9
+	.byte	46,7,61,11
 	.byte	" $7F DEL    "
 	.byte	" $08 BS ^H  "
+	.byte	" $7E Backsp "
 setdeld
-	.byte	1,2,12
-	.byte	48,7,48,8
+	.byte	1,3,12
+	.byte	48,8,48,9,48,10
 
 savcfgw
-	.byte	46,9,63,12
+	.byte	46,11,63,14
 	.byte	"Saving current"
 	.byte	"  parameters  "
 savcfgwe1

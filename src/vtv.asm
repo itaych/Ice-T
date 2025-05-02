@@ -36,7 +36,7 @@ g1set		.ds 1
 chset		.ds 1
 useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
 seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
-newlmod		.ds 1
+newlmod		.ds 1	; VT100 Newline mode
 vt52mode	.ds 1	; VT-52 mode (host controlled)
 numlock		.ds 1
 wrpmode		.ds 1
@@ -48,7 +48,7 @@ boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/b
 					; Bit 4: color was set as background.
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
-modedo		.ds 1
+modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
 ckeysmod	.ds 1
 finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
@@ -616,7 +616,8 @@ curssiz		.byte 6		; Cursor size: 0 for a block, 6 for underline.
 finescrol	.byte 0		; Enable fine scroll: 0 to disable, 4 to enable. Only one of finescrol or boldallw may be nonzero.
 boldallw	.byte 1		; Enable additional graphics: 0 to disable, 1 for ANSI colors, 2 for bold only, 3 to enable blinking text.
 autowrap	.byte 1		; Wrap around at edge of screen. 1 to enable (normal behavior), 0 to disable.
-delchr		.byte 0		; Code to send when pressing the backspace key. 0 for 0x7f (DEL), 1 for 0x08 (^H, BS)
+delchr		.byte 0		; Bits 0-1: Code to send for Backspace key. 0 - $7f (DEL), 1 - $08 (^H, BS), 2 - $7e (Atari backspace)
+						; Bits 2-3: Code to send for Return key. 0 for VT100 default, 1 for CR, 2 for LF, 3 for $9b (Atari EOL)
 bckgrnd		.byte 0 	; Screen display mode: 0 for light text on dark background, 1 for reverse.
 bckcolr		.byte 0		; Hue of screen background, 0-15.
 eoltrns		.byte 0		; Downloaded files EOL translation. 0-3 for None/CR/LF/Either. See documentation for details.
@@ -626,7 +627,7 @@ ansibbs		.byte 0		; Terminal emulation: 0 for VT-102, 1 for ANSI-BBS, 2 for VT-5
 eitbit		.byte 1		; Enables PC graphical character set for values 128 and above: 0 to disable, 1 to enable.
 fastr		.byte 2		; Frequency of status calls to serial port device. 0 for normal, 1 for medium, 2 for constant.
 flowctrl	.byte 1		; Flow control method: 0-3 for None, Xon/Xoff, "Rush", Both.
-eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII (0x9b)
+eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII ($9b) (3 also accepts ATASCII Tab)
 ascdelay	.byte 2		; In ASCII upload: 0 for no delay between lines, 1-7 for some delay, higher value waits for that character
 						; to arrive from the remote side. Delay values are 1/60 sec, 1/10 sec, 1.5 sec, 1/2 sec, 1 sec, 1.5 sec, 2 sec.
 

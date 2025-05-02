@@ -285,6 +285,7 @@ Opening curly braces (123): Pi symbol
  | (124)    Not equal        =/=
 Closing curly braces (125): UK pound symbol
 Tilde (126):                Centered dot
+Code 127 is ignored and has no effect, whether graphics are enabled or not.
 
 VT-52 Mode
 ----------

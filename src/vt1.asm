@@ -24,17 +24,17 @@ reset				; System reset goes here
 	sta bootflag
 	jsr go_to_dosini	; initialize DOS
 
-	; Restore saved config (reset to same configuration as saved to disk)
-	ldx #cfgnum-1
-?lp
-	lda savddat,x
-	sta cfgdat,x
-	dex
-	bpl ?lp
-
 ; common initialization (either at program load or after reset) continues here
 
 init_continued
+	; Restore saved config (reset to same configuration as saved to disk)
+	ldx #cfgnum-1
+?cfg_lp
+	lda savddat,x
+	sta cfgdat,x
+	dex
+	bpl ?cfg_lp
+
 	; detect R-Time8 cartridge
 	jsr rt8_detect
 	sta rt8_detected

@@ -4367,7 +4367,7 @@ readk
 ; Keypad application mode (numlock off)
 
 keyapp
-	lda #27
+	lda #27		; Esc
 	sta outdat
 	lda #'O		; the letter O
 	sta outdat+1
@@ -4392,7 +4392,7 @@ keyapp
 ?numk1
 	cmp #kretrn
 	bne ?numk5
-	lda #77
+	lda #'M
 	jmp ?numkok
 ?numk5
 	cmp #'q
@@ -4625,39 +4625,55 @@ knocaps
 	jsr getkey
 	jmp shcaps
 knoscaps
-	cmp #kdel
+	cmp #kdel		; Backspace key
 	bne knodel
-	ldx delchr
-	lda deltab,x
+	lda delchr
+	and #$03
+	tax
+	lda deltab,x	; Select code to send for backspace according to user preference
 	sta outdat
 	lda #1
 	sta outnum
-	jmp outputdat
+	bne knodel?ok	; Always branches
 knodel
-	cmp #ksdel
+	cmp #ksdel		; Shift-Backspace
 	bne knosdel
 	lda delchr
-	eor #1
+	and #$03
+	eor #$01		; Choose an alternate backspace character by xoring the index with 1
 	tax
 	lda deltab,x
 	sta outdat
 	lda #1
 	sta outnum
+?ok
 	jmp outputdat
 
-deltab	.byte	127,8
+deltab	.byte	$7f, $08, $7e, $7f
+rettab	.byte	$0d, $0a, $9b
 
 knosdel
-	cmp #kretrn
+	cmp #kretrn		; Return key
 	bne knoret
-kyesret
-	lda #13		; CR
+	lda delchr		; get bits 2-3 of delchr, which determine user preference for Return key
+	lsr a
+	lsr a
+	beq kyesret		; 0 - default behavior
+	tax
+	lda rettab-1,x
+	sta outdat
+	lda #1
+	sta outnum
+	bne kyesret?ok	; always branches
+
+kyesret				; this also handles the numeric keypad Enter, which is not affected by the user config.
+	lda #$0d	; CR
 	sta outdat
 	lda #1
 	sta outnum
 	lda newlmod
 	beq ?ok
-	lda #10		; LF
+	lda #$0a	; LF
 	sta outdat+1
 	inc outnum
 ?ok

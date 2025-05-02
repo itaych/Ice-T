@@ -34,8 +34,7 @@ mnmnloop
 	lda lnofbl
 	sta mnlnofbl
 	lda menret
-	cmp #255
-	beq mnquit
+	bmi mnquit
 	cmp #0
 	bne mnnoterm
 	jmp goterm
@@ -57,8 +56,7 @@ mnquit
 	sta mnucnt
 	jsr menudo2
 	lda menret
-	cmp #255
-	beq mnodoquit
+	bmi mnodoquit
 	cmp #0
 	beq mnodoquit
 	pha
@@ -104,19 +102,19 @@ bkopt2
 	lda mnucnt
 	sta svmnucnt
 	lda menret
-	cmp #254	; ****
+	cmp #254	; right arrow key pressed
 	bne ?nr
 	jsr getscrn
 	jsr invrgt
 	jmp settings
 ?nr
-	cmp #253
+	cmp #253	; left arrow key pressed
 	bne ?nl
 	jsr getscrn
 	jsr invlft
 	jmp mnmnloop
 ?nl
-	cmp #255
+	cmp #255	; esc pressed
 	bne ?e
 	jmp mnmenu
 ?e
@@ -151,19 +149,19 @@ bkset2
 	lda mnucnt
 	sta svmnucnt
 	lda menret
-	cmp #254	; ****
+	cmp #254	; right arrow key pressed
 	bne ?nr
 	jsr getscrn
 	jsr invrgt
 	jmp file
 ?nr
-	cmp #253
+	cmp #253	; left arrow key pressed
 	bne ?nl
 	jsr getscrn
 	jsr invlft
 	jmp options
 ?nl
-	cmp #255
+	cmp #255	; esc pressed
 	bne ?e
 	jmp mnmenu
 ?e
@@ -189,8 +187,7 @@ setbps			; Set Baud Rate
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	lda mnucnt
 	clc
 	adc #8
@@ -212,8 +209,7 @@ setloc			; Set local-echo
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta localecho
 ?n
 	jmp bkset
@@ -228,8 +224,7 @@ seteol			;  Set EOL character(s)
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta eolchar
 ?n
 	jmp bkset
@@ -244,8 +239,7 @@ setfst			;  Set freq. of status calls
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta fastr
 ?n
 	jmp bkset
@@ -260,8 +254,7 @@ setflw			; Set flow control type(s)
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta savflow
 	and #1
 	sta flowctrl
@@ -281,8 +274,7 @@ setbts			; Set no. of Stop bits
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	clc
 	ror a
 	ror a
@@ -305,8 +297,7 @@ setwrp			;  Set Auto-line-wrap
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	eor #1
 	sta autowrap
 	sta wrpmode
@@ -347,8 +338,7 @@ setmacros		; Define macros
 	jsr menudo1
 ?done_mn1
 	lda menret
-	cmp #255
-	bne ?ok
+	bpl ?ok
 	jmp bkopt
 ?ok
 
@@ -510,8 +500,7 @@ setclk			; Set Keyclick type
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta click
 ?n
 	jmp bkopt
@@ -527,8 +516,7 @@ setscr			; Special effects department
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	cmp #0
 	bne ?nz
 	sta finescrol
@@ -581,8 +569,7 @@ setcol			; Set Background colors
 	pla
 	tay
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	pha
 	and #15
 	sta bckcolr
@@ -614,8 +601,7 @@ seteit			; Set PC character set
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta eitbit
 ?n
 	jmp bkopt
@@ -632,16 +618,15 @@ setcrs			;  Set Cursor shape (underscore/block)
 	sta mnucnt
 	jsr menudo1
 	lda menret
+	bmi ?n
 	beq ?c
-	cmp #255
-	beq ?n
 	lda #6
 ?c
 	sta curssiz
 ?n
 	jmp bkopt
 
-setans
+setans			; Emulation menu
 	ldx #>setansw
 	ldy #<setansw
 	jsr drawwin
@@ -651,8 +636,7 @@ setans
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	sta ansibbs
 	cmp #2
 	bne ?n
@@ -665,6 +649,31 @@ setans
 ?n
 	jmp bkset
 
+setret			; Set Return key
+	ldx #>setretw
+	ldy #<setretw
+	jsr drawwin
+	ldx #>setretd
+	ldy #<setretd
+	lda delchr
+	lsr a
+	lsr a
+	sta mnucnt
+	jsr menudo1
+	lda menret
+	bmi ?n
+	tax
+	lda delchr
+	and #$f3	; reset bits 2-3
+	sta delchr
+	txa
+	asl a
+	asl a
+	ora delchr
+	sta delchr
+?n
+	jmp bkset
+
 setdel			; Set delete key
 	ldx #>setdelw
 	ldy #<setdelw
@@ -672,11 +681,17 @@ setdel			; Set delete key
 	ldx #>setdeld
 	ldy #<setdeld
 	lda delchr
+	and #$3		; just bits 0-1
 	sta mnucnt
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
+	tax
+	lda delchr
+	and #$fc	; reset bits 0-1
+	sta delchr
+	txa
+	ora delchr
 	sta delchr
 ?n
 	jmp bkset
@@ -1270,13 +1285,13 @@ bkxfr2
 	lda #0
 	sta mnplace
 	lda menret
-	cmp #254	; ****
+	cmp #254	; right arrow key pressed
 	bne ?nr
 	jsr getscrn
 	jsr invrgt
 	jmp mnmnloop
 ?nr
-	cmp #253
+	cmp #253	; left arrow key pressed
 	bne ?nl
 	jsr getscrn
 	jsr invlft
@@ -1316,19 +1331,19 @@ bkfil2
 	lda #0
 	sta mnplace
 	lda menret
-	cmp #254	; ****
+	cmp #254	; right arrow key pressed
 	bne ?nr
 	jsr getscrn
 	jsr invrgt
 	jmp xfer
 ?nr
-	cmp #253
+	cmp #253	; left arrow key pressed
 	bne ?nl
 	jsr getscrn
 	jsr invlft
 	jmp settings
 ?nl
-	cmp #255
+	cmp #255	; esc pressed
 	beq filquit
 	lda mnucnt
 	sta svmnucnt
@@ -1625,8 +1640,7 @@ fileol			; Select EOL translation (D/L)
 	ldy #<eoldat
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	lda mnucnt
 	sta eoltrns
 ?n
@@ -1642,8 +1656,7 @@ filuel			; Select EOL translation (U/L)
 	ldy #<ueldat
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	lda mnucnt
 	sta ueltrns
 ?n
@@ -1659,8 +1672,7 @@ filans			; Select ANSI filter
 	ldy #<ansdat
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?n
+	bmi ?n
 	lda mnucnt
 	sta ansiflt
 ?n
@@ -2566,8 +2578,7 @@ ascupl			; Ascii upload
 	ldy #<setasdd
 	jsr menudo1
 	lda menret
-	cmp #255
-	beq ?nn
+	bmi ?nn
 	sta ascdelay
 ?nn
 	jsr getscrn

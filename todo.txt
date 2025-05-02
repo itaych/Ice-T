@@ -7,13 +7,10 @@ Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show o
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 
 colors:
-	spaces should generate colors if background color is set. see ptxreg.
-		however space should always bold/unbold if overwriting an existing char!
-		that should fix emacs tetris.
 	Fill new (cleared) lines with background color. Prob. only new lines that scroll in.
 
 more colors: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html - search "(SGR)".
-90-107. 38;5, 38;2, and add a private 38;9 to allow atari colors.
+38;5, 38;2, and add a private 38;9 to allow atari colors (or 48..).
 38;5 is explained at: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
 
 private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
@@ -49,8 +46,7 @@ or just: sudo /sbin/agetty -L ttyS0 9600 vt100
 
 col80:
 ------
-hang when moving up in 'gandhi' txt file
-garbage when moving up in icet doc
+hang/garbage when moving up
 try to name unnamed labels/variables
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\Build\col80.lab

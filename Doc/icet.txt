@@ -446,16 +446,25 @@ Emulation: Choose VT-100 or ANSI-BBS. I only know of one difference
 between these two (ANSI homes the cursor when clearing the
 screen, VT-100 does not).
 
-Delete key: Some hosts will only recognize $7F as delete, and others will
-need ^H. Choose the one suitable for yours, or the one used most often.
+Return sends: Normally pressing Return will transmit a CR, unless the remote
+host sends a control code named Set Insert mode after which Return will transmit
+CR+LF. You may override this behavior to send a CR, a LF, or an ATASCII End of line.
+
+Delete sends: Normally a VT-100 terminal will transmit a DEL ($7F) when
+the user presses the backspace key. The two additional options are BS ($08,
+equivalent to Ctrl-H) or Backsp, which means the ATASCII delete ($7E).
+Note that Shift-Backspace will transmit an alternate code as follows: If you
+selected DEL in this menu it will transmit BS and vice versa; if you selected
+ATASCII it will send DEL.
 
 End of line: Choose which incoming character is interpreted as an EOL.
 This shouldn't be confused with a similar menu in the Mini-DOS menu, which
 handles EOL conversion during file transfers and capture only.
 CR + LF  - Normal. CR moves cursor to the left and LF does a line feed.
 CR or LF - Either CR or LF are treated as a combination of both.
-ATASCII  - 155 ($9B), the Atari "return", is recognized as an EOL. Also,
-           the Atari TAB character is used. (CR or LF are still usable.)
+ATASCII  - 155 ($9B), the Atari "Return", is recognized as an EOL. Also,
+           the Atari TAB ($7F) character is recognized. Note that CR or LF
+           are still recognized in this mode and behave as "normal".
 
 Status calls: This setting is fairly crucial for proper operation of this
 software. Basically, if you're using anything faster than 4800, use
