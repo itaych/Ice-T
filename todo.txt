@@ -12,6 +12,8 @@ colors:
 more colors: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html - search "(SGR)".
 38;5, 38;2, and add a private 38;9 to allow atari colors (or 48..).
 38;5 is explained at: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
+https://syncterm.bbsdev.net/cterm.html#_csi_ps_m_select_graphic_rendition_sgr
+https://www.telnetbbsguide.com/bbs/total-lost/
 
 private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
 	Esc [ cmd ; arg1 ; .. ; argn / t          or, old idea was: Esc [ 99 ; cmd ; arg1 ; .. ; argn {
@@ -63,6 +65,11 @@ hopefully altirra will fix status result?
 
 --
 atdi 192.168.1.242 23
+atdi bbs.eotd.com
+atdi lord.stabs.org
+atdi atarinews.org
+C:\Users\Itay\Emulators\Atari\ATasm\Projects\Ice-T\utils\TCP2Con>tcp2con plink.exe -ssh itayc@192.168.1.242
+atdi 127.0.0.1 9001
 --
 LDA NUM1L ; a common technique for comparing two 16-bit numbers
 CMP NUM2L

@@ -10,10 +10,10 @@
 	.bank
 	*=	$8d00
 charset
-	.incbin	../fonts/vt.fnt			; VT100 character set
+	.incbin	vt.fnt		; VT100 character set
 pcset
-	.incbin	../fonts/vtibm.fnt		; Extended (>128) character set
-;	.incbin	../fonts/vtheb2d.fnt	; Hebrew character set
+	.incbin	vtibm.fnt	; Extended (>128) character set
+;	.incbin	vtheb2d.fnt	; Hebrew character set
 
 	.include vtv.asm	; Data tables
 	.include vt1.asm	; Main code
