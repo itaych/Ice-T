@@ -21,45 +21,48 @@ temp		.ds 1
 prcntr		.ds 2
 prfrom		.ds 2
 
-mnmnucnt	.ds 1
-mnmenux		.ds 1
-mnlnofbl	.ds 1
-svmnucnt	.ds 1
-
 ctrl1mod	.ds 1
 oldbufc		.ds 1
 mybcount	.ds 2
 baktow		.ds 1
-invon		.ds 1
-g0set		.ds 1
-g1set		.ds 1
-chset		.ds 1
-useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
-seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
-newlmod		.ds 1	; VT100 Newline mode
-vt52mode	.ds 1	; VT-52 mode (host controlled)
-numlock		.ds 1
-wrpmode		.ds 1
-insertmode	.ds 1
+
+__term_settings_start
+; Terminal settings set by control codes sent from remote
+origin_mode	.ds 1	; Whether VT-100 Origin mode is enabled
+chset		.ds 1	; Character set to use, set by ^O/^N.
+g0set		.ds 1	; Whether character set 0 is text (0) or graphics (1) (g0set and g1set must be together)
+g1set		.ds 1	; Whether character set 1 is text (0) or graphics (1)
 undrln		.ds 1	; terminal currently set to write new characters in underline mode
 revvid		.ds 1	; terminal currently set to write new characters in inverse mode
 invsbl		.ds 1	; terminal currently set to write new characters in invisible mode
 boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/blink (PM underlay) mode. Bits 1-3: color.
 					; Bit 4: color was set as background.
+__term_settings_saved	; the 8 bytes above are saved when Esc 7 (DECSC) is received and restored by Esc 8
+invon		.ds 1	; Screen in inverse colors mode, set by Esc[?5h/l
+newlmod		.ds 1	; VT100 Newline mode
+vt52mode	.ds 1	; VT-52 mode, controlled by Esc[?2h/l
+numlock		.ds 1	; Keypad Numeric Mode
+wrpmode		.ds 1	; Cursor auto-wrap mode, controlled by Esc[?7h/l
+insertmode	.ds 1	; Insert mode, controlled by Esc[4h/l
+scrltop		.ds 1	; top of scrolling area, 1-24
+scrlbot		.ds 1	; bottom of scrolling area, 1-24
+virtual_led	.ds 1	; LEDs, controlled by Esc[q
+ckeysmod	.ds 1	; Cursor keys mode, controlled by Esc[?1h/l
+__term_settings_end
+
+useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
+seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
+
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
-ckeysmod	.ds 1
 finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 holdch		.ds 1	; OS reserved - must equal $7c
-scrltop		.ds 1	; top of scrolling area, 1-24
-scrlbot		.ds 1	; bottom of scrolling area, 1-24
-origin_mode	.ds 1	; Whether VT-100 Origin mode is enabled
-tx			.ds 1
-ty			.ds 1
+tx			.ds 1	; Terminal cursor X position
+ty			.ds 1	; Terminal cursor Y position
 flashcnt	.ds 1
 newflash	.ds 1
 oldflash	.ds 1
@@ -70,6 +73,11 @@ capslock	.ds 1
 s764		.ds 1
 outnum		.ds 1	; number of bytes to output.
 outdat		.ds 3
+
+mnmnucnt	.ds 1
+mnmenux		.ds 1
+mnlnofbl	.ds 1
+svmnucnt	.ds 1
 
 noplcs		.ds 1
 noplcx		.ds 1
@@ -125,7 +133,6 @@ crch		.ds 1
 
 nowvbi		.ds 1
 
-virtual_led	.ds 1
 dli_counter	.ds 1
 
 rt8_detected	.ds 1	; whether R-Time8 cartridge is present
@@ -255,8 +262,8 @@ backscroll_top		= $7fc0		; enough for 204 lines of 80 bytes each (remainder is 6
 	.bank
 	*=	$8000
 
-; "extra" display line - needed so that during fine scroll the line scrolling out remains untouched while
-; the new line scrolling in is already being written to
+; "extra" display line - needed so that during scroll (fine or coarse) the line being scrolled out remains
+; unmodified while the new line scrolling in is already being written to
 xtraln		.ds 320
 
 xmdblock	.ds 3
@@ -331,14 +338,11 @@ timer_1sec	.ds 1
 timer_10sec	.ds 1
 brkkey_enable	.ds 1	; enables generating a keyboard code when BREAK key detected.
 
-; Current terminal settings saved by Esc-7 and restored by Esc-8
-savgrn		.ds 4
+; Current terminal settings saved by Esc 7 (DECSC) and restored by Esc 8
+decsc_save_data
 savcursx	.ds 1
 savcursy	.ds 1
-savorgn		.ds 1
-savg0		.ds 1
-savg1		.ds 1
-savchs		.ds 1
+decsc_additional_data	.ds __term_settings_saved-__term_settings_start
 
 online		.ds 1		; whether we are online (connected through dialer)
 mnplace		.ds 1
@@ -365,7 +369,7 @@ linadr_h	.ds	25	; address of each line in display bitmap, hi byte
 numstk	.ds	$100	; when terminal reads a sequence of the form Esc [ n ; n .. the values are stored here.
 rush	.ds	1
 didrush	.ds	1
-crsscrl .ds 1
+crsscrl .ds 1		; indicates to VBI that a coarse scroll has occured, update the display list.
 pcchar	.ds	1
 looklim .ds 1
 capture .ds 1

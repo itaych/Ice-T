@@ -794,8 +794,7 @@ ctrlcode_09		; ^I - Tab
 
 ctrlcode_0e		; ^N - use g1 character set
 	lda #1
-	sta chset
-	rts
+	.byte BIT_skip2bytes
 
 ctrlcode_0f		; ^O - use g0 character set
 	lda #0
@@ -985,22 +984,12 @@ esccode_decsc	; 7 - save curs+attrib
 	sta savcursx
 	lda ty
 	sta savcursy
-	lda origin_mode
-	sta savorgn
-	lda g0set
-	sta savg0
-	lda g1set
-	sta savg1
-	lda chset
-	sta savchs
-	lda undrln
-	sta savgrn
-	lda boldface
-	sta savgrn+1
-	lda revvid
-	sta savgrn+2
-	lda invsbl
-	sta savgrn+3
+	ldx #__term_settings_saved-__term_settings_start-1
+?lp
+	lda __term_settings_start,x
+	sta decsc_additional_data,x
+	dex
+	bpl ?lp
 	jmp fincmnd
 
 esccode_decrc	; 8 - restore above
@@ -1014,25 +1003,16 @@ esccode_decrc	; 8 - restore above
 	sta tx
 	lda savcursy
 	sta ty
-	lda savorgn
-	sta origin_mode
-	lda savg0
-	sta g0set
-	lda savg1
-	sta g1set
-	lda savchs
-	sta chset
-	lda savgrn
-	sta undrln
-	lda savgrn+2
-	sta revvid
-	lda savgrn+3
-	sta invsbl
+	ldx #__term_settings_saved-__term_settings_start-1
+?lp
+	lda decsc_additional_data,x
+	sta __term_settings_start,x
+	dex
+	bpl ?lp
 	lda boldallw
-	beq ?o			; prevent boldface from being restored
-	lda savgrn+1	; if disabled by user
-?o
+	bne ?o			; prevent boldface from being restored if disabled by user
 	sta boldface
+?o
 	jmp fincmnd_reset_seol
 
 esccode_decid	; Z - send ID string
@@ -1259,7 +1239,7 @@ parpro
 ?dog1
 	lda #0
 	sta g0set,x
-	beq ?dog4
+	beq ?dog4	; always branches
 ?dog2
 	cmp #'0
 	beq ?dog3
@@ -3317,7 +3297,7 @@ scdnadlp
 	inx
 	cpx scrlbot
 	bne scdnadlp
-	jmp scdnadok
+	beq scdnadok	; always branches
 scdnadbd
 	ldx scrlbot ;	If top=bot, no scroll occurs
 	lda linadr_l,x
@@ -3388,7 +3368,7 @@ doscroldn
 	lda scrlbot
 	jsr erslineraw_a	; blank the new line
 	lda #1
-	sta crsscrl
+	sta crsscrl		; indicate to VBI that a coarse scroll has occured, update the display list.
 
 	lda isbold		; bold disabled? we're done.
 	bne ?db

@@ -635,21 +635,12 @@ dialing
 	jmp dialing2
 
 resttrm			; Reset most VT100 settings
+	ldx #__term_settings_end-__term_settings_start-1
 	lda #0
-	sta newlmod
-	sta invon
-	sta origin_mode
-	sta undrln
-	sta boldface
-	sta revvid
-	sta invsbl
-	sta g0set
-	sta chset
-	sta ckeysmod
-	sta numlock
-	sta virtual_led
-	sta vt52mode
-	sta insertmode
+?lp
+	sta __term_settings_start,x
+	dex
+	bpl ?lp
 	lda #1
 	sta g1set
 	sta scrltop
@@ -2032,20 +2023,19 @@ vbi2_donetm
 	beq ?no
 	ldx #1
 	ldy #14
+	clc				; clc once rather than before each adc #10.
 ?lp
-	lda linadr_h,x	; update display list with line addresses
-	sta dlist+1,y
-	lda linadr_l,x
+	lda linadr_l,x	; update display list with line addresses
 	sta dlist,y
+	lda linadr_h,x
+	sta dlist+1,y
 	inx
 	tya
-	clc
-	adc #10
+	adc #10			; we assume carry bit remains clear throughout this loop so no need for clc
 	tay
 	cpy #254
-	bne ?lp
-	lda #0
-	sta crsscrl
+	bcc ?lp
+	dec crsscrl		; was 1, now reset to 0
 ?no
 ;	lda #$0f
 ;	sta colbk

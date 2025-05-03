@@ -640,7 +640,7 @@ setans			; Emulation menu
 	sta ansibbs
 	cmp #2
 	bne ?n
-	lda #0
+	lda #0		; User switched to VT-52, reset some settings
 	sta g0set
 	sta chset
 	sta insertmode
