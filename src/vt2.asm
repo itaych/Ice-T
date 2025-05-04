@@ -2448,20 +2448,36 @@ txerfm
 	cpy #80
 	bne txerfm
 
-	; erase bold info
+	; handle bold info
 	lda boldallw
 	beq ?nobold
+	lda boldface
+	and #$10		; is a background color enabled?
+	beq ?unbold
+
+	; set background color
+?boldlp
+	jsr dobold
+	inc x
+	inc x
+	lda x
+	cmp #80
+	bcc ?boldlp
+	bcs ?nobold		; always branches
+
+	; clear bold info
+?unbold
 	lda x			; do not start from odd character as this may unbold character to its left; skip it.
 	and #1
 	bne ?skip1
-?boldlp
+?unboldlp
 	jsr unbold
 	inc x
 ?skip1
 	inc x
 	lda x
 	cmp #80
-	bcc ?boldlp
+	bcc ?unboldlp
 ?nobold
 
 	; erase text on screen
@@ -2547,20 +2563,34 @@ txerto
 	dey
 	bpl txerto
 
-	; erase bold info
+	; handle bold info
 	lda boldallw
 	beq ?nobold
+	lda boldface
+	and #$10		; is a background color enabled?
+	beq ?unbold
+
+	; set background color
+?boldlp
+	jsr dobold
+	dec x
+	dec x
+	bpl ?boldlp
+	bmi ?nobold		; always branches
+
+	; clear bold info
+?unbold
 	lda lnsizdat,x	; wide line?
 	bne ?boldlp		; if so skip this check
 	lda x			; do not start from even character as this may unbold character to its right; skip it.
 	and #1
 	beq ?skip1
-?boldlp
+?unboldlp
 	jsr unbold
 	dec x
 ?skip1
 	dec x
-	bpl ?boldlp
+	bpl ?unboldlp
 ?nobold
 
 	; erase text on screen
@@ -3089,18 +3119,6 @@ chklnsiz
 	bpl ?lp
 	rts
 
-; Boldface stuff in vt22.asm
-
-;        -- Ice-T --
-;  A VT-100 terminal emulator
-;      by Itay Chamiel
-
-; Part -2- of program (2/3) - VT22.ASM
-
-; This part	is resident in bank #1
-
-; First, some boldface stuff..
-
 doboldbig		; Highlight a wide character: skip right shift because we have 40 text columns
 	lda x
 	bpl boldbok	; always branch
@@ -3136,7 +3154,7 @@ boldbok
 	bmi ?colordone			; we only update colors in lines 1-24
 ?colorval	lda #$ff
 ?coloraddr	sta undefined_addr,y
-	cpy #0
+	tya						; quicker than cpy #0
 	bne ?colordone
 	jsr update_colors_line0	; colors for top line are written to the standard color shadow registers, not updated by DLI.
 ?colordone
@@ -3144,18 +3162,6 @@ boldbok
 	tay
 ?nocolor
 
-	lda isbold	; enable PM overlay if it's off
-	bne ?ok
-	txa
-	pha
-	tya
-	pha
-	jsr boldon
-	pla
-	tay
-	pla
-	tax
-?ok
 	lda boldtbpl,x	; get address of start of PM data
 	sta ?p+1		; set self-modified code (below)
 	sta ?p2+1
@@ -3191,6 +3197,11 @@ boldbok
 	iny
 	dex
 	bpl ?p2
+
+	lda isbold		; Finally, enable PM overlay if it's off
+	bne ?ok
+	jsr boldon
+?ok
 	rts
 
 ; Un-highlight a character.
@@ -3233,7 +3244,26 @@ bolduok
 ?q
 	rts
 
-; End of "printerm" routine.
+; set an entire line at 'y' to bold. This basically calls dobold 5 times, once for each PM. We hack the 'boldwr' table's
+; first entry to fill in the entire width of the player when normally it would only light one pixel.
+dobold_fill_line
+	lda #$ff
+	sta boldwr		; this hack means we can call dobold for 1 character but miraculously 8 pixels get lit
+	lda #0
+	sta x
+?boldlp
+	jsr dobold
+	lda x
+	clc
+	adc #16
+	sta x
+	cmp #80
+	bcc ?boldlp
+	lda #$80
+	sta boldwr		; undo the hack, restore the original value to boldwr
+	rts
+
+; End of "printerm" and associated routines.
 
 ; - End of incoming-code processing
 
@@ -3370,9 +3400,9 @@ doscroldn
 	lda #1
 	sta crsscrl		; indicate to VBI that a coarse scroll has occured, update the display list.
 
-	lda isbold		; bold disabled? we're done.
+	lda isbold		; bold disabled? we're done, but we may still have to fill the new line with background color.
 	bne ?db
-	rts
+	jmp ?en
 ?db
 
 ; Scroll boldface info DOWN
@@ -3384,7 +3414,7 @@ doscroldn
 ?mlp_skip
 	dex
 	bpl ?mlp
-	rts
+	jmp ?en			; nothing in any PM.
 ?db2
 	lda boldtbpl,x	; Get address of PM bitmap
 	sta cntrl
@@ -3413,10 +3443,11 @@ doscroldn
 	ora boldypm,x	; Are ALL PMs empty?
 	dex
 	bpl ?sb4
-	cmp #0
+	tax				; instead of cmp #0
 	bne ?sb5
 	pla
-	jmp boldclr		; Yep - switch 'em off and quit
+	jsr boldclr		; all empty - switch 'em off and quit
+	jmp ?en
 ?sb5
 	pla
 	tax
@@ -3496,6 +3527,14 @@ doscroldn
 	bmi ?en
 	jmp ?mlp
 ?en
+	; Now that we've finished scrolling, fill the new line with the background color if one is set.
+	lda boldface
+	and #$10
+	beq ?no_backgrnd
+	lda scrlbot
+	sta y
+	jsr dobold_fill_line
+?no_backgrnd
 	rts
 
 scrlup			; SCROLL UP
@@ -3604,9 +3643,9 @@ scrlup			; SCROLL UP
 	lda #1
 	sta crsscrl
 
-	lda isbold	; bold disabled? we're done.
+	lda isbold		; bold disabled? we're done, but we may still have to fill the new line with background color.
 	bne ?db
-	rts
+	jmp ?en
 ?db
 
 ; Scroll boldface info UP
@@ -3618,7 +3657,7 @@ scrlup			; SCROLL UP
 ?mlp_skip
 	dex
 	bpl ?mlp
-	rts
+	jmp ?en			; nothing in any PM.
 ?db2
 	lda boldtbpl,x	; Get PM address
 	sta cntrl
@@ -3647,10 +3686,11 @@ scrlup			; SCROLL UP
 	ora boldypm,x	; Are ALL PMs empty?
 	dex
 	bpl ?st4
-	cmp #0
+	tax				; instead of cmp #0
 	bne ?st5
 	pla
-	jmp boldclr		; Yep - switch 'em off and quit
+	jsr boldclr		; all empty - switch 'em off and quit
+	jmp ?en
 ?st5
 	pla
 	tax
@@ -3737,6 +3777,14 @@ scrlup			; SCROLL UP
 	bmi ?en
 	jmp ?mlp
 ?en
+	; Now that we've finished scrolling, fill the new line with the background color if one is set.
+	lda boldface
+	and #$10
+	beq ?no_backgrnd
+	lda scrltop
+	sta y
+	jsr dobold_fill_line
+?no_backgrnd
 	rts
 
 ; prepare for scrolling of a single boldface PM. Takes into account current highest and lowest line where known bold data exists
@@ -3910,11 +3958,18 @@ ersline
 	dey
 	bpl ?lp
 ersline_no_txtmirror
-	; erase bold underlay (if enabled) for this line
+	; erase bold underlay (if enabled) for this line. If background color is enabled, fill the line rather than clearing it.
 	lda boldallw
 	beq ?nobold
+	lda boldface
+	and #$10		; is a background color enabled?
+	beq ?unbold		; no, go clear bold
+	; yes - fill the line
+	jsr dobold_fill_line
+	jmp ?nobold
+?unbold
 	ldx #4
-?bold_lp
+?unboldlp
 	lda boldtbpl,x
 	sta cntrl
 	lda boldtbph,x
@@ -3931,7 +3986,7 @@ ersline_no_txtmirror
 	iny
 	sta (cntrl),y
 	dex
-	bpl ?bold_lp
+	bpl ?unboldlp
 ?nobold
 	lda y
 ersline_done
@@ -5369,14 +5424,6 @@ parse_macro
 	rts
 
 ; END OF VT-100 EMULATION
-
-;        -- Ice-T --
-;  A VT-100 terminal emulator
-;      by Itay Chamiel
-
-; Part -2- of program (2/3) - VT23.ASM
-
-; This part	is resident in bank #1
 
 dialing2		; Dialing Menu
 	lda #0

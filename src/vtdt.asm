@@ -13,7 +13,6 @@
 tilmesg2
 	.byte	(80-75)/2,8,75
 	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2014 Itay Chamiel."
-.if 1
 tilmesg4
 	.byte	(80-71)/2,13,71
 	.byte	"This software is free, but donations are always appreciated (via Paypal"
@@ -27,17 +26,6 @@ tilmesg6
 	.byte	$C9, $C4, $85, $C8, $CC, $C4, $84, $87, $85, $88, $E8, $C0, $CC, $D7, $85, $E4
 	.byte	$D7, $CC, $C0, $C9, $85, $8D, $94, $9C, $91, $97, $88, $94, $9C, $9C, $9C, $8C
 tilmesg6_end
-.else
-tilmesg4
-	.byte	2,12,76
-	.byte	"This software is Shareware, and may be freely distributed. For registration,"
-tilmesg5
-	.byte	3,13,72
-	.byte	"send $25 to Itay Chamiel, 9-A Narkis St, Apt 13, Jerusalem 92461 Israel."
-tilmesg6
-	.byte	1,14,79
-	.byte	"Help support further Atari 8-bit development by registering. Thanks in advance!"
-.endif
 
 xelogo			; XE logo for title screen
 	.dbyte ~1110001110011111

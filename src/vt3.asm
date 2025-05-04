@@ -1941,16 +1941,6 @@ input
 	sta icblh+$20
 	jmp ciov
 
-;
-
-;        -- Ice-T --
-;  A VT-100 terminal emulator
-;      by Itay Chamiel
-
-; Part -3- of program (2/3) - VT32.ASM
-
-; This part	is resident in bank #2
-
 tglcapt			; Toggle capture mode
 	lda capture
 	eor #1
@@ -2928,14 +2918,6 @@ chkcapt			; Check if capture is off and empty
 	jsr getkeybuff
 	lda #1
 	rts
-
-;        -- Ice-T --
-;  A VT-100 terminal emulator
-;      by Itay Chamiel
-
-; Part -3- of program (3/3) - VT33.ASM
-
-; This part	is resident in bank #2
 
 ;		-- File transfers --
 

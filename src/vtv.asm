@@ -61,8 +61,8 @@ csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI comma
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 holdch		.ds 1	; OS reserved - must equal $7c
-tx			.ds 1	; Terminal cursor X position
-ty			.ds 1	; Terminal cursor Y position
+tx			.ds 1	; Terminal cursor X position, 0-79.
+ty			.ds 1	; Terminal cursor Y position, 1-24 (not zero based because the status bar is line 0).
 flashcnt	.ds 1
 newflash	.ds 1
 oldflash	.ds 1
@@ -348,7 +348,7 @@ online		.ds 1		; whether we are online (connected through dialer)
 mnplace		.ds 1
 remrhan		.ds 4		; Information on whether R: handler was loaded by us, and how to unload it when exiting
 crcchek		.ds 1
-isbold		.ds 1
+isbold		.ds 1		; whether the PM underlay is presently enabled and shown on the screen.
 
 ; spare
 			.ds 4

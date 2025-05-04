@@ -1174,8 +1174,16 @@ clrscrn			; Clear screen
 	sta banksv
 	sta banksw
 
-	; clear boldface PMs and line sizes
+	; clear boldface PMs, or - if a background color is enabled - fill the PMs.
+	lda boldface
+	and #$10
+	beq ?unbold
+	jsr boldfill
+	jmp ?bold_done
+?unbold
 	jsr boldclr
+?bold_done
+	; clear line sizes
 	jsr rslnsize
 
 clrscrnraw		; Clear JUST the terminal screen, nothing else (text mirror etc.)
@@ -1747,15 +1755,6 @@ rstatvector	jsr r_dummy_rts
 	lda bcount
 	ora bcount+1	; Z flag will be set if buffer empty.
 	rts
-
-;        -- Ice-T --
-;  A VT-100 terminal emulator
-;      by Itay Chamiel
-
-; Part -1- of program (2/2) - VT12.ASM
-
-; This part is resident during entire
-; program execution.
 
 ; jump here when break key is pressed
 break_handler
@@ -2919,6 +2918,7 @@ boldclr			; Clear boldface PMs
 	bne ?g
 	rts
 ?g
+	jsr boldoff
 	lda bank1
 	sta banksw
 	ldx #4
@@ -2945,6 +2945,49 @@ boldclr			; Clear boldface PMs
 	dex
 	bpl ?clp
 	bmi staoutdt?done	; always branch
+
+boldfill		; Fill boldface PMs. We assume bold is enabled in ANSI color mode and a background color is set.
+	lda bank1
+	sta banksw
+
+	; fill color table with background color
+	lda boldface
+	and #$0f				; we don't want the background/foreground indicator bit
+	tay
+	lda bold2color_xlate,y
+	ldy #24*5-1
+?colorlp
+	sta colortbl_0,y
+	dey
+	bpl ?colorlp
+
+	ldx #4		; run on all 5 players
+	stx temp
+?lp
+	ldx temp
+	lda #1
+	sta boldypm,x			; flag that this PM now contains lit pixels
+	sta boldsct,x			; set scroll limits
+	lda #24
+	sta boldscb,x
+	lda boldtbpl,x			; get address of start of PM data
+	sta ?fill_lp+1			; set self-modified code (below)
+	lda boldtbph,x
+	sta ?fill_lp+2
+	ldy boldytb+1			; we fill starting from line 1
+	lda #$ff
+	ldx #0
+?fill_lp
+	sta undefined_addr,y
+	iny
+	inx
+	cpx #24*4
+	bne ?fill_lp
+	dec temp
+	bpl ?lp
+
+	jsr boldon
+	jmp staoutdt?done
 
 ; Various routines for accessing banked memory from
 ; code also within a bank

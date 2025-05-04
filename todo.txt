@@ -6,9 +6,6 @@ Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show o
 
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 
-colors:
-	Fill new (cleared) lines with background color. Prob. only new lines that scroll in.
-
 more colors: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html - search "(SGR)".
 38;5, 38;2, and add a private 38;9 to allow atari colors (or 48..).
 38;5 is explained at: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
