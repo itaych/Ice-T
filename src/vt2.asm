@@ -3119,10 +3119,15 @@ chklnsiz
 	bpl ?lp
 	rts
 
-doboldbig		; Highlight a wide character: skip right shift because we have 40 text columns
+; Highlight a character at coordinates x, y (memory locations). Expects y>0.
+
+dobold_abort
+	pla
+	rts
+doboldbig		; For wide characters: skip right shift because we have 40 text columns
 	lda x
 	bpl boldbok	; always branch
-dobold			; Highlight a character
+dobold			; Entry point for regular 80 column text
 	lda x
 	lsr a		; We have 80 text columns but only 40 boldface columns, so divide by 2
 boldbok
@@ -3151,7 +3156,7 @@ boldbok
 	sta ?colorval+1
 	ldy y
 	dey
-	bmi ?colordone			; we only update colors in lines 1-24
+	bmi dobold_abort		; we only update colors in lines 1-24
 ?colorval	lda #$ff
 ?coloraddr	sta undefined_addr,y
 	tya						; quicker than cpy #0
@@ -3171,14 +3176,13 @@ boldbok
 	lda boldwr,y	; get bitmask of bit to enable in PM
 	sta ?p1+1
 	lda boldscb,x	; Do we have any scroll data (marking highest and lowest known bold area for this PM)?
-	cmp #255
-	bne ?ns
-	lda y			; No, create data
+	bpl ?ns
+	lda y			; No (value was 255), create data
 	sta boldsct,x
 	sta boldscb,x
-	jmp ?sk
+	bpl ?sk			; always branches
 ?ns
-	lda y	; Update existing scroll data
+	lda y			; Update existing scroll data (i.e. enlarge scroll area to include current line)
 	cmp boldsct,x
 	bcs ?s4
 	sta boldsct,x
@@ -6624,7 +6628,8 @@ boldpmus	.ds 40	; convert column number to PM number (0-4)
 boldtbpl	.ds 5	; low-byte pointer to each player data
 boldtbph	.ds 5	; high
 boldwr		.ds 8	; table containing running 1's: $80, $40, .. , $02, $01
-boldytb		.ds 25	; converts line number to vertical offset within PM
+boldytb		= *-1	; boldytb is a 25 byte table but we never touch byte 0
+			.ds 24	; converts line number to vertical offset within PM.
 
 ; Bold - Dynamic data:
 boldsct		.ds 5	; Per PM, current uppermost (lowest value) bold line

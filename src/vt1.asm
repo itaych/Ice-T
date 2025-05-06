@@ -1773,7 +1773,6 @@ dli
 	pha
 	txa
 	pha
-	inc dli_counter		; we want to start at offset 1 (0 values are placed in shadow color registers and taken care of by OS VBI)
 	ldx dli_counter
 	lda colortbl_0,x
 	sta colpf3			; missiles (leftmost column)
@@ -1785,6 +1784,8 @@ dli
 	sta colpm2
 	lda colortbl_4,x
 	sta colpm3
+	inx
+	stx dli_counter		; increment index for next DLI
 	pla
 	tax
 	pla
@@ -1794,8 +1795,8 @@ dli
 vbi1
 	lda #8
 	sta consol		; reset console speaker
-	lda #0
-	sta dli_counter
+	lda #1
+	sta dli_counter	; First DLI reads colors for second line
 ;	lda sdlstl
 ;	sta dlistl
 ;	lda sdlstl+1
@@ -2900,6 +2901,8 @@ boldoff			; Disable PMs
 pmhoztbl_players	.byte 80,112,144,176
 pmhoztbl_missiles	.byte 72,64,56,48
 
+; for the first line we update the shadow registers, so the hardware registers are updated during VBI,
+; preventing the need for a DLI before the first line.
 update_colors_line0
 	lda colortbl_0
 	sta color3
@@ -3658,8 +3661,8 @@ initial_program_entry
 	dex
 	bpl ?l1
 
-	lda #12
-	ldx #0
+	lda #16
+	ldx #1			; we never touch line 0 so we don't fill slot 0 of boldytb
 ?l2
 	sta boldytb,x	; converts line number to vertical offset within PM
 	clc

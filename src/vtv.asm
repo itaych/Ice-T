@@ -428,7 +428,7 @@ dlist	.ds $103	; display list
 	*=	$600
 ; spare (page 6)
 	.ds 2
-; skip 2 bytes to prevent some calculations from needing 16 bit math (we subtract 2 from array pointer)
+; skip 2 bytes to prevent some calculations from needing 16 bit math (see scrldown and scrlup, where we scroll color info)
 colortbl_0	.ds 24
 colortbl_1	.ds 24
 colortbl_2	.ds 24
