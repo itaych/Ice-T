@@ -676,8 +676,8 @@ szlen	.byte	80,40,40,40
 ; background colors are reversed.
 ; Values are stored in color registers 709 (background - bitmap set bits), 710 (text - bitmap 0 bits), 711 (PMs), 712 (border)
 sccolors
-	.byte	0,10,14,2	; Light text on dark background
-	.byte	14,4,0,12	; Dark text on light background
+	.byte	$0,$a,$e,$2	; Light text on dark background
+	.byte	$e,$4,$0,$c	; Dark text on light background
 
 p_device_name	.byte "P:"
 

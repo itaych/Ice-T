@@ -264,19 +264,22 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	sta lnsizdat+16
 	lda #3		; lower half
 	sta lnsizdat+5
-	lda bank1	; for printerm
+
+	lda color4
+	pha
+	jsr setcolors	; even though the screen is still blanked, this is needed so bold colors are painted in the correct color
+	pla
+	sta color4		; but we don't want the background color to change just yet
+	sta colbk
+
+	lda bank1		; for printerm (this is here because setcolors switches bank)
 	sta banksw
+
 .if COLORED_TITLE_SCREEN
 	lda bold2color_xlate+4*2+1		; 4=blue, add 1 for bold, for "Ice-T"
 	sta bold_current_color
 	lda #$5			; for colored text
 .else
-	lda color4
-	pha
-	jsr setcolors	; needed so bold colors are painted in the correct color
-	pla
-	sta color4		; but we don't want the background color to change just yet
-	sta colbk
 	lda #$03		; set bold
 .endif
 	sta boldface
@@ -495,7 +498,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	lda #>break_handler
 	sta brkky+1
 
-	jsr setcolors	; Set screen colors
+	jsr setcolors	; Set screen colors. This was already called previously but we changed the background color (color4/colbk)
 	lda #nmien_DLI_ENABLE
 	sta nmien
 	lda #$2e	; normal playfield, PM DMA, double line resolution, DMA enable
@@ -2823,6 +2826,7 @@ setcolors		; Set color registers
 	lda bckgrnd
 	asl a
 	asl a
+	pha
 	tax
 	ldy #0
 ?l
@@ -2838,6 +2842,25 @@ setcolors		; Set color registers
 	iny
 	cpy #4
 	bne ?l
+
+	; set up bold2color_xlate table according to background state
+	lda bank1
+	sta banksw
+	pla
+	asl a
+	asl a
+	tax
+	ldy #0
+?xlate_lp
+	lda bold2color_normal,x
+	sta bold2color_xlate,y
+	inx
+	iny
+	cpy #16
+	bne ?xlate_lp
+	lda banksv
+	sta banksw
+
 	lda boldallw
 	cmp #3
 	bne ?nbl
