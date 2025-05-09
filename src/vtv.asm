@@ -552,6 +552,8 @@ banksw	=	portb
 dmactl	=	$d400	; DMA control
 dlistl	=	$d402	; Display list pointer
 pmbase	=	$d407	; P/M base address
+wsync	=	$d40a	; Wait for horizontal synchronization
+vcount	=	$d40b	; Vertical line counter
 nmien	=	$d40e	; NMI enable
 
 nmien_DLI_ENABLE	=	$c0

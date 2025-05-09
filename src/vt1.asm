@@ -225,7 +225,8 @@ init_continued
 	jsr resttrm	; reset terminal settings
 
 	; Display title screen
-COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
+COLORED_TITLE_SCREEN = 1				; whether to use colors in title screen (must be 0 or 1)
+COLORED_TITLE_SCREEN_SHADED_LOGO = 1	; whether to also shade the Ice-T logo (must be 0 or 1)
 
 	lda boldallw
 	pha
@@ -487,7 +488,93 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	sta clock_update
 	lda #255
 	sta kbd_ch
-	jsr getkeybuff	; wait for user to press a key
+
+; wait for user to press a key. If enabled, shade the Ice-T logo.
+.if COLORED_TITLE_SCREEN + COLORED_TITLE_SCREEN_SHADED_LOGO = 2
+	ldx bckgrnd		; prepare some values that depend on whether the screen is inverse
+	lda ?shimmer_color_table,x
+	sta ?shimmer_color+1
+	lda ?eor_table,x
+	sta ?eor_value+1
+	lda #128
+	sta numb		; not really important, but makes the first shimmer happen faster
+?logo_lp
+	; run a simple busy wait loop until vcount approaches logo position (synchronization is coarse due to busy loop)
+	jsr getkeybuff_update_clock
+	jsr buffdo
+	lda kbd_ch
+	cmp #255
+	bne ?logo_lp_end
+	lda vcount		; wait for 29 or 30, that gives us 4 scanlines' worth of time to catch the exit point
+	cmp #30
+	beq ?waitlp
+	cmp #29
+	bne ?logo_lp
+?waitlp
+	lda vcount		; fine synchronization: do nothing and wait for line 31
+	cmp #31
+	bne ?waitlp
+	lda #nmien_DLI_DISABLE	; prevent DLI, we want full control of player colors
+	sta nmien
+	sta wsync		; one extra line of delay
+
+	; make the player's color run in shades of blue from $80 to $8e then back down to $80
+	lda #2
+	sta ?addval+1	; add 2 each scanline
+	lda #$80		; initial color
+	ldy #16			; scanline counter
+?logo_color_loop
+	sta wsync
+	tax				; save current color in X
+	tya
+	clc
+	adc numb
+	cmp 20			; check if we want to override this particular scanline with full luminosity for a shimmer effect
+	bne ?no_shimmer
+?shimmer_color
+	lda #$8e
+	sta colpm1		; shimmer this scanline
+	txa				; recover original color value
+	cpy #16			; did we just shimmer the top line? we're done, make the next shimmer happen after a random time
+	bne ?next_color
+	ldx random
+	stx numb
+	jmp ?next_color
+?shimmer_color_table
+	.byte $8c, $86
+?eor_table
+	.byte $00, $0f
+?no_shimmer
+	txa				; recover stored color value
+?eor_value
+	eor #$00		; reverse color in case of inverse screen
+	sta colpm1		; set player color
+	txa				; restore value again in case we inversed it
+?next_color
+	clc
+?addval
+	adc #2
+	cmp #$90		; did we pass the highest value? change the code so that now we will decrement the color for each scanline
+	bne ?ok
+	lda #$fe		; change adc value to negative 2
+	sta ?addval+1
+	lda #$8e		; change color back from $90 to $8e so we have two lines of maximum brightness and no line of wrong hue
+?ok
+	dey
+	bpl ?logo_color_loop
+
+	inc dli_counter	; compensate for skipped DLIs, so the rest of the colors on the screen behave correctly
+	inc dli_counter
+	inc dli_counter
+	lda #nmien_DLI_ENABLE	; restore DLIs
+	sta nmien
+	jmp ?logo_lp
+?logo_lp_end
+	jsr getkey
+.else
+	jsr getkeybuff
+.endif
+
 	jsr clrscrnraw	; clear screen and bold data
 	jsr boldclr
 	pla
@@ -930,10 +1017,10 @@ shline
 	bcc shline
 	rts
 
-getkeybuff		; Display clock, check buffer, get key
+getkeybuff_update_clock	; update on-screen clock routine for getkeybuff
 	lda clock_update
 	and clock_enable
-	beq ?ok
+	beq ?no_clk_update
 	lda prfrom
 	pha
 	lda prfrom+1
@@ -947,7 +1034,11 @@ getkeybuff		; Display clock, check buffer, get key
 	sta prfrom+1
 	pla
 	sta prfrom
-?ok
+?no_clk_update
+	rts
+
+getkeybuff		; Display clock, check buffer, get key
+	jsr getkeybuff_update_clock
 	jsr buffdo
 	lda kbd_ch
 	cmp #255
