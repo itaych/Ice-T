@@ -4,10 +4,12 @@
 
 ; - Program variables and data -- VTV.ASM -
 
-; note: unused memory locations are indicated by the word "spare" in a comment
+; note: unused memory regions are indicated by the word "spare" in a comment
 
 ; Zero-page variables. Start from $50, keeping $79-7a and $7c reserved for OS use.
-; Modifying data in $50-$7f may break the OS screen handler, but it's unused during the program so we save their contents at startup and restore when quitting.
+; Modifying data in $50-$7f may break the OS screen handler, but it's unused during the program so we consider
+; it usable RAM. However we do save their contents at startup and restore when quitting, just in case.
+; Also note that data in $50-$7f is not guaranteed to remain across a system reset, so we don't store constant data here.
 
 	.bank
 	*=	$50
@@ -20,11 +22,10 @@ prchar		.ds 2
 temp		.ds 1
 prcntr		.ds 2
 prfrom		.ds 2
-
-ctrl1mod	.ds 1
-oldbufc		.ds 1
-mybcount	.ds 2
-baktow		.ds 1
+numb		.ds	3	; for converting numbers to human readable form
+rt8_detected		.ds 1	; whether R-Time8 cartridge is present
+clock_cnt			.ds 1	; count increases each video frame
+time_correct_cnt	.ds 2	; counter to correct slight time drift
 
 __term_settings_start
 ; Terminal settings set by control codes sent from remote
@@ -52,9 +53,6 @@ virtual_led	.ds 1	; LEDs, controlled by Esc[q
 ckeysmod	.ds 1	; Cursor keys mode, controlled by Esc[?1h/l
 __term_settings_end		; all settings from __term_settings_start to here are cleared at terminal reset
 
-useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
-seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
-
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
@@ -63,12 +61,21 @@ csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI comma
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 holdch		.ds 1	; OS reserved - must equal $7c
-tx			.ds 1	; Terminal cursor X position, 0-79.
-ty			.ds 1	; Terminal cursor Y position, 1-24 (not zero based because the status bar is line 0).
+
 ; bold_default_color and bold_current_color must remain together!
 bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
 bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
 last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
+
+__zp_addr_80		; here we pass the $80 line, so everything from here is completely untouched by the OS.
+
+__mass_initialized_zero_page	; this block is mass-cleared at program start and at every reset.
+
+tx			.ds 1	; Terminal cursor X position, 0-79.
+ty			.ds 1	; Terminal cursor Y position, 1-24 (not zero based because the status bar is line 0).
+
+useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
+seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
 
 flashcnt	.ds 1
 newflash	.ds 1
@@ -80,6 +87,11 @@ capslock	.ds 1
 s764		.ds 1
 outnum		.ds 1	; number of bytes to output.
 outdat		.ds 3
+
+ctrl1mod	.ds 1
+oldbufc		.ds 1
+mybcount	.ds 2
+baktow		.ds 1
 
 mnmnucnt	.ds 1
 mnmenux		.ds 1
@@ -105,11 +117,6 @@ boty		.ds 1
 
 ersl		.ds 2
 
-scrlsv		.ds 2	; scrollback save pointer
-look		.ds 1
-lookln		.ds 2
-lookln2		.ds 2
-
 nextln		.ds 2	; when fine scrolling, this is an extra, off-screen line that will scroll in next
 nextlnt		.ds 2
 fscroldn	.ds 1
@@ -121,6 +128,7 @@ vbto		.ds 1
 vbln		.ds 1
 vbtemp		.ds 1
 vbtemp2		.ds 2
+dli_counter	.ds 1
 
 fltmp		.ds 2
 dbltmp1		.ds 1
@@ -131,7 +139,6 @@ bufput		.ds 2	; serial port data cyclic data buffer put address
 bufget		.ds 2	; serial port data cyclic data buffer get address
 chrcnt		.ds 2
 
-banksv		.ds 1
 xoff		.ds 1
 savflow		.ds 1
 
@@ -140,14 +147,27 @@ crch		.ds 1
 
 nowvbi		.ds 1
 
-dli_counter	.ds 1
+rush		.ds	1
+didrush		.ds	1
+crsscrl 	.ds 1	; indicates to VBI that a coarse scroll has occured, update the display list.
+capture 	.ds 1
+captold 	.ds 1
+captplc 	.ds 2
 
-rt8_detected	.ds 1	; whether R-Time8 cartridge is present
+diltmp1		.ds	1
+diltmp2		.ds	1
+zmauto		.ds 1	; indicates receiving ^X B00 sequence (in Terminal mode) to automatically start Zmodem.
+
+__mass_initialized_zero_page_end
+
 vframes_per_sec	.ds 1	; 50/60 depending on video system
-clock_cnt		.ds 1	; count increases each video frame
-time_correct_cnt .ds 2	; counter to correct slight time drift
 
-numb		.ds	3		; for converting numbers to human readable form
+looklim		.ds 1
+
+scrlsv		.ds 2	; scrollback save pointer
+look		.ds 1
+lookln		.ds 2
+lookln2		.ds 2
 
 ; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
 ; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
@@ -157,9 +177,14 @@ bank2		.ds 1
 bank3		.ds 1
 bank4		.ds 1
 
-; spare
-	.ds 41
+banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
+; spare
+	.ds 30
+
+	.if	__zp_addr_80 <> $80
+	.error "__zp_addr_80 is not $80!"
+	.endif
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
 	.endif
@@ -284,7 +309,6 @@ ymdpl		.ds 3	; offset in ymodem file, 3-byte integer
 ymdln		.ds 3	; length of file in ymodem
 ymodemg		.ds 1	; indicates ymodem-g transfer.
 ymodemg_warn	.ds 1	; indicates user warning for Ymodem-G should be shown.
-zmauto		.ds 1	; indicates receiving ^X B00 sequence (in Terminal mode) to automatically start Zmodem.
 
 ; Zmodem equates
 
@@ -311,7 +335,7 @@ z_read_from_buffpl	.ds 1
 ;zchalflag	.ds 1	; have we challenged this sender yet?
 
 ; spare
-		.ds	24
+		.ds	25
 
 	.if	* <> $8180
 	.error "* <> $8180!!"
@@ -374,18 +398,8 @@ screen	=	$9fb0
 linadr_l	.ds	25	; address of each line in display bitmap, lo byte
 linadr_h	.ds	25	; address of each line in display bitmap, hi byte
 numstk	.ds	$100	; when terminal reads a sequence of the form Esc [ n ; n .. the values are stored here.
-rush	.ds	1
-didrush	.ds	1
-crsscrl .ds 1		; indicates to VBI that a coarse scroll has occured, update the display list.
-pcchar	.ds	1
-looklim .ds 1
-capture .ds 1
-captold .ds 1
-captplc .ds 2
-diltmp1	.ds	1
-diltmp2	.ds	1
 ; spare
-		.ds 3
+		.ds 14
 
 	.if	* <> screen+320
 	.error "not using full line!!"

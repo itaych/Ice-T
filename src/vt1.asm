@@ -27,6 +27,14 @@ reset				; System reset goes here
 ; common initialization (either at program load or after reset) continues here
 
 init_continued
+	; Mass clear lots of zero-page variables
+	lda #0
+	ldx #__mass_initialized_zero_page_end-__mass_initialized_zero_page-1
+?clr_lp
+	sta __mass_initialized_zero_page,x
+	dex
+	bpl ?clr_lp
+
 	; Restore saved config (reset to same configuration as saved to disk)
 	ldx #cfgnum-1
 ?cfg_lp
@@ -204,36 +212,6 @@ init_continued
 	lda #>buffer
 	sta bufget+1
 	sta bufput+1
-
-	lda #0			; initialize lots of settings
-	sta zmauto
-	sta nowvbi
-	sta xoff
-	sta dobell
-	sta doclick
-	sta flashcnt
-	sta newflash
-	sta oldflash
-	sta fscrolup
-	sta fscroldn
-	sta dblgrph
-	sta captplc
-	sta captold
-	sta capture
-	sta outnum
-	sta crsscrl
-	sta rush
-	sta didrush
-	sta mybcount
-	sta mybcount+1
-	sta oldbufc
-	sta numofwin
-	sta ctrl1mod
-	sta capslock
-	sta seol
-	sta tx
-	sta mnmnucnt
-	sta useset
 
 	lda #1
 	sta ty
