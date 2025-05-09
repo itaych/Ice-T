@@ -6676,7 +6676,7 @@ boldcolrtables_hi	.byte >colortbl_0, >colortbl_1, >colortbl_2, >colortbl_3, >col
 ; Translate from ANSI color to Atari color, for normal or inverse screen.
 ; Colors are: black, red, green, yellow, blue, magenta, cyan, white. Values are in pairs of normal and bold.
 bold2color_normal	.byte $00, $04, $46, $4a, $c8, $ce, $ea, $ee, $84, $88, $58, $5c, $98, $9c, $0a, $0e
-bold2color_inverse	.byte $04, $00, $44, $40, $c4, $c0, $e4, $e0, $84, $80, $54, $50, $94, $90, $04, $00
+bold2color_inverse	.byte $04, $00, $44, $40, $c4, $c0, $e4, $e0, $94, $90, $54, $50, $94, $90, $04, $00
 
 ; Bold - static tables filled at program start
 boldpmus	.ds 40	; convert column number to PM number (0-4)
