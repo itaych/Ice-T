@@ -28,15 +28,17 @@ baktow		.ds 1
 
 __term_settings_start
 ; Terminal settings set by control codes sent from remote
-origin_mode	.ds 1	; Whether VT-100 Origin mode is enabled
+origin_mode	.ds 1	; Whether VT100 Origin mode is enabled
 chset		.ds 1	; Character set to use, set by ^O/^N.
 g0set		.ds 1	; Whether character set 0 is text (0) or graphics (1) (g0set and g1set must be together)
 g1set		.ds 1	; Whether character set 1 is text (0) or graphics (1)
 undrln		.ds 1	; terminal currently set to write new characters in underline mode
 revvid		.ds 1	; terminal currently set to write new characters in inverse mode
 invsbl		.ds 1	; terminal currently set to write new characters in invisible mode
-boldface	.ds 1	; Bit 0: terminal currently set to write new characters in bold/blink (PM underlay) mode. Bits 1-3: color.
-					; Bit 4: color was set as background.
+boldface	.ds 1	; Bit 0: terminal currently set to color new characters with PM underlay (bold/blink/color).
+					; Bit 1: currently set color is 'bold'. Note that ANSI colors are not necessarily bold.
+					; Bit 2: if 0, use default color from 'bold_default_color'. if 1, take color from 'bold_current_color'.
+					; Bit 3: color was set as background.
 __term_settings_saved	; the 8 bytes above are saved when Esc 7 (DECSC) is received and restored by Esc 8
 invon		.ds 1	; Screen in inverse colors mode, set by Esc[?5h/l
 newlmod		.ds 1	; VT100 Newline mode
@@ -48,7 +50,7 @@ scrltop		.ds 1	; top of scrolling area, 1-24
 scrlbot		.ds 1	; bottom of scrolling area, 1-24
 virtual_led	.ds 1	; LEDs, controlled by Esc[q
 ckeysmod	.ds 1	; Cursor keys mode, controlled by Esc[?1h/l
-__term_settings_end
+__term_settings_end		; all settings from __term_settings_start to here are cleared at terminal reset
 
 useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
 seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
@@ -63,6 +65,11 @@ numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and he
 holdch		.ds 1	; OS reserved - must equal $7c
 tx			.ds 1	; Terminal cursor X position, 0-79.
 ty			.ds 1	; Terminal cursor Y position, 1-24 (not zero based because the status bar is line 0).
+; bold_default_color and bold_current_color must remain together!
+bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
+bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
+last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
+
 flashcnt	.ds 1
 newflash	.ds 1
 oldflash	.ds 1
@@ -151,7 +158,7 @@ bank3		.ds 1
 bank4		.ds 1
 
 ; spare
-	.ds 44
+	.ds 41
 
 	.if	* <> $100
 	.error "page zero equates don't end at $100!!"
@@ -521,7 +528,7 @@ skstat	=	$d20f	; for checking if Shift key is pressed
 ; PIA
 portb	=	$d301	; PORTB, used for bank switching
 
-.if .def AXLON_SUPPORT
+.ifdef AXLON_SUPPORT
 banksw	=	$cfff	; Axlon memory bank switch register
 .else
 banksw	=	portb

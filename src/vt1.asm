@@ -249,15 +249,6 @@ init_continued
 	; Display title screen
 COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 
-	lda color4
-	sta color3
-	sta colpf3	; Prevent PMs from appearing
-	ldx #3
-?u
-	sta pcolr0,x
-	sta colpm0,x
-	dex
-	bpl ?u
 	lda boldallw
 	pha
 	lda #1			; color mode
@@ -276,9 +267,17 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	lda bank1	; for printerm
 	sta banksw
 .if COLORED_TITLE_SCREEN
-	lda #1+(4*2)	; set bold (+(4*2) for blue color)
+	lda bold2color_xlate+4*2+1		; 4=blue, add 1 for bold, for "Ice-T"
+	sta bold_current_color
+	lda #$5			; for colored text
 .else
-	lda #1			; set bold
+	lda color4
+	pha
+	jsr setcolors	; needed so bold colors are painted in the correct color
+	pla
+	sta color4		; but we don't want the background color to change just yet
+	sta colbk
+	lda #$03		; set bold
 .endif
 	sta boldface
 	ldx #0
@@ -301,7 +300,9 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	cpx #8
 	bne ?p
 .if COLORED_TITLE_SCREEN
-	lda #1+(2*2)	; green color for Icesoft logo
+	lda bold2color_xlate+2*2+1		; 2=green, add 1 for bold, for Icesoft logo
+	sta bold_current_color
+	lda #$5			; enable colored text
 	sta boldface
 .endif
 	lda #17			; Make Icesoft logo bold by printing underscores where the logo will be drawn later.
@@ -318,8 +319,11 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	bne ?p2
 
 .if COLORED_TITLE_SCREEN
-	lda #1+(1*2)	; red color for tilmesg2
+	lda bold2color_xlate+1*2+1		; 1=green, add 1 for bold, for tilmesg2
+	sta bold_current_color
+	lda #$5			; enable colored text
 	sta boldface
+
 	lda #(80-75)/2	; emphasize tilmesg2 too with same underscore trick
 	sta x
 	lda #8
@@ -509,7 +513,7 @@ COLORED_TITLE_SCREEN = 1	; whether to use colors in title screen
 	sta boldallw
 	lda #0
 	sta boldface
-	jsr setcolors
+	jsr setcolors	; Set screen colors again, due to possible change to boldallw.
 
 	; Clear text mirror. Now is a good time to do this because (a) its contents didn't matter up to now, and (b) the title screen has placed some text in it, which is now unwanted.
 	ldx #23
@@ -1176,7 +1180,7 @@ clrscrn			; Clear screen
 
 	; clear boldface PMs, or - if a background color is enabled - fill the PMs.
 	lda boldface
-	and #$10
+	and #$08
 	beq ?unbold
 	jsr boldfill
 	jmp ?bold_done
@@ -2840,12 +2844,13 @@ setcolors		; Set color registers
 	lda color1	; blink - copy color of background (lit pixels) to color 3, which will affect all PMs, so they will hide text
 	sta color3
 ?nbl
-	lda color3	; blink/bold - copy color3 (merged Missile = 5th Player) to all Players.
+	lda color3	; for blink/bold - copy color3 (merged Missile = 5th Player) to all Players.
 	ldx #3
 ?p
 	sta pcolr0,x
 	dex
 	bpl ?p
+	sta bold_default_color	; in case of ANSI colors enabled, remember the color used for boldface characters of default color.
 	rts
 
 ; Boldface routines
@@ -2954,10 +2959,7 @@ boldfill		; Fill boldface PMs. We assume bold is enabled in ANSI color mode and 
 	sta banksw
 
 	; fill color table with background color
-	lda boldface
-	and #$0f				; we don't want the background/foreground indicator bit
-	tay
-	lda bold2color_xlate,y
+	lda bold_current_color
 	ldy #24*5-1
 ?colorlp
 	sta colortbl_0,y

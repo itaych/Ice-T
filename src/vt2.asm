@@ -1984,29 +1984,60 @@ sgrmd0
 	jmp sgrlp
 sgrmdno0
 	cmp #1			; bold
-	bne ?n1
+	bne sgrmdno1
 	lda boldallw	; is bold allowed? must be 1 or 2 to proceed
 	beq ?nb
 	cmp #3
 	bcs ?nb
 	lda boldface
-	ora #1
+	tax
+	and #$04		; is there a color set?
+	beq ?nocolor	; no color, go set the bold bits
+	lda last_ansi_color
+	bpl ?okansi		; if last_ansi_color is negative that means it's a custom color and we can't bold it
+	lda #$03		; so remove the color and change to plain bold
+	bne ?storeval	; always branches
+?okansi
+	asl a			; bold2color_xlate holds normal and bold colors in pairs, so multiply index by 2
+	tax
+	inx				; then add 1 to get the index of the bold color
+	lda bold2color_xlate,x
+	sta bold_current_color
+	ldx boldface
+?nocolor
+	txa				; set bits 0-1 for bold
+	ora #$03
+?storeval
 	sta boldface
 ?nb
 	jmp sgrlp
-?n1
-	cmp #22			; normal intensity (bold off)
-	bne ?n22
+sgrmdno1
+	cmp #22			; normal intensity (set bold off)
+	bne sgrmdno22
 	lda boldallw	; is bold allowed? must be 1 or 2 to proceed
-	beq ?nb22
+	beq ?nb
 	cmp #3
-	bcs ?nb22
+	bcs ?nb
 	lda boldface
-	and #$fe
+	and #$04		; is there a color set?
+	beq ?storeval	; no color, store 0 in boldface
+	lda last_ansi_color
+	bpl ?okansi		; if last_ansi_color is negative that means it's a custom color and we can't unbold it
+	lda #0			; so set bold off and return to normal characters
+	beq ?storeval	; always branches
+?okansi
+	asl a			; bold2color_xlate holds normal and bold colors in pairs, so multiply index by 2
+	tax
+	lda bold2color_xlate,x
+	sta bold_current_color
+	lda boldface
+	and #$fd		; reset bit 1 to turn off 'bold' bit
+?storeval
 	sta boldface
-?nb22
+?nb
 	jmp sgrlp
-?n22
+
+sgrmdno22
 	cmp #4			; underline
 	bne sgrmdno4
 	lda #1
@@ -2038,68 +2069,90 @@ sgrmdno7
 sgrmdno8
 	ldx boldallw	; everything from here on handles ANSI colors, so boldallw must be 1 to proceed
 	cpx #1
-	bne sgrmdno7?done
+	bne ?done39
+
 	; if we ever support 38 or 48, check for them here.
-	dex				; set x=0. Indicates not to force bold later.
-	cmp #90			; values 90-107 are similar to 30-47, except we not only change color but also set the bold bit.
+
+	cmp #39			; 39 = set default foreground color. Disables all but bold bits, but do nothing if background color is set.
+	bne ?no39
+	lda boldface
+	and #$08
+	bne ?done39		; background color is set so we're not doing anything here.
+?do49
+	; if a color is set, unset it to preserve bold status.
+	lda boldface
+	and #$03		; keep just the bold bits
+	cmp #$01		; but if only bit 0 remains set, this is normal text so turn it off
+	bne ?store39
+	lda #0
+?store39
+	sta boldface
+?done39
+	jmp sgrlp
+?no39
+	cmp #49
+	beq ?do49		; 49 = set default background color. Disables all but bold state, with no conditions.
+
+	cmp #90			; values 90-107 are similar to 30-47, except we not only change color but also force bold.
 	bcc ?no90
 	;sec			; not needed since c is already set
 	sbc #90-30		; convert values 90-107 to 30-47
-	inx				; but set x=1 as an indicator to force bold.
-?no90
-	cmp #39			; change 39 (set default color) to 37 (white)
-	bne ?no39
-	lda #37
-?no39
-	cmp #30
-	bcc ?nocolor
-	cmp #38
-	bcs ?nocolor
-	sec 			; ANSI colors 31-37
-	sbc #30
-	cmp #7
-	bne ?nowhite
-	lda #0			; change color 7 (white) to 0. color 0 (black) is treated as white.
-?nowhite
-	sta temp			; x register holds the force bold flag, y register holds loop index, can't push to stack because we may exit
+	tax
 	lda boldface
-	and #$10			; check the background color bit
-	bne ?nobackcolor	; if the background is set, we won't set the foreground
-	lda temp
-?forecolor
-	asl a			; boldface = (boldface & 0x11) | (color << 1) | x_register
-	sta temp
-	lda boldface
-	and #$11
+	ora #$02		; and force set the bold bit
 	sta boldface
 	txa
-	ora temp
-	ora boldface
+?no90
+
+	cmp #30
+	bcc ?noforecolor
+	cmp #38
+	bcs ?noforecolor
+	sec
+	sbc #30				; for ANSI color codes 30-37, subtract 30 to get 0-7
+	asl a				; then multiply by 2 for index in bold2color_xlate
+	sta temp
+	lda boldface
+	ora #$05			; turn on bits 0 and 2, which indicate coloring all new characters with bold_current_color
 	sta boldface
+	tax
+	and #$08			; check the background color bit
+	bne ?nobackcolor	; if the background is set, we won't set the foreground
+						; (we assert that bits 0+2 were already set in this case so no harm done by setting them above.)
+?forecolor				; At this point 'temp' holds color (0-7) shifted left by one bit, and X holds value of 'boldface'.
+	txa
+	and #$2				; get bold bit of 'boldface'
+	lsr a
+	ora temp			; generate index into bold2color_xlate
+	tax
+	lsr a
+	sta last_ansi_color
+	lda bold2color_xlate,x
+	sta bold_current_color
+?nobackcolor
 	jmp sgrlp
-?nocolor
-	cmp #49			; change 49 (default) to 47
-	bne ?no49
-	lda #47
-?no49
+?noforecolor
 	cmp #40
 	bcc ?nobackcolor
 	cmp #48
 	bcs ?nobackcolor
-	; 40-47 or 49: set background color. Behaves similarly to foreground color.
-	pha					; x register holds the force bold flag, y register holds loop index
-	txa
-	ora #$10			; set the background color bit in the x register
-	tax
-	pla
+	; 40-47: set background color. Behaves mostly the same as foreground color.
 	sec
 	sbc #40
-	cmp #7				; change color 7 (white) to 0.
-	bne ?forecolor
-	lda #0
-	beq ?forecolor		; always jumps
-?nobackcolor
-	jmp sgrlp
+	bne ?noblack
+	; In case of code 40 for black background, this will make the text go black as well. Not a problem if the screen
+	; is inverse, but if the screen is in normal (light text on dark background) mode, change color to white.
+	ldx bckgrnd
+	bne ?noblack
+	lda #7				; 7=white
+?noblack
+	asl a
+	sta temp
+	lda boldface
+	ora #$0d			; turn on bits 0, 2, 3 which indicate coloring all new characters with bold_current_color, as background
+	sta boldface
+	tax
+	bne ?forecolor		; always jumps
 
 csicode_il				; L - insert lines at cursor
 	lda #0
@@ -2452,7 +2505,7 @@ txerfm
 	lda boldallw
 	beq ?nobold
 	lda boldface
-	and #$10		; is a background color enabled?
+	and #$08		; is a background color enabled?
 	beq ?unbold
 
 	; set background color
@@ -2567,7 +2620,7 @@ txerto
 	lda boldallw
 	beq ?nobold
 	lda boldface
-	and #$10		; is a background color enabled?
+	and #$08		; is a background color enabled?
 	beq ?unbold
 
 	; set background color
@@ -2764,7 +2817,7 @@ ptxreg
 	cmp #32		; but if we're overwriting a non-space, we do want to handle bold.
 	bne ?overwriting_non_space
 	lda boldface
-	and #$10	; also if a background color is set,
+	and #$08	; also if a background color is set,
 	ora undrln	; also if underline is on,
 	ora revvid	; and also if inverse is on.
 	beq ?skip_bold_char_in_x
@@ -3150,9 +3203,11 @@ boldbok
 	lda boldcolrtables_hi,x
 	sta ?coloraddr+2
 	lda boldface
-	and #$0f				; we don't want the background/foreground indicator bit
+	and #$04				; check bit 2 to see which of the two colors we're using
+	lsr a
+	lsr a
 	tay
-	lda bold2color_xlate,y
+	lda bold_default_color,y
 	sta ?colorval+1
 	ldy y
 	dey
@@ -3533,7 +3588,7 @@ doscroldn
 ?en
 	; Now that we've finished scrolling, fill the new line with the background color if one is set.
 	lda boldface
-	and #$10
+	and #$08
 	beq ?no_backgrnd
 	lda scrlbot
 	sta y
@@ -3783,7 +3838,7 @@ scrlup			; SCROLL UP
 ?en
 	; Now that we've finished scrolling, fill the new line with the background color if one is set.
 	lda boldface
-	and #$10
+	and #$08
 	beq ?no_backgrnd
 	lda scrltop
 	sta y
@@ -3966,7 +4021,7 @@ ersline_no_txtmirror
 	lda boldallw
 	beq ?nobold
 	lda boldface
-	and #$10		; is a background color enabled?
+	and #$08		; is a background color enabled?
 	beq ?unbold		; no, go clear bold
 	; yes - fill the line
 	jsr dobold_fill_line
@@ -6618,10 +6673,9 @@ parse_jumptable
 boldcolrtables_lo	.byte <colortbl_0, <colortbl_1, <colortbl_2, <colortbl_3, <colortbl_4
 boldcolrtables_hi	.byte >colortbl_0, >colortbl_1, >colortbl_2, >colortbl_3, >colortbl_4
 
-; translate from value of 'boldface' to Atari color. 'boldface' has bit 0 set for bright or clear for normal,
-; and bits 1-3 are a value from 0-6 (7 is not allowed) indicating color:
-; white, red, green, yellow, blue, magenta, cyan
-bold2color_xlate	.byte $0a, $0e, 70, 74, 200, 206, 234, 238, 132, 136, 88, 92, 152, 156
+; Translate from ANSI color to Atari color.
+; Colors are: black, red, green, yellow, blue, magenta, cyan, white. Values are in pairs of normal and bold.
+bold2color_xlate	.byte 0, 4, 70, 74, 200, 206, 234, 238, 132, 136, 88, 92, 152, 156, $0a, $0e
 
 ; Bold - static tables filled at program start
 boldpmus	.ds 40	; convert column number to PM number (0-4)

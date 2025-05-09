@@ -21,7 +21,7 @@ system_checkup
 ; Determine bank select values which will be used by Ice-T.
 	ldx #4
 ?lp
-.if .def AXLON_SUPPORT
+.ifdef AXLON_SUPPORT
 	txa		; For the Axlon memory board, values are simply 0 for the 'main' bank and 1-4 for the extra banks.
 	nop		; Add some nops to prevent any changes to code size and locations from the regular build
 	nop

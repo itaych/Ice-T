@@ -512,14 +512,13 @@ setscr			; Special effects department
 	ldx #>setscrd
 	ldy #<setscrd
 	lda finescrol	; only one of finescrol and boldallw may be nonzero.
-	ora boldallw
+	ora boldallw	; bitwise OR of their values to get the menu position.
 	sta mnucnt
 	jsr menudo1
 	lda menret
 	bmi ?n
-	cmp #0
 	bne ?nz
-	sta finescrol
+	sta finescrol	; menu position 0 - None
 	sta boldallw
 	sta boldface
 	beq ?n	; always jump
@@ -527,7 +526,7 @@ setscr			; Special effects department
 	cmp #4
 	beq ?n1
 	cmp boldallw
-	beq ?bl				; don't do anything if selected value is the same as last
+	beq ?bl				; don't do anything if selected value is the same as current
 	sta boldallw
 	lda #0
 	sta finescrol
@@ -537,7 +536,7 @@ setscr			; Special effects department
 ?bl
 	jmp bkopt
 ?n1
-	sta finescrol
+	sta finescrol	; menu position 4 - Fine Scrolling
 	lda #0
 	sta boldallw
 	sta boldface
@@ -554,38 +553,44 @@ setcol			; Set Background colors
 	ldx #>setcolw
 	ldy #<setcolw
 	jsr drawwin
-	lda bckgrnd
-	pha
+	lda bckgrnd		; 0 (normal) or 1 (reverse colors)
+	sta numb+1		; store existing value for comparing later
 	asl a
 	asl a
 	asl a
 	asl a
 	clc
-	adc bckcolr
-	sta mnucnt
+	adc bckcolr		; 0-15 (background hue)
+	sta mnucnt		; this creates a value from 0-31 for menu position
+	sta numb		; also remember the old value so we can check if new value is different
 	ldx #>setcold
 	ldy #<setcold
 	jsr menudo1
-	pla
-	tay
 	lda menret
 	bmi ?n
-	pha
-	and #15
+	cmp numb		; no change? nothing to do
+	beq ?n
+	tax
+	and #$0f
 	sta bckcolr
-	pla
+	txa
 	lsr a
 	lsr a
 	lsr a
 	lsr a
 	sta bckgrnd
-	tya
-	pha
-	jsr setcolors
-	pla
+	jsr setcolors		; set color registers according to new setting
+	lda boldallw		; in ANSI colors mode, we've just changed the default bold character color, so clear all PMs
+	cmp #1
+	bne ?noansi
+	jsr boldclr
+	lda #0
+	sta boldface
+?noansi
+	lda numb+1			; recover value of previous bckgrnd (inverse) value
 	cmp bckgrnd
 	beq ?n
-	jsr getscrn
+	jsr getscrn			; inverse state has changed - close two windows and redraw Options window
 	jsr getscrn
 	jmp options
 ?n
