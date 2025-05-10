@@ -6,17 +6,12 @@ Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show o
 
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 
-add all the private extensions. a custom color will set 255 in last_ansi_color.
+add all the private extensions.
 update quickstart
 add readme.md with build instructions
 add license too
 generate new icet.dat
-
-more colors: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html - search "(SGR)".
-38;5, 38;2, and add a private 38;9 to allow atari colors (or 48..).
-38;5 is explained at: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
-https://syncterm.bbsdev.net/cterm.html#_csi_ps_m_select_graphic_rendition_sgr
-https://www.telnetbbsguide.com/bbs/total-lost/
+release 2.8.0
 
 private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
 	Esc [ cmd ; arg1 ; .. ; argn / t          or, old idea was: Esc [ 99 ; cmd ; arg1 ; .. ; argn {
