@@ -12,7 +12,7 @@
 
 tilmesg2
 	.byte	(80-75)/2,8,75
-	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2014 Itay Chamiel."
+	.byte	"Telecommunications software for the Atari 8-bit. (c)1993-2025 Itay Chamiel."
 tilmesg4
 	.byte	(80-71)/2,13,71
 	.byte	"This software is free, but donations are always appreciated (via Paypal"

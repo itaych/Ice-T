@@ -6,6 +6,12 @@ Rush: 1. Why is it still slow? 2. Why do some codes (clear screen?) still show o
 
 xmodem upload: stray character displayed when returning to terminal? very rare and hard to catch.
 
+add all the private extensions. a custom color will set 255 in last_ansi_color.
+update quickstart
+add readme.md with build instructions
+add license too
+generate new icet.dat
+
 more colors: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html - search "(SGR)".
 38;5, 38;2, and add a private 38;9 to allow atari colors (or 48..).
 38;5 is explained at: https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
@@ -15,7 +21,7 @@ https://www.telnetbbsguide.com/bbs/total-lost/
 private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
 	Esc [ cmd ; arg1 ; .. ; argn / t          or, old idea was: Esc [ 99 ; cmd ; arg1 ; .. ; argn {
 
-	- cmd=1: vdelay * arg1 (mod 32)
+	- cmd=1: vdelay * arg1 (limit 60) (see buffifnd, vdelayr)
 	- cmd=2: enable Atari color values. arg1=0 (default) foreground, 1=background (spaces/new lines too). arg2=color or absent for no color (use whatever color is already set). Esc [ 0 m (reset) or setting any ANSI color or bold disables.
 	- cmd=3: n1;c1;c2;c3;c4;c5 [;n2;c1;c2;c3;c4;c5].. set all 5 colors for horizontal lines. row=0 means all rows. colors are even values, or: absent = no change; 1=repeat prev valid value (will be 0 if there was none).
 	- cmd=4: force scroll down color table by arg1 lines (1-24).
@@ -25,8 +31,6 @@ private extensions: ( http://vt100.net/emu/ctrlseq_dec.html )
 	- cmd=20: set(1)/unset(0 or blank) scroll lock for color background.
 	- cmd=21: set/unset rotate for vertical scroll (if set new line will get colors of scrolled out line)
 	- cmd=22: set/unset rotate for horizontal scroll
-
-don't forget to generate new icet.dat for release!
 
 known issues (prob. wontfix)
 double width does not support 8-bit chars.
@@ -49,6 +53,7 @@ hang/garbage when moving up
 try to name unnamed labels/variables
 
 .loadsym C:\Emulators\Atari\ATasm\Projects\Ice-T\Build\col80.lab
+.loadsym "C:\Users\Itay\Desktop\New folder\icet.lab"
 0d 0a
 cr lf
 
@@ -88,5 +93,7 @@ bcs ---> v1>=v2
 # delete last commit, keep changes locally
 git reset HEAD~1
 git push -f # origin <branch>
+--
+git stash push --keep-index # stash but don't revert staged files
 --
 regexp for finding trailing whitespaces: [ \t]+$

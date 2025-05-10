@@ -830,14 +830,11 @@ tilmesg1
 tilmesg3
 	.byte	(80-tilmesg3_len)/2,10,tilmesg3_len
 svscrlms
-;	.byte	"Version 2.76, October 10, 2013. Contact: itaych@gmail.com"
-;	.byte	"Version 2.8.0(alpha4) Oct 23 2013. Contact: itaych@gmail.com"
-
 	.byte	"Version "
 version_str
 	.byte 	"2.8.0(alpha8)"
 version_str_end
-	.byte	", Oct 12 2014. Contact: itaych@gmail.com"
+	.byte	", May 10 2025. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms

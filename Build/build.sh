@@ -14,4 +14,9 @@ echo "-----------"
 grep -i "bytes_free_below_banked_memory\|bytes_free_bank_1\|bytes_free_bank_2" ../bin/icet.lab
 
 # run Altirra
-/mnt/c/Users/Itay/Emulators/Atari/Altirra/Altirra64.exe ../bin/icet.xex
+if [ "$1" = "-a" ]; then
+  /mnt/c/Users/Itay/Emulators/Atari/Altirra/Altirra64.exe ../bin/icet.xex
+else
+  echo
+  echo "Note: you can run Altirra with -a."
+fi
