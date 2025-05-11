@@ -169,6 +169,12 @@ look		.ds 1
 lookln		.ds 2
 lookln2		.ds 2
 
+; used for scrolling boldface underlay
+prep_boldface_scroll_ret1_scroll_top	.ds 1
+prep_boldface_scroll_ret2_scroll_bot	.ds 1
+prep_boldface_scroll_var1_update_top	.ds 1
+prep_boldface_scroll_var1_update_bot	.ds 1
+
 ; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
 ; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
 bank0		.ds 1
@@ -180,7 +186,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 30
+	.ds 26
 
 	.if	__zp_addr_80 <> $80
 	.error "__zp_addr_80 is not $80!"

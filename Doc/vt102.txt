@@ -91,7 +91,7 @@ Esc [ __ B  Down, same as above
 Esc [ __ C  Forward, same as above, cursor stays on same line
 Esc [ __ D  Backward, same as above
 Esc [ __ ; __ H  (none/0 --> 1,1) Set cursor to row, col. If any parameter is
-          not within range (1-80 for x or 1-24 for y, or scroll region in
+          not within range (1-24 for row or 1-80 for col, or scroll region in
           Origin mode) they are truncated appropriately. 0 is converted to 1.
 Esc [ __ J  (none --> 0) Erase part of the screen:
           0 - cursor position to end of line (inclusive) and all lines below
@@ -140,13 +140,39 @@ Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
  0 - Reset to normal   1 - Bold (bright)   4 - Underline
  5 - Blink             7 - Reverse video   8 - Invisible (writes blank spaces)
  22 - Normal intensity (turn bold off)
- 30-37 - foreground color (White/Red/Green/Yellow/Blue/Magenta/Cyan/White)
-         (30 should be black but due to display limitations considered white)
- 39 - default foreground color (white)
- 40-47 - background color - if set, always overrides foreground color.
+ 30-37 - foreground color (Black/Red/Green/Yellow/Blue/Magenta/Cyan/White)
+ 38 - extended foreground (see below)
+ 39 - default foreground color.
+ 40-47 - background color - overrides foreground color until unset.
+ 48 - extended background (see below)
  49 - default background color.
  90-97 - same as 30-37 but bold is also turned on.
  100-107 - same as 40-47 but bold is also turned on.
+
+Values 38 and 48 allow extended color support and require additional
+parameters. If there are insufficient parameters then the command is ignored
+with no effect.
+ 2 ; __ ; __ ; __ - the last three values are parsed as R, G, B values. Inputs
+   are internally converted to an Xterm index, so this doesn't actually allow a
+   broader range of colors than parameter 5 below.
+ 5 ; __ - for Xterm indexed colors, described at:
+   https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit
+ 9 ; __ - the argument is parsed as an Atari color. This is a private
+   extension.
+
+Colors are implemented using Atari Player/Missile graphics. Each P/M covers a
+width of 16 characters and has only 8 pixels of resolution, therefore the
+horizontal resolution is only 40 columns; coloring a character may also color
+its neighbor. Also, all colored characters within the same 16-character-wide
+column will share a single color. If an attempt is made to use two different
+colors within the same region the most recently applied color will change the
+others within that range. Vertically there is no limitation.
+
+ANSI allows defining the background and foreground colors separately but this
+is impossible in ANTIC F (Graphics 8 ) mode which Ice-T uses. So for a colored
+character the foreground and background colors are the same. If different
+background and foreground colors are specified the background color takes
+priority and foreground is ignored.
 
 Esc [ __ ; ... ; __ q Virtual LEDs control. 0 turns all off, 1-4 turns on the
             respective LED.
@@ -223,7 +249,31 @@ Esc [ __ Z  (none/0 --> 1) Moves backwards __ tab stops, stopping at left
 Esc [ __ s  (Parameter ignored) Same as Esc 7
 Esc [ __ u  (Parameter ignored) Same as Esc 8
 
-Special codes sent from the Ice-T keyboard:
+Private extensions
+------------------
+The following codes are private to Ice-T. They are all of the form:
+Esc [ __ ; ... ; __ / t
+where the first argument defines the command to perform. Only one command
+may be performed at a time.
+
+1 - expects 1 parameter (none/0 --> 1, max. 240) - pauses for a time delay
+    of that many vertical blanks. If the user presses a key then the
+    delay is aborted and the key is handled as usual.
+
+2 - expects 2 parameters (none/0 --> 1,1, max. 24,40) - force color the
+    character at these coordinates according to the current color set
+    with Esc [ ... m. If no color is set then this will "uncolor" that
+    character. Note that the X coordinate is limited to half the normal
+    resolution due to hardware limitations.
+
+3 - expects 2 parameters (none/0 --> 1,1, max. 24,5) followed by an arbitrary
+    number of color values. Starts at the given row and PM column and sets the
+    PM color according to the third argument. Continues to read arguments and
+    set them in the color table, moving from left to right and down to the next
+    row in the PM color table until the list of arguments is exhausted or the
+    end of the table is reached.
+
+Special codes transmitted from the Ice-T keyboard:
 
 Numeric keypad:             Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
 (Shift-Ctrl-key)

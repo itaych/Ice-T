@@ -1396,6 +1396,18 @@ csi_code_jumptable_end
 	.error csi_code_jumptable too big!
 	.endif
 
+; CHECK_PARAMS arg_num, default_value, max_value
+.macro CHECK_PARAMS
+	.if %0 <> 3
+		.error "CHECK_PARAMS - wrong number of params"
+	.else
+		ldx #%1
+		lda #%2
+		ldy #%3
+		jsr csicode_checkparams
+	.endif
+.endm
+
 ; common routine to check arguments.
 ; X - arg number (0-based) to check in numstk
 ; A - default value to set if none or 0 given
@@ -1404,38 +1416,26 @@ csicode_checkparams
 	sta ?yes0+1
 	lda numstk,x
 	cpx numgot	; did we actually get this many args?
-	bcc ?ok		; ok (skip this) if numgot > X
+	bcc ?ok		; ok (skip this) if X < numgot indicating that this value is actual input
 	inx
-	stx numgot
+	stx numgot	; increment numgot because we are adding a value in this case
 	dex
 	lda #255	; default is 255 indicating invalid value
 ?ok
 	cmp #0
-	beq ?yes0
+	beq ?yes0	; we replace 0 with the requested default value
 	cmp #255
-	bne ?no255
+	bne ?no255	; we also replace 255 with the default value
 ?yes0
 	lda #0		; self modified to caller's requested default value
 	sta numstk,x
 ?no255
-	tya
+	tya			; now check if we need to truncate the value to a limit
 	cmp numstk,x
 	bcs ?no_truncate
 	sta numstk,x
 ?no_truncate
 	rts
-
-; CHECK_PARAMS arg_num, default_value, max_value
-.macro CHECK_PARAMS
-	.if %0 <> 3
-		.error "CHECK_PARAMS - wrong number of params"
-	.else
-		ldx #%1
-		ldy #%3
-		lda #%2
-		jsr csicode_checkparams
-	.endif
-.endm
 
 csicode_cup		; H or f - Position cursor
 	CHECK_PARAMS 0,1,24
@@ -2436,6 +2436,10 @@ csicode_icet_private
 icet_privcode_jumptable
 	.byte 1
 	.word icet_privcode_vdelay
+	.byte 2
+	.word icet_privcode_force_blit
+	.byte 3
+	.word icet_privcode_set_colors
 ; more to come.
 	.byte $ff	; default
 	.word fincmnd
@@ -2445,10 +2449,13 @@ icet_privcode_jumptable_end
 	.error icet_privcode_jumptable too big!
 	.endif
 
-icet_privcode_vdelay	; 1 - vdelay
-	CHECK_PARAMS 1,1,254
+icet_privcode_vdelay		; 1 - vdelay
+	CHECK_PARAMS 1,1,240	; limit to 240 (4 seconds in NTSC)
 	lda numstk+1
 ?lp
+	ldx kbd_ch	; pressing a key during this wait aborts the delay
+	cpx #255
+	bne ?end
 	pha
 	jsr vdelayr
 	jsr buffdo
@@ -2456,6 +2463,61 @@ icet_privcode_vdelay	; 1 - vdelay
 	sec
 	sbc #1
 	bne ?lp
+?end
+	jmp fincmnd
+
+icet_privcode_force_blit	; 2 - force blit a bold character
+	CHECK_PARAMS 1,1,24
+	CHECK_PARAMS 2,1,40
+	lda numstk+1
+	sta y
+	lda numstk+2
+	sec
+	sbc #1			; X - change 1-40 to 0-39
+	sta x
+	lda boldface
+	beq ?unbold
+	jsr doboldbig
+	jmp fincmnd
+?unbold
+	jsr unboldbig
+	jmp fincmnd
+
+icet_privcode_set_colors	; 3 - set colors
+	CHECK_PARAMS 1,1,24
+	CHECK_PARAMS 2,1,5
+	lda numstk+1
+	tay
+	dey
+	lda numstk+2
+	sec
+	sbc #1
+	sta x
+	ldx #2
+?lp
+	inx
+	cpx numgot
+	bcs ?en
+	stx temp	; remember arg read index
+	ldx x
+	lda boldcolrtables_lo,x
+	sta cntrl
+	lda boldcolrtables_hi,x
+	sta cntrh
+	ldx temp	; reload arg read index
+	lda numstk,x
+	sta (cntrl),y
+	inc x
+	lda x
+	cmp #5
+	bcc ?lp
+	lda #0
+	sta x
+	iny
+	cpy #25
+	bcc ?lp
+?en
+	jsr update_colors_line0
 	jmp fincmnd
 
 fincmnd_reset_seol
@@ -4004,11 +4066,6 @@ scrlup			; SCROLL UP
 ; updates boldsct and boldscb as needed.
 ; returns actual scrolling boundaries for this pm in prep_boldface_scroll_ret1_scroll_top and
 ;  prep_boldface_scroll_ret2_scroll_bot.
-
-prep_boldface_scroll_ret1_scroll_top .byte 0
-prep_boldface_scroll_ret2_scroll_bot .byte 0
-prep_boldface_scroll_var1_update_top .byte 0
-prep_boldface_scroll_var1_update_bot .byte 0
 
 prep_boldface_scroll
 
