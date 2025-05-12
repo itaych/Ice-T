@@ -260,10 +260,13 @@ may be performed at a time.
     of that many vertical blanks. If the user presses a key then the
     delay is aborted and the key is handled as usual.
 
-2 - expects 2 parameters (none/0 --> 1,1, max. 24,40) - force color the
-    character at these coordinates according to the current color set
-    with Esc [ ... m. If no color is set then this will "uncolor" that
-    character. Note that the X coordinate is limited to half the normal
+2 - expects 2 or 4 parameters (none/0 --> 1,1,1,1, max. 24,40,24,40) - color
+    the character(s) at these coordinates according to the current color set
+    with Esc [ ... m. If no color is set then this will "uncolor" those
+    characters. If two parameters are supplied then they are the row and column
+    of a single point. If four parameters are supplied then they are the top-
+    left and lower-right corners of a rectangle that will be filled with the
+    desired color. Note that the X coordinate is limited to half the normal
     resolution due to hardware limitations.
 
 3 - expects 2 parameters (none/0 --> 1,1, max. 24,5) followed by an arbitrary

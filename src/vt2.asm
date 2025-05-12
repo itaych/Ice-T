@@ -2466,21 +2466,40 @@ icet_privcode_vdelay		; 1 - vdelay
 ?end
 	jmp fincmnd
 
-icet_privcode_force_blit	; 2 - force blit a bold character
+icet_privcode_force_blit	; 2 - force blit a bold character or fill a square
 	CHECK_PARAMS 1,1,24
 	CHECK_PARAMS 2,1,40
-	lda numstk+1
-	sta y
-	lda numstk+2
-	sec
-	sbc #1			; X - change 1-40 to 0-39
-	sta x
+	CHECK_PARAMS 3,1,24
+	CHECK_PARAMS 4,1,40
+?topleftx = numstk+2
+?toplefty = numstk+1
+?botrightx = numstk+4
+?botrighty = numstk+3
+	ldx ?topleftx
+	dex				; X - change 1-40 to 0-39
+	stx x
+	ldy ?toplefty	; Y - no change, 1-24 is good for us
+	sty y
+?lp
 	lda boldface
 	beq ?unbold
 	jsr doboldbig
-	jmp fincmnd
+	jmp ?ok
 ?unbold
 	jsr unboldbig
+?ok
+	inc x
+	ldx x
+	cpx ?botrightx
+	bcc ?lp			; continue loop as long as x < botrightx. Remember botrightx is one higher than actual coordinate
+	ldx ?topleftx	; back to left and down a row
+	dex
+	stx x
+	inc y
+	ldy y
+	cpy ?botrighty
+	bcc ?lp			; continue loop as long as y <= botrighty.
+	beq ?lp
 	jmp fincmnd
 
 icet_privcode_set_colors	; 3 - set colors
