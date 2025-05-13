@@ -2749,6 +2749,16 @@ doquit			; Quit program
 	ldy endvvv+1
 	lda #7			; set deferred VBI
 	jsr setvbv
+
+	; restore page zero area ($50-$7f) that was saved at program entry, before we do anything with S:
+	; (be careful not to use any of that area from this point onward)
+	ldx #$2f
+?zp_lp
+	lda page_zero_backup,x
+	sta $50,x
+	dex
+	bpl ?zp_lp
+
 	ldx #$60		; close #6 to make sure it isn't open
 	jsr close_anychan
 	ldx #$60		; open screen ("S:") to switch to regular text mode
@@ -2788,18 +2798,8 @@ doquit			; Quit program
 ?ptr	jsr undefined_addr	; self modified
 	jsr jext_off
 ?nosparta
-
 	lda bank0
 	sta banksw
-
-	; restore page zero area ($50-$7f) that was saved at program entry
-	ldx #$2f
-?zp_lp
-	lda page_zero_backup,x
-	sta $50,x
-	dex
-	bpl ?zp_lp
-
 	jmp (dosvec)	; we are done, exit to DOS
 
 ; Calculate	memory position in ASCII mirror

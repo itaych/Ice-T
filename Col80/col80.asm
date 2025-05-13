@@ -1790,4 +1790,4 @@ bufinfo_table		.ds $100
 buffer
 
 	*= charset
-	.incbin ..\Col80\col80.fnt ; .incbin ignores -I (include path), ATasm bug!
+	.incbin col80.fnt
