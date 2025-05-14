@@ -253,8 +253,9 @@ Private extensions
 ------------------
 The following codes are private to Ice-T. They are all of the form:
 Esc [ __ ; ... ; __ / t
-where the first argument defines the command to perform. Only one command
-may be performed at a time.
+where the first argument defines the command to perform and the following
+arguments are parameters for that command. Only one command may be performed
+at a time.
 
 1 - expects 1 parameter (none/0 --> 1, max. 240) - pauses for a time delay
     of that many vertical blanks. If the user presses a key then the
@@ -275,6 +276,13 @@ may be performed at a time.
     set them in the color table, moving from left to right and down to the next
     row in the PM color table until the list of arguments is exhausted or the
     end of the table is reached.
+
+4 - expects 1 parameter (none --> 0, max. 1) - this is a "scroll lock" for the
+    color PM underlay. If this is set to 1 then the colors will remain on the
+    screen even when the text is scrolling.
+    This may cause a minor side effect: when outputting space characters in
+    normal (i.e. no color) rendition mode and the cursor was over a colored
+    region, the coloring at that position might not be cleared.
 
 Special codes transmitted from the Ice-T keyboard:
 

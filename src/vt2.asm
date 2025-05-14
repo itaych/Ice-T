@@ -2440,6 +2440,8 @@ icet_privcode_jumptable
 	.word icet_privcode_force_blit
 	.byte 3
 	.word icet_privcode_set_colors
+	.byte 4
+	.word icet_privcode_bold_scroll_lock
 ; more to come.
 	.byte $ff	; default
 	.word fincmnd
@@ -2537,6 +2539,12 @@ icet_privcode_set_colors	; 3 - set colors
 	bcc ?lp
 ?en
 	jsr update_colors_line0
+	jmp fincmnd
+
+icet_privcode_bold_scroll_lock
+	CHECK_PARAMS 1,0,1
+	lda numstk+1
+	sta bold_scroll_lock
 	jmp fincmnd
 
 fincmnd_reset_seol
@@ -3671,7 +3679,11 @@ doscroldn
 	lda #1
 	sta crsscrl		; indicate to VBI that a coarse scroll has occured, update the display list.
 
-	lda isbold		; bold disabled? we're done, but we may still have to fill the new line with background color.
+	lda bold_scroll_lock	; bold scroll lock? we're done
+	beq ?no_scklk
+	jmp ?no_backgrnd
+?no_scklk
+	lda isbold		; nothing bold on the screen? no scrolling needed, but we may still have to fill the new line with background color.
 	bne ?db
 	jmp ?en
 ?db
@@ -3914,7 +3926,11 @@ scrlup			; SCROLL UP
 	lda #1
 	sta crsscrl
 
-	lda isbold		; bold disabled? we're done, but we may still have to fill the new line with background color.
+	lda bold_scroll_lock	; bold scroll lock? we're done
+	beq ?no_scklk
+	jmp ?no_backgrnd
+?no_scklk
+	lda isbold		; nothing bold on the screen? no scrolling needed, but we may still have to fill the new line with background color.
 	bne ?db
 	jmp ?en
 ?db
