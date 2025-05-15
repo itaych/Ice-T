@@ -2,14 +2,14 @@
 ;  A VT-100 terminal emulator
 ;      by Itay Chamiel
 
-; Part -2- of program - VT21.ASM (1/3)
+; Part -2- of program - VT2.ASM
 
 ; This part	is resident in bank #1
 
 	.bank
 	*=	$4000
 
-; VT-100 TERMINAL EMULATOR
+; VT-100 TERMINAL EMULATION
 
 connect
 	lda #0
@@ -2442,6 +2442,10 @@ icet_privcode_jumptable
 	.word icet_privcode_set_colors
 	.byte 4
 	.word icet_privcode_bold_scroll_lock
+	.byte 5
+	.word icet_privcode_bold_scroll_down
+	.byte 6
+	.word icet_privcode_bold_scroll_up
 ; more to come.
 	.byte $ff	; default
 	.word fincmnd
@@ -2545,6 +2549,38 @@ icet_privcode_bold_scroll_lock
 	CHECK_PARAMS 1,0,1
 	lda numstk+1
 	sta bold_scroll_lock
+	jmp fincmnd
+
+icet_privcode_bold_scroll_down
+	lda #<doscroldn_underlay
+	sta icet_privcode_bold_scroll_up?lp+1
+	lda #>doscroldn_underlay
+	sta icet_privcode_bold_scroll_up?lp+2
+	bne icet_privcode_bold_scroll_up?common	; always branches
+icet_privcode_bold_scroll_up
+	lda #<doscrolup_underlay
+	sta icet_privcode_bold_scroll_up?lp+1
+	lda #>doscrolup_underlay
+	sta icet_privcode_bold_scroll_up?lp+2
+?common
+	CHECK_PARAMS 1,1,24		; amount of lines to scroll
+	inc numstk+2			; change arg 2 from 0/1 to 1/2. Hack so that CHECK_PARAMS won't change 0 to the default 1.
+	CHECK_PARAMS 2,2,2		; whether to scroll PM contents. Default 2, max 2 (actually 1, 1)
+	ldx numstk+2
+	dex
+	stx bold_scroll_underlay
+	inc numstk+3			; change arg 3 from 0/1 to 1/2. Hack so that CHECK_PARAMS won't change 0 to the default 1.
+	CHECK_PARAMS 3,2,2		; whether to scroll color tables. Default 2, max 2 (actually 1, 1)
+	ldx numstk+3
+	dex
+	stx bold_scroll_colors
+	CHECK_PARAMS 4,0,1		; whether to rotate. Default 0, max 1, no hack required here (0 would be changed to 0).
+	lda numstk+4
+	sta bold_scroll_rotate
+?lp
+	jsr undefined_addr
+	dec numstk+1
+	bne ?lp
 	jmp fincmnd
 
 fincmnd_reset_seol
@@ -3526,6 +3562,11 @@ bolduok
 ; set an entire line at 'y' to bold. This basically calls dobold 5 times, once for each PM. We hack the 'boldwr' table's
 ; first entry to fill in the entire width of the player when normally it would only light one pixel.
 dobold_fill_line
+	lda bold_scroll_underlay
+	bne ?normal
+	lda #0			; this hack prevents dobold from painting anything (but it does set the PM color which we do want).
+	.byte BIT_skip2bytes
+?normal
 	lda #$ff
 	sta boldwr		; this hack means we can call dobold for 1 character but miraculously 8 pixels get lit
 	lda #0
@@ -3664,16 +3705,16 @@ dnerstxlp
 
 nodotxsc
 	lda rush		; rush mode on? we're done
-	bne scdnrush
+	bne ?sr
 
 	lda finescrol	; Fine-scroll if on
-	beq doscroldn
+	beq ?coarse_scroll
 	jsr scvbwta		; wait for previous fine scroll to finish
 	inc fscroldn	; initiate new fine scroll
-scdnrush
+?sr
 	rts
 
-doscroldn
+?coarse_scroll
 	lda scrlbot
 	jsr erslineraw_a	; blank the new line
 	lda #1
@@ -3681,12 +3722,30 @@ doscroldn
 
 	lda bold_scroll_lock	; bold scroll lock? we're done
 	beq ?no_scklk
-	jmp ?no_backgrnd
+	rts
 ?no_scklk
+
+	; These flags modify the way we scroll the boldface info. They are modified when doscroldn_underlay is called.
+	lda #1
+	sta bold_scroll_underlay
+	sta bold_scroll_colors
+	lda #0
+	sta bold_scroll_rotate
+
+doscroldn_underlay
 	lda isbold		; nothing bold on the screen? no scrolling needed, but we may still have to fill the new line with background color.
 	bne ?db
 	jmp ?en
 ?db
+
+	; If we are scrolling in some special "private" mode, kill all optimizations and scroll the entire scroll region,
+	; regardless of what part of the PM contains data. Formally:
+	; if (bold_scroll_underlay != bold_scroll_colors) or (bold_scroll_rotate == 1) then reset_scroll_limits_flag = 1 else 0
+?reset_scroll_limits_flag = numb
+	lda bold_scroll_underlay
+	eor bold_scroll_colors
+	ora bold_scroll_rotate
+	sta ?reset_scroll_limits_flag
 
 ; Scroll boldface info DOWN
 
@@ -3699,6 +3758,27 @@ doscroldn
 	bpl ?mlp
 	jmp ?en			; nothing in any PM.
 ?db2
+
+	; If special flag is on, reset PM scroll region for this PM and don't call prep_boldface_scroll
+	lda ?reset_scroll_limits_flag
+	beq ?no_reset
+	lda #1
+	sta boldsct,x
+	lda scrltop
+	sta prep_boldface_scroll_ret1_scroll_top
+	lda #24
+	sta boldscb,x
+	lda scrlbot
+	sta prep_boldface_scroll_ret2_scroll_bot
+	ldy #1				; fake return value from prep_boldface_scroll which we didn't call
+	bne ?ok_done_reset	; always branches
+?no_reset
+
+	ldy #1			; scrolling down.
+	jsr prep_boldface_scroll
+	tay				; save return value
+?ok_done_reset
+
 	lda boldtbpl,x	; Get address of PM bitmap
 	sta cntrl
 	clc
@@ -3709,10 +3789,12 @@ doscroldn
 	adc #0
 	sta prfrom+1
 
-	ldy #1			; scrolling down.
-	jsr prep_boldface_scroll
+	lda bold_scroll_underlay
+	beq ?skip_scroll_underlay
+
+	tya				; restore return value from prep_boldface_scroll
 	beq ?mlp_skip	; nothing to do for this PM
-	cmp #255		; is this PM being emptied?
+	cmp #255		; is this PM being emptied as a result of this scroll?
 	bne ?sb2		; No.
 	lda #0			; Yes - mark this PM as empty.
 	sta boldypm,x
@@ -3723,7 +3805,7 @@ doscroldn
 	ldx #4
 	lda #0
 ?sb4
-	ora boldypm,x	; Are ALL PMs empty?
+	ora boldypm,x	; Are ALL PMs empty now?
 	dex
 	bpl ?sb4
 	tax				; instead of cmp #0
@@ -3737,20 +3819,27 @@ doscroldn
 ?sb2
 	ldy prep_boldface_scroll_ret2_scroll_bot
 	lda boldytb,y
-	sta s764		; lower limit of this scroll operation
+	sta s764		; offset in PM of lower limit of this scroll operation
 
 	ldy prep_boldface_scroll_ret1_scroll_top
 	lda boldytb,y
-	tay
+	tay				; offset in PM of upper limit of this scroll operation
 
 	cpy s764
 	beq ?end		; nothing to scroll (just one line so blank it)
 
+	; In case of rotating, get the content of top line and store in temp. Else, store a zero.
+	lda bold_scroll_rotate
+	sta temp
+	beq ?lp
+	lda (cntrl),y
+	sta temp
+
 ?lp
-	lda (prfrom),y	; Scroll it!
+	lda (prfrom),y	; Scroll it! Load from lower line (offset+4)
 	cmp (cntrl),y
 	beq ?lk			; no need to copy if data is the same..
-	sta (cntrl),y
+	sta (cntrl),y	; Store in current line
 	iny
 	sta (cntrl),y
 	iny
@@ -3762,14 +3851,14 @@ doscroldn
 	bcc ?lp
 	bcs ?end
 ?lk
-	iny
+	iny				; skip this line if there's no need to copy
 	iny
 	iny
 	iny
 	cpy s764
 	bcc ?lp
 ?end
-	lda #0
+	lda temp		; value to be placed in lowest line (the new line), normally 0 unless we're rotating
 	sta (cntrl),y
 	iny
 	sta (cntrl),y
@@ -3778,10 +3867,14 @@ doscroldn
 	iny
 	sta (cntrl),y
 
+?skip_scroll_underlay
 	; scroll color info
 	lda boldallw
 	cmp #1
 	bne ?nocolor
+	lda bold_scroll_colors
+	beq ?nocolor
+
 	lda boldcolrtables_lo,x
 	sta prfrom
 	sec
@@ -3795,6 +3888,14 @@ doscroldn
 	ldy prep_boldface_scroll_ret1_scroll_top
 	cpy prep_boldface_scroll_ret2_scroll_bot
 	beq ?cend
+
+	; In case of rotating, get the content of top line and store in temp. Else, store a zero.
+	lda bold_scroll_rotate
+	sta temp
+	beq ?clp
+	lda (cntrl),y
+	sta temp
+
 ?clp
 	lda (prfrom),y
 	sta (cntrl),y
@@ -3802,7 +3903,7 @@ doscroldn
 	cpy prep_boldface_scroll_ret2_scroll_bot
 	bne ?clp
 ?cend
-	lda #0
+	lda temp
 	sta (cntrl),y
 	jsr update_colors_line0
 ?nocolor
@@ -3811,8 +3912,15 @@ doscroldn
 	jmp ?mlp
 ?en
 	; Now that we've finished scrolling, fill the new line with the background color if one is set.
+	lda bold_scroll_rotate
+	bne ?no_backgrnd		; but if we're rotating, don't do anything with the new line
+	lda bold_scroll_underlay
+	beq ?ok_backgrnd		; also, if bold_scroll_underlay=1 and bold_scroll_colors=0 do not fill line.
+	lda bold_scroll_colors	; it's not a very well defined case, filling the line here would probably look ugly
+	beq ?no_backgrnd
+?ok_backgrnd
 	lda boldface
-	and #$08
+	and #$08				; check if a background color is set
 	beq ?no_backgrnd
 	lda scrlbot
 	sta y
@@ -3915,12 +4023,12 @@ scrlup			; SCROLL UP
 	bne ?sr
 
 	lda finescrol
-	beq ?up
+	beq ?coarse_scroll
 	jsr scvbwta
 	inc fscrolup
 ?sr
 	rts
-?up
+?coarse_scroll
 	lda scrltop
 	jsr erslineraw_a
 	lda #1
@@ -3928,12 +4036,30 @@ scrlup			; SCROLL UP
 
 	lda bold_scroll_lock	; bold scroll lock? we're done
 	beq ?no_scklk
-	jmp ?no_backgrnd
+	rts
 ?no_scklk
+
+	; These flags modify the way we scroll the boldface info. They are modified when doscrolup_underlay is called.
+	lda #1
+	sta bold_scroll_underlay
+	sta bold_scroll_colors
+	lda #0
+	sta bold_scroll_rotate
+
+doscrolup_underlay
 	lda isbold		; nothing bold on the screen? no scrolling needed, but we may still have to fill the new line with background color.
 	bne ?db
 	jmp ?en
 ?db
+
+	; If we are scrolling in some special "private" mode, kill all optimizations and scroll the entire scroll region,
+	; regardless of what part of the PM contains data. Formally:
+	; if (bold_scroll_underlay != bold_scroll_colors) or (bold_scroll_rotate == 1) then reset_scroll_limits_flag = 1 else 0
+?reset_scroll_limits_flag = numb
+	lda bold_scroll_underlay
+	eor bold_scroll_colors
+	ora bold_scroll_rotate
+	sta ?reset_scroll_limits_flag
 
 ; Scroll boldface info UP
 
@@ -3946,6 +4072,27 @@ scrlup			; SCROLL UP
 	bpl ?mlp
 	jmp ?en			; nothing in any PM.
 ?db2
+
+	; If special flag is on, reset PM scroll region for this PM and don't call prep_boldface_scroll
+	lda ?reset_scroll_limits_flag
+	beq ?no_reset
+	lda #1
+	sta boldsct,x
+	lda scrltop
+	sta prep_boldface_scroll_ret1_scroll_top
+	lda #24
+	sta boldscb,x
+	lda scrlbot
+	sta prep_boldface_scroll_ret2_scroll_bot
+	ldy #1				; fake return value from prep_boldface_scroll which we didn't call
+	bne ?ok_done_reset	; always branches
+?no_reset
+
+	ldy #0			; scrolling up.
+	jsr prep_boldface_scroll
+	tay				; save return value
+?ok_done_reset
+
 	lda boldtbpl,x	; Get PM address
 	sta cntrl
 	sec
@@ -3956,10 +4103,12 @@ scrlup			; SCROLL UP
 	sbc #0
 	sta prfrom+1
 
-	ldy #0			; scrolling up.
-	jsr prep_boldface_scroll
+	lda bold_scroll_underlay
+	beq ?skip_scroll_underlay
+
+	tya				; restore return value from prep_boldface_scroll
 	beq ?mlp_skip	; nothing to do for this PM
-	cmp #255		; is this PM being emptied?
+	cmp #255		; is this PM being emptied as a result of this scroll?
 	bne ?st2		; No.
 	lda #0			; Yes - mark this PM as empty.
 	sta boldypm,x
@@ -3970,7 +4119,7 @@ scrlup			; SCROLL UP
 	ldx #4
 	lda #0
 ?st4
-	ora boldypm,x	; Are ALL PMs empty?
+	ora boldypm,x	; Are ALL PMs empty now?
 	dex
 	bpl ?st4
 	tax				; instead of cmp #0
@@ -3986,22 +4135,29 @@ scrlup			; SCROLL UP
 	lda boldytb,y
 	clc
 	adc #3
-	sta s764		; upper limit of this scroll operation
+	sta s764		; offset in PM of upper limit of this scroll operation
 
 	ldy prep_boldface_scroll_ret2_scroll_bot
 	lda boldytb,y
 	clc
 	adc #3
-	tay
+	tay				; offset in PM of lower limit of this scroll operation
 
 	cpy s764
 	beq ?end		; nothing to scroll (just one line so blank it)
 
+	; In case of rotating, get the content of bottom line and store in temp. Else, store a zero.
+	lda bold_scroll_rotate
+	sta temp
+	beq ?lp
+	lda (cntrl),y
+	sta temp
+
 ?lp
-	lda (prfrom),y	; Scroll it!
+	lda (prfrom),y	; Scroll it! Load from upper line (offset-4)
 	cmp (cntrl),y
 	beq ?lk			; no need to copy if data is the same..
-	sta (cntrl),y
+	sta (cntrl),y	; Store in current line
 	dey
 	sta (cntrl),y
 	dey
@@ -4014,7 +4170,7 @@ scrlup			; SCROLL UP
 	bcs ?lp
 	bcc ?end
 ?lk
-	dey
+	dey				; skip this line if there's no need to copy
 	dey
 	dey
 	dey
@@ -4022,7 +4178,7 @@ scrlup			; SCROLL UP
 	beq ?end
 	bcs ?lp
 ?end
-	lda #0
+	lda temp		; value to be placed in upper line (the new line), normally 0 unless we're rotating
 	sta (cntrl),y
 	dey
 	sta (cntrl),y
@@ -4031,10 +4187,14 @@ scrlup			; SCROLL UP
 	dey
 	sta (cntrl),y
 
+?skip_scroll_underlay
 	; scroll color info
 	lda boldallw
 	cmp #1
 	bne ?nocolor
+	lda bold_scroll_colors
+	beq ?nocolor
+
 	lda boldcolrtables_lo,x
 	sec
 	sbc #1
@@ -4048,6 +4208,14 @@ scrlup			; SCROLL UP
 	ldy prep_boldface_scroll_ret2_scroll_bot
 	cpy prep_boldface_scroll_ret1_scroll_top
 	beq ?cend
+
+	; In case of rotating, get the content of bottom line and store in temp. Else, store a zero.
+	lda bold_scroll_rotate
+	sta temp
+	beq ?clp
+	lda (cntrl),y
+	sta temp
+
 ?clp
 	lda (prfrom),y
 	sta (cntrl),y
@@ -4055,7 +4223,7 @@ scrlup			; SCROLL UP
 	cpy prep_boldface_scroll_ret1_scroll_top
 	bne ?clp
 ?cend
-	lda #0
+	lda temp
 	sta (cntrl),y
 	jsr update_colors_line0
 ?nocolor
@@ -4065,8 +4233,15 @@ scrlup			; SCROLL UP
 	jmp ?mlp
 ?en
 	; Now that we've finished scrolling, fill the new line with the background color if one is set.
+	lda bold_scroll_rotate
+	bne ?no_backgrnd		; but if we're rotating, don't do anything with the new line
+	lda bold_scroll_underlay
+	beq ?ok_backgrnd		; also, if bold_scroll_underlay=1 and bold_scroll_colors=0 do not fill line.
+	lda bold_scroll_colors	; it's not a very well defined case, filling the line here would probably look ugly
+	beq ?no_backgrnd
+?ok_backgrnd
 	lda boldface
-	and #$08
+	and #$08				; check if a background color is set
 	beq ?no_backgrnd
 	lda scrltop
 	sta y
@@ -4077,7 +4252,8 @@ scrlup			; SCROLL UP
 ; prepare for scrolling of a single boldface PM. Takes into account current highest and lowest line where known bold data exists
 ; and current screen scroll boundaries. Used for upwards or downwards scrolling. All line numbers are expected to be 1-24.
 ;
-; There are 6 different possible relationships between active bold area (boldsct to boldscb) and scroll area (scrltop to scrlbot):
+; There are 6 different possible relationships between active [B]old area for this specific PM (boldsct,x to boldscb,x)
+; and terminal's [S]croll area (scrltop to scrlbot):
 ;
 ; (1)   (2)   (3)   (4)   (5)   (6)
 ;
@@ -4093,12 +4269,12 @@ scrlup			; SCROLL UP
 ;   |   |     |       |
 ;   B   B     B       B
 ;
-; expects PM number (0-4) in X register.
+; expects PM number (0-4) in X register (and does not modify it).
 ; expects 1 if scrolling down, 0 if up, in Y register.
 ; returns 0 in A (and Z flag up) if no scroll operation is needed (cases 1-2).
 ; returns 255 if PM is to be cleared entirely.
 ; returns 1 normally.
-; updates boldsct and boldscb as needed.
+; updates boldsct,x and boldscb,x as needed.
 ; returns actual scrolling boundaries for this pm in prep_boldface_scroll_ret1_scroll_top and
 ;  prep_boldface_scroll_ret2_scroll_bot.
 
@@ -4212,7 +4388,7 @@ prep_boldface_scroll
 	lda boldsct,x
 	cmp boldscb,x	; if top=bottom, that means this scroll operation will completely clear this PM.
 	beq ?clear
-	inc boldsct, x
+	inc boldsct,x
 
 ?done
 	lda #1
@@ -4247,6 +4423,8 @@ ersline_no_txtmirror
 	and #$08		; is a background color enabled?
 	beq ?unbold		; no, go clear bold
 	; yes - fill the line
+	lda #1
+	sta bold_scroll_underlay
 	jsr dobold_fill_line
 	jmp ?nobold
 ?unbold
@@ -7015,7 +7193,7 @@ boldytb		= *-1	; boldytb is a 25 byte table but we never touch byte 0
 
 ; Bold - Dynamic data:
 boldsct		.ds 5	; Per PM, current uppermost (lowest value) bold line
-boldscb		.ds 5	; Per PM, current lowest (highest value) bold line
+boldscb		.ds 5	; Per PM, current lowest (highest value) bold line, or 255 if PM is empty
 boldypm		.ds 5	; Flag whether there are any enabled pixels in this PM
 bold2color_xlate	.ds 16	; copy of bold2color_normal or bold2color_inverse, depending on screen mode
 

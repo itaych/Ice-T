@@ -69,6 +69,9 @@ bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters
 __zp_addr_80		; here we pass the $80 line, so everything from here is completely untouched by the OS.
 last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
 
+bold_scroll_underlay	.ds 1
+bold_scroll_colors		.ds 1
+bold_scroll_rotate		.ds 1
 
 __mass_initialized_zero_page	; this block is mass-cleared at program start and at every reset.
 
@@ -192,7 +195,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 21
+	.ds 18
 
 	.if	__zp_addr_80 <> $80
 	.error "__zp_addr_80 is not $80!"

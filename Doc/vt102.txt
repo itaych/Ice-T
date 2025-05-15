@@ -169,7 +169,7 @@ colors within the same region the most recently applied color will change the
 others within that range. Vertically there is no limitation.
 
 ANSI allows defining the background and foreground colors separately but this
-is impossible in ANTIC F (Graphics 8 ) mode which Ice-T uses. So for a colored
+is impossible in ANTIC F (Graphics 8) mode which Ice-T uses. So for a colored
 character the foreground and background colors are the same. If different
 background and foreground colors are specified the background color takes
 priority and foreground is ignored.
@@ -257,32 +257,43 @@ where the first argument defines the command to perform and the following
 arguments are parameters for that command. Only one command may be performed
 at a time.
 
-1 - expects 1 parameter (none/0 --> 1, max. 240) - pauses for a time delay
-    of that many vertical blanks. If the user presses a key then the
-    delay is aborted and the key is handled as usual.
+1 - Time Delay: expects 1 parameter (none/0 --> 1, max. 240) - pauses for a
+    time delay of that many vertical blanks. If the user presses a key during
+    the delay period then the delay is aborted and the key is handled as usual.
 
-2 - expects 2 or 4 parameters (none/0 --> 1,1,1,1, max. 24,40,24,40) - color
-    the character(s) at these coordinates according to the current color set
-    with Esc [ ... m. If no color is set then this will "uncolor" those
+2 - Paint: expects 2 or 4 parameters (none/0 --> 1,1,1,1, max. 24,40,24,40) -
+    color the character(s) at these coordinates according to the current color
+    set with Esc [ ... m. If no color is set then this will "uncolor" those
     characters. If two parameters are supplied then they are the row and column
     of a single point. If four parameters are supplied then they are the top-
     left and lower-right corners of a rectangle that will be filled with the
     desired color. Note that the X coordinate is limited to half the normal
     resolution due to hardware limitations.
 
-3 - expects 2 parameters (none/0 --> 1,1, max. 24,5) followed by an arbitrary
-    number of color values. Starts at the given row and PM column and sets the
-    PM color according to the third argument. Continues to read arguments and
-    set them in the color table, moving from left to right and down to the next
-    row in the PM color table until the list of arguments is exhausted or the
-    end of the table is reached.
+3 - Set Colors: expects 2 parameters (none/0 --> 1,1, max. 24,5) followed by an
+    arbitrary number of color values. Starts at the given row and PM column and
+    sets the PM color according to the third argument. Continues to read
+    arguments and set them in the color table, moving from left to right and
+    down to the next row in the PM color table until the list of arguments is
+    exhausted or the end of the table is reached.
 
-4 - expects 1 parameter (none --> 0, max. 1) - this is a "scroll lock" for the
-    color PM underlay. If this is set to 1 then the colors will remain on the
-    screen even when the text is scrolling.
+4 - Colors Scroll Lock: expects 1 parameter (none --> 0, max. 1) - this is
+    "locks" scrolling of the color PM underlay. If set to 1 then the colors
+    will remain fixed on the screen even when the text is scrolling.
     This may cause a minor side effect: when outputting space characters in
     normal (i.e. no color) rendition mode and the cursor was over a colored
     region, the coloring at that position might not be cleared.
+
+5, 6 - Vertical Force Scroll: scrolls the color underlay down/up without
+    modifying the text, according to the terminal's currently set scrolling
+    margins. Expects the following parameters:
+    Param 1 (none --> 1, max. 24) - amount of lines to scroll.
+    Param 2 (none --> 1, max. 1) - 0 or 1, whether to scroll the PM bitmap.
+    Param 3 (none --> 1, max. 1) - 0 or 1, whether to scroll the color assign-
+      ment table.
+    Param 4 (none --> 0, max. 1) - 0 or 1, rotation. If set to 0 scroll will
+      behave as normal, and the currently set background color will fill the
+      new line. If 1, the new line will be a copy of the line scrolled out.
 
 Special codes transmitted from the Ice-T keyboard:
 

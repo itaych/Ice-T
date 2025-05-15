@@ -2,7 +2,7 @@
 ;  A VT-100 terminal emulator
 ;      by Itay Chamiel
 
-; Part -3- of program (1/3) - VT31.ASM
+; Part -3- of program - VT3.ASM
 
 ; This part	is resident in bank #2
 

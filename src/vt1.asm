@@ -2,7 +2,7 @@
 ;  A VT-100 terminal emulator
 ;      by Itay Chamiel
 
-; Part -1- of program (1/2) - VT11.ASM
+; Part -1- of program - VT1.ASM
 
 ; This part is resident in main memory
 
