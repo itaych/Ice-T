@@ -22,6 +22,7 @@ system_checkup
 	ldx #4
 ?lp
 .ifdef AXLON_SUPPORT
+	.notify 1, "Building Axlon version"
 	txa		; For the Axlon memory board, values are simply 0 for the 'main' bank and 1-4 for the extra banks.
 	nop		; Add some nops to prevent any changes to code size and locations from the regular build
 	nop

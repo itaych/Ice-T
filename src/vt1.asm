@@ -3219,13 +3219,8 @@ macro_find_data
 	sta cntrh
 	rts
 
-endinit
-
-bytes_free_below_banked_memory = banked_memory_bottom - endinit	; for diagnostics
-
-	.if	endinit >= banked_memory_bottom
-	.error "vt1 code overflows into banked memory!!"
-	.endif
+	.notify 1, "Code below banked memory ends at {{*}}, bytes free: {{%1}}", [banked_memory_bottom - *]
+	.guard * <= banked_memory_bottom, "vt1 code overflows into banked memory by {{%1}} bytes!!", [* - banked_memory_bottom]
 
 ; Initialization routines (run once, then get overwritten)
 	.bank
@@ -3770,9 +3765,7 @@ initial_program_entry
 ?tb_lo	.byte	$00,$80,$00,$80,$00
 
 ; Make sure we're not conflicting with data tables created by this routine, or fonts
-	.if	* >= macro_data
-	.error "initial_program_entry too large!"
-	.endif
+	.guard * <= macro_data, "initial_program_entry too large (by {{%1}} bytes)!", [* - macro_data]
 
 ;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
 	.if 0

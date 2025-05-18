@@ -617,14 +617,9 @@ crchitab	.ds	256
 crclotab	.ds	256
 
 end_bank_2
-bytes_free_bank_2 = wind2 - end_bank_2	; for diagnostics
-
-	.if	end_bank_2 > $8000
-	.error "end_bank_2>$8000!!"
-	.endif
-	.if	end_bank_2 > wind2
-	.error "end_bank_2>wind2!!"
-	.endif
+	.notify 1, "Bank 2 code ends at {{*}}, bytes free: {{%1}}", [wind2 - *]
+	.guard * <= banked_memory_top, "vt3+vtdt code doesn't fit into banked memory, off by {{%1}} bytes!!", [* - banked_memory_top]
+	.guard * <= wind2, "vt3+vtdt code overwrites wind2, off by {{%1}} bytes!!", [* - wind2]
 
 ; End of menus
 

@@ -58,15 +58,20 @@ gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of t
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
 finnum		.ds 1	; currently parsed decimal number in Esc command sequence
+	.guard *=$79, "keydef at {{*}}, must be $79!"
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
+	.guard *=$7c, "holdch at {{*}}, must be $7c!"
 holdch		.ds 1	; OS reserved - must equal $7c
 numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 
 ; bold_default_color and bold_current_color must remain together!
 bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
 bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
-__zp_addr_80		; here we pass the $80 line, so everything from here is completely untouched by the OS.
+
+; here we pass the $80 line, so everything from here is completely untouched by the OS.
+	.guard *=$80, "zero-page $80 marker is wrong (at {{*}})!"
+
 last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
 
 bold_scroll_underlay	.ds 1
@@ -196,19 +201,7 @@ banksv		.ds 1	; save current selected bank when temporarily switching to a diffe
 
 ; spare
 	.ds 18
-
-	.if	__zp_addr_80 <> $80
-	.error "__zp_addr_80 is not $80!"
-	.endif
-	.if	* <> $100
-	.error "page zero equates don't end at $100!!"
-	.endif
-	.if keydef <> $79
-	.error "keydef is wrong"
-	.endif
-	.if holdch <> $7c
-	.error "holdch is wrong"
-	.endif
+	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants
 
@@ -351,10 +344,7 @@ z_read_from_buffpl	.ds 1
 
 ; spare
 		.ds	25
-
-	.if	* <> $8180
-	.error "* <> $8180!!"
-	.endif
+	.guard *=$8180, "*={{*}}, must be $8180!!"
 
 boldpm	=	$8180	; P/M underlay for bold/blink/color text. 5 players at $80 each, total $280 bytes
 
@@ -398,10 +388,7 @@ remrhan		.ds 4		; Information on whether R: handler was loaded by us, and how to
 ; we use area starting from screen-640 = $9D30
 
 screen	=	$9fb0
-
-	.if	* <> screen-640
-	.error "* <> screen-640!!"
-	.endif
+	.guard *=screen-640, "*={{*}}, must be screen-640 which is {{%1}}!!", [screen-640]
 
 ; at 'screen' is an unused line (as it crosses a 4K boundary) of 320 bytes
 	.bank
@@ -412,9 +399,7 @@ numstk	.ds	$100	; when terminal reads a sequence of the form Esc [ n ; n .. the 
 ; spare
 		.ds 14
 
-	.if	* <> screen+320
-	.error "not using full line!!"
-	.endif
+	.guard *=screen+320, "*={{*}}, not using full line, must be screen+320 which is {{%1}}!!", [screen+320]
 
 ; at $aff0 is a second unused line
 	.bank
@@ -427,10 +412,7 @@ chksum		.ds 1
 rsttbl		.ds 3
 			.ds 1 ; spare
 dlst2		.ds $103
-
-.if	dlst2&$FF > 0
-.error "dlst2 unaligned!"
-.endif
+	.guard dlst2 & $FF = 0, "dlst2 unaligned, {{%1}}!", dlst2
 
 lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
 
@@ -439,10 +421,7 @@ macro_key_assign
 			.ds macronum_rsvd
 ; spare
 			.ds 5
-
-	.if	* <> chartemp+320
-	.error "not using full second line!!"
-	.endif
+	.guard *=chartemp+320, "*={{*}}, not using full second line, must be chartemp+320 which is {{%1}}!!", [chartemp+320]
 
 	.bank
 	*=	$bef0
@@ -450,10 +429,7 @@ macro_key_assign
 dlist	.ds $103	; display list
 ; spare
 	.ds 13
-
-	.if	* <> $c000
-	.error "not using top of memory!!"
-	.endif
+	.guard *=$c000, "*={{*}}, not reaching top of memory ($c000)!!"
 
 ; PM color tables in Page 6.
 	.bank
@@ -472,10 +448,7 @@ page_zero_backup	.ds $30
 
 ; spare (page 6)
 	.ds 86
-
-	.if	* <> $700
-	.error "not using page 6 fully!!"
-	.endif
+	.guard *=$700, "*={{*}}, not using page 6 fully!!"
 
 ; System equates
 casini	=	$02		; steal this vector for when user presses Reset
@@ -669,9 +642,7 @@ eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 
 ascdelay	.byte 2		; In ASCII upload: 0 for no delay between lines, 1-7 for some delay, higher value waits for that character
 						; to arrive from the remote side. Delay values are 1/60 sec, 1/10 sec, 1.5 sec, 1/2 sec, 1 sec, 1.5 sec, 2 sec.
 
-	.if	*-cfgdat <> cfgnum
-	.error "cfgnum is wrong!!"
-	.endif
+	.guard *-cfgdat=cfgnum, "cfgnum is wrong!! defined {{%1}}, actual size {{%2}}", [cfgnum], [*-cfgdat]
 
 ; Translation table for graphical character set, ASCII 95-126 when enabled.
 ; Note that values >= 128 indicate digraphs which are not part of the font.

@@ -690,10 +690,7 @@ ctrlcode_jumptable
 	.byte $ff	; default
 	.word ctrlcode_unused
 ctrlcode_jumptable_end
-
-	.if ctrlcode_jumptable_end - ctrlcode_jumptable > $100
-	.error ctrlcode_jumptable too big!
-	.endif
+	.guard ctrlcode_jumptable_end - ctrlcode_jumptable <= $100, "ctrlcode_jumptable too big!"
 
 ctrlcode_1b		; Escape
 	ldy #<esccode
@@ -857,10 +854,7 @@ esccode_jumptable
 	.byte $ff	; default
 	.word fincmnd
 esccode_jumptable_end
-
-	.if esccode_jumptable_end - esccode_jumptable > $100
-	.error esccode_jumptable too big!
-	.endif
+	.guard esccode_jumptable_end - esccode_jumptable <= $100, "esccode_jumptable too big!"
 
 ; VT-52 escape codes are different:
 esccode_vt52_jumptable
@@ -1391,10 +1385,7 @@ csi_qmark_code_jumptable
 	.byte $ff	; default
 	.word fincmnd
 csi_code_jumptable_end
-
-	.if csi_code_jumptable_end - csi_code_jumptable > $100
-	.error csi_code_jumptable too big!
-	.endif
+	.guard csi_code_jumptable_end - csi_code_jumptable <= $100, "csi_code_jumptable too big!"
 
 ; CHECK_PARAMS arg_num, default_value, max_value
 .macro CHECK_PARAMS
@@ -2450,10 +2441,7 @@ icet_privcode_jumptable
 	.byte $ff	; default
 	.word fincmnd
 icet_privcode_jumptable_end
-
-	.if icet_privcode_jumptable_end - icet_privcode_jumptable > $100
-	.error icet_privcode_jumptable too big!
-	.endif
+	.guard icet_privcode_jumptable_end - icet_privcode_jumptable <= $100, "icet_privcode_jumptable too big!"
 
 icet_privcode_vdelay		; 1 - vdelay
 	CHECK_PARAMS 1,1,240	; limit to 240 (4 seconds in NTSC)
@@ -7204,14 +7192,9 @@ dialmem	.ds	88
 macro_parser_output = dialmem
 
 end_bank_1
-bytes_free_bank_1 = wind1 - end_bank_1	; for diagnostics
-
-	.if	end_bank_1 > $8000
-	.error "end_bank_1>$8000!!"
-	.endif
-	.if	end_bank_1 > wind1
-	.error "end_bank_1>wind1!!"
-	.endif
+	.notify 1, "Bank 1 code ends at {{*}}, bytes free: {{%1}}", [wind1 - *]
+	.guard * <= banked_memory_top, "vt2 code doesn't fit into banked memory, off by {{%1}} bytes!!", [* - banked_memory_top]
+	.guard * <= wind1, "vt2 code overwrites wind1, off by {{%1}} bytes!!", [* - wind1]
 
 ; Move all of the above crap into banked memory
 	.bank
