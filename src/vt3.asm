@@ -2068,10 +2068,11 @@ svcapt			; Save capture to disk
 fildmp			; Dump file to Terminal
 	lda #1
 	.byte BIT_skip2bytes
-filvew			; Text file viewer
+filvew			; Plain text file viewer
 	lda #0
-	sta crcl	; flag whether this is text file viewer or dump to VT
-	jsr chkcapt
+vw_is_term_dump=crcl
+	sta vw_is_term_dump	; flag whether this is text file viewer or dump to VT
+	jsr chkcapt	; ensure capture is off and empty
 	beq ?ncpt
 	jmp bkfil
 ?ncpt
@@ -2081,7 +2082,7 @@ filvew			; Text file viewer
 ?lp
 	ldx #56
 	ldy #8
-	jsr filnam
+	jsr filnam	; prompt for filename
 	lda prpdat
 	cmp #255
 	bne ?nesc
@@ -2091,11 +2092,13 @@ filvew			; Text file viewer
 	jsr open3fl
 	bmi ?lp
 
-	lda crcl
+	lda vw_is_term_dump
 	bne ?n1
 	lda scrltop
 	pha
 	lda scrlbot
+	pha
+	lda revvid
 	pha
 	lda #0
 	sta clock_enable
@@ -2124,17 +2127,18 @@ filvew			; Text file viewer
 	ldy #0
 	jsr prxferfl
 
-	lda crcl
+	lda vw_is_term_dump
 	bne ?n2
 	lda #0
 	sta x
+	sta revvid
 	lda #1
 	sta y
 	sta scrltop
 	lda #24
 	sta scrlbot
 ?n2
-	lda crcl
+	lda vw_is_term_dump
 	beq ?n3
 	jsr getscrn
 	jsr getscrn
@@ -2184,7 +2188,7 @@ getdat
 	beq vweof
 	cpy #128
 	bcs vwerr
-	lda crcl
+	lda vw_is_term_dump
 	beq ?n1
 	jmp viewloop_dumpvt
 ?n1
@@ -2201,7 +2205,7 @@ vweof
 	sta cmph+1
 	jsr close3
 	jsr ropen
-	lda crcl
+	lda vw_is_term_dump
 	beq viewloop
 	jmp viewloop_dumpvt
 
@@ -2391,7 +2395,7 @@ quitvwk
 quitvw
 	jsr close3
 	jsr ropen
-	lda crcl
+	lda vw_is_term_dump
 	beq ?n1
 	jmp goterm
 ?n1
@@ -2400,6 +2404,8 @@ quitvw
 ?l
 	lda fscroldn
 	bne ?l
+	pla
+	sta revvid
 	pla
 	sta scrlbot
 	pla

@@ -8,7 +8,7 @@ Conventions used:
 
 Esc    - the ASCII character 27
 ^      - Control.
-__     - Decimal number from 0 to 254 in ASCII digits 0-9. Leading zeroes are
+__     - Decimal number from 0 to 254 in ASCII digits 0-9. Leading zeros are
          ignored. 255 is a reserved value and higher values will be
          truncated to an arbitrary 8-bit value.
 Spaces are shown only for clarity and are never part of any command sequence.
@@ -328,7 +328,8 @@ ASCII| Character in graphics mode
 Underscore (95): Blank
 Grave accent (96): Diamond
  a    Checkerboard
- b    Two small letters ('digraph') HT, in upper-left and lower-right corners of character
+ b    Two small letters ('digraph') HT, in upper-left and lower-right corners
+        of character
  c    Letters FF
  d    Letters CR
  e    Letters LF

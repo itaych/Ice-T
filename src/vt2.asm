@@ -1562,11 +1562,10 @@ csicode_decstbm	; r - set scroll margins
 
 csicode_el		; K - erase in line
 	lda numstk
-	beq ?v0
-	cmp #3
-	bcs ?v0
 	cmp #1
 	beq ?v1
+	cmp #2
+	bne ?v0
 	lda ty			; 2 - clear entire line
 	sta y
 	jsr ersline
@@ -1587,7 +1586,7 @@ csicode_ed		; J - erase in screen
 	beq ?v1
 
 ?v2					; 2 - clear entire screen. cursor does not move. (ANSI-BBS: home cursor)
-	jsr clrscrn
+	jsr clrscrn_with_revvid
 	lda ansibbs
 	cmp #1
 	bne ?nc
@@ -1913,7 +1912,7 @@ nodecanm
 	sta scrltop
 	lda #24
 	sta scrlbot
-	jsr clrscrn
+	jsr clrscrn_with_revvid
 	jsr reset_seol
 	jmp fincmnd_domode
 nodeccolm
@@ -2348,27 +2347,17 @@ csicode_cpl				; F - move cursor to left margin and up
 
 csicode_su				; S - scroll down by n lines
 	CHECK_PARAMS 0,1,24
-	ldx numstk
 ?lp
-	txa
-	pha
 	jsr scrldown
-	pla
-	tax
-	dex
+	dec numstk
 	bne ?lp
 	jmp fincmnd
 
 csicode_sd				; T - scroll up by n lines
 	CHECK_PARAMS 0,1,24
-	ldx numstk
 ?lp
-	txa
-	pha
 	jsr scrlup
-	pla
-	tax
-	dex
+	dec numstk
 	bne ?lp
 	jmp fincmnd
 
@@ -2646,7 +2635,13 @@ handle_insert_delete_char
 	stx ?idc_templine_maxvalid
 
 	; step 2: clear the line from cursor position forward.
+	lda revvid
+	pha
+	lda #0
+	sta revvid
 	jsr ersfmcurs
+	pla
+	sta revvid
 
 	; step 3: are we done?
 	lda ?idc_maxcols
@@ -2728,22 +2723,29 @@ ersfmcurs
 	sty x
 	ldx ty
 	lda lnsizdat-1,x	; wide line?
-	beq ?ok
+	beq ?not_wide
 	tya 		; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
 	tay
 	sty x		; for bold clear (later)
 	cpy #80
-	bcc ?ok
+	bcc ?not_wide
 	ldy #78
 	sty x
-?ok
-	lda #32
-txerfm
+?not_wide
+	; fill with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	lda revvid
+	beq ?no_inv
+	eor eitbit
+	beq ?no_inv
+	lda #128
+?no_inv
+	ora #32
+?txerfm
 	sta (ersl),y
 	iny
 	cpy #80
-	bne txerfm
+	bne ?txerfm
 
 	; handle bold info
 	lda boldallw
@@ -2777,26 +2779,38 @@ txerfm
 	bcc ?unboldlp
 ?nobold
 
-	; erase text on screen
-	lda ty
-	tay
+	; To erase text on screen, we will print a space and write #$FF
+	ldx #32
+	ldy #255
+	lda revvid
+	beq ?no_revvid
+	; but in inverse video, print an inverse space and write zeros
+	ldx #32+128
+	ldy #0
+?no_revvid
+	stx ?ers_char+1
+	sty ?fill_byte1+1
+	sty ?fill_byte2+1
+
 	lda tx
 	sta x
+	ldy ty
 	dey
 	ldx lnsizdat,y	; check line width
 	stx temp		; remember for later
-	bne erfmbt		; wide line? skip check for odd character.
+	bne ?erfmbt		; wide line? skip check for odd character.
 	and #1			; narrow line: is X position odd?
-	beq erfmbt
+	beq ?erfmbt
+?ers_char
 	lda #32			; if so, we need to print a space to erase this one character
 	sta prchar
 	jsr print
 	inc x
 	lda x
 	cmp #80			; we're done if X was 79 (end of the line)
-	bne erfmbt
+	bne ?erfmbt
 	rts
-erfmbt
+?erfmbt
 	ldx ty			; mass erase by blanking whole bytes of screen data
 	lda linadr_l,x	; get data address for this line
 	sta cntrl
@@ -2814,12 +2828,13 @@ erfmbt
 	sta temp		; temp will now store byte offset of area to start erasing from
 	tay
 	ldx #7			; bitmap line counter (there are 8 lines to partially clear)
+?fill_byte1
 	lda #255
-erfmbtlp
+?erfmbtlp
 	sta (cntrl),y
 	iny
 	cpy #40
-	bne erfmbtlp
+	bne ?erfmbtlp
 	lda cntrl
 	clc
 	adc #40
@@ -2827,10 +2842,11 @@ erfmbtlp
 	lda cntrh
 	adc #0
 	sta cntrh
+?fill_byte2
 	lda #255
 	ldy temp
 	dex
-	bpl erfmbtlp
+	bpl ?erfmbtlp
 	rts
 
 ; erase text from start of line to cursor (inclusive)
@@ -2844,21 +2860,28 @@ erstocurs
 	ldx ty
 	dex
 	lda lnsizdat,x	; wide line?
-	beq ?ok
+	beq ?not_wide
 	tya 		; yes, multiply X position by 2, taking care not to go beyond edge
 	asl a
 	tay
 	sty x		; for bold clear (later)
 	cpy #80
-	bcc ?ok
+	bcc ?not_wide
 	ldy #78
 	sty x
-?ok
-	lda #32
-txerto
+?not_wide
+	; fill with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	lda revvid
+	beq ?no_inv
+	eor eitbit
+	beq ?no_inv
+	lda #128
+?no_inv
+	ora #32
+?txerto
 	sta (ersl),y
 	dey
-	bpl txerto
+	bpl ?txerto
 
 	; handle bold info
 	lda boldallw
@@ -2890,25 +2913,37 @@ txerto
 	bpl ?unboldlp
 ?nobold
 
-	; erase text on screen
-	lda ty
-	tay
+	; To erase text on screen, we will print a space and write #$FF
+	ldx #32
+	ldy #255
+	lda revvid
+	beq ?no_revvid
+	; but in inverse video, print an inverse space and write zeros
+	ldx #32+128
+	ldy #0
+?no_revvid
+	stx ?ers_char+1
+	sty ?fill_byte1+1
+	sty ?fill_byte2+1
+
 	lda tx
 	sta x
+	ldy ty
 	dey
 	ldx lnsizdat,y	; check line width
 	stx temp		; remember for later
-	bne ertobt		; wide line? skip check for even character.
+	bne ?ertobt		; wide line? skip check for even character.
 	and #1			; narrow line: is X position even?
-	bne ertobt
+	bne ?ertobt
+?ers_char
 	lda #32			; if so, we need to print a space to erase this one character
 	sta prchar
 	jsr print
 	dec x
 	lda x			; we're done if X was 0 (start of line)
-	bpl ertobt
+	bpl ?ertobt
 	rts
-ertobt
+?ertobt
 	ldx ty			; mass erase by blanking whole bytes of screen data
 	lda linadr_l,x	; get data address for this line
 	sta cntrl
@@ -2926,11 +2961,12 @@ ertobt
 	sta temp		; temp will now store byte offset of last byte to erase per bitmap line
 	tay
 	ldx #7			; bitmap line counter (there are 8 lines to partially clear)
+?fill_byte1
 	lda #255
-ertobtlp
+?ertobtlp
 	sta (cntrl),y
 	dey
-	bpl ertobtlp
+	bpl ?ertobtlp
 	lda cntrl
 	clc
 	adc #40
@@ -2938,10 +2974,11 @@ ertobtlp
 	lda cntrh
 	adc #0
 	sta cntrh
+?fill_byte2
 	lda #255
 	ldy temp
 	dex
-	bpl ertobtlp
+	bpl ?ertobtlp
 	rts
 
 ; move cursor down 1 line, scroll down if margin is reached.
@@ -3578,15 +3615,15 @@ dobold_fill_line
 ; - Scrollers -
 
 ; note: outnum is reused here as a special flag (value 255) indicating that screen being scrolled is not the main
-; terminal screen. So, backscroll buffer is not updated, line size table is not changed, text mirror is not scrolled.
+; terminal screen. So, backscroll buffer is not updated, line size table is not changed, text mirror is not scrolled,
+; boldface underlay is not scrolled.
 
 scrldown
 	lda scrltop	; Move scrolled-out line into backscroll memory
 	cmp #1
 	bne noscrsv	; (but only if top of scroll region is top line)
 	lda outnum
-	cmp #255	; scroll shouldn't save anything
-	beq noscrsv
+	bmi noscrsv	; scroll shouldn't save anything
 	lda looklim
 	cmp #76
 	beq ?ok
@@ -3604,8 +3641,7 @@ noscrsv
 	lda #0
 	sta crsscrl
 	lda outnum
-	cmp #255
-	beq nodolnsz
+	bmi nodolnsz
 	ldx scrltop	; Scroll line-size table
 	cpx scrlbot
 	beq ?skip
@@ -3653,8 +3689,7 @@ scdnadok
 	sta nextln+1
 
 	lda outnum
-	cmp #255
-	beq nodotxsc
+	bmi nodotxsc
 	lda scrlbot	; Scroll text mirror
 	sec
 	sbc scrltop
@@ -3685,7 +3720,14 @@ dncltxln
 	lda txlinadr_h-1,x
 	sta ersl+1
 	ldy #79
-	lda #32
+	; fill new text mirror line with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	lda revvid
+	beq ?no_inv
+	eor eitbit
+	beq ?no_inv
+	lda #128
+?no_inv
+	ora #32
 dnerstxlp
 	sta (ersl),y
 	dey
@@ -3697,19 +3739,32 @@ nodotxsc
 
 	lda finescrol	; Fine-scroll if on
 	beq ?coarse_scroll
+	ldy revvid		; if revvid has changed since last scroll, we need to clear the incoming line.
+	cpy old_revvid	; (normally this is handled within the fine scroll vbi and the *next* line is cleared.)
+	beq ?no_inv_bits_fs
+	sty old_revvid
+	ldx revvid_fill_tbl,y
+	lda scrlbot
+	jsr filline_custom_value_a_x
+?no_inv_bits_fs
 	jsr scvbwta		; wait for previous fine scroll to finish
 	inc fscroldn	; initiate new fine scroll
 ?sr
 	rts
 
 ?coarse_scroll
+	ldy revvid			; in revvid mode, fill new line with inverse spaces
+	ldx revvid_fill_tbl,y
 	lda scrlbot
-	jsr erslineraw_a	; blank the new line
+	jsr filline_custom_value_a_x	; blank the new line
 	lda #1
 	sta crsscrl		; indicate to VBI that a coarse scroll has occured, update the display list.
 
+	lda outnum
+	bmi ?no_bold_scroll
 	lda bold_scroll_lock	; bold scroll lock? we're done
 	beq ?no_scklk
+?no_bold_scroll
 	rts
 ?no_scklk
 
@@ -4000,7 +4055,14 @@ scrlup			; SCROLL UP
 	sta ersl+1
 ?gu
 	ldy #0
-	lda #32
+	; fill new text mirror line with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	lda revvid
+	beq ?no_inv
+	eor eitbit
+	beq ?no_inv
+	lda #128
+?no_inv
+	ora #32
 ?ut
 	sta (ersl),y
 	iny
@@ -4012,13 +4074,23 @@ scrlup			; SCROLL UP
 
 	lda finescrol
 	beq ?coarse_scroll
+	ldy revvid		; if revvid has changed since last scroll, we need to clear the incoming line.
+	cpy old_revvid	; (normally this is handled within the fine scroll vbi and the *next* line is cleared.)
+	beq ?no_inv_bits_fs
+	sty old_revvid
+	ldx revvid_fill_tbl,y
+	lda scrltop
+	jsr filline_custom_value_a_x
+?no_inv_bits_fs
 	jsr scvbwta
 	inc fscrolup
 ?sr
 	rts
 ?coarse_scroll
+	ldy revvid			; in revvid mode, fill new line with inverse spaces
+	ldx revvid_fill_tbl,y
 	lda scrltop
-	jsr erslineraw_a
+	jsr filline_custom_value_a_x	; blank the new line
 	lda #1
 	sta crsscrl
 
@@ -4389,7 +4461,7 @@ prep_boldface_scroll
 
 ; erase line Y (1-24)
 ersline
-	lda y				; Don't erase text mirror if y=0.
+	lda y				; Don't erase text mirror or handle bold/revvid if y=0.
 	beq ersline_done	; Note that Y coordinate is expected in A
 	; erase text mirror
 	tax
@@ -4398,7 +4470,14 @@ ersline
 	lda txlinadr_h-1,x
 	sta cntrh
 	ldy #79
-	lda #32
+	; fill with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	lda revvid
+	beq ?no_inv
+	eor eitbit
+	beq ?no_inv
+	lda #128
+?no_inv
+	ora #32
 ?lp
 	sta (cntrl),y
 	dey
@@ -4436,9 +4515,13 @@ ersline_no_txtmirror
 	dex
 	bpl ?unboldlp
 ?nobold
+	ldy revvid
+	ldx revvid_fill_tbl,y
 	lda y
+	.byte BIT_skip2bytes
 ersline_done
-	jmp erslineraw_a	; in VT1
+	ldx #$ff
+	jmp filline_custom_value_a_x
 
 lookst			; Init buffer-scroller
 	lda scrlsv
@@ -6548,6 +6631,10 @@ noedit
 	pha
 	lda finescrol
 	pha
+	lda revvid
+	pha
+	lda #0
+	sta revvid
 	lda #1
 	sta finescrol
 	lda #255
@@ -6559,12 +6646,15 @@ noedit
 	jsr invbarmk
 	jsr scrldown
 ?w
-	lda fscroldn
+	lda fscroldn		; wait for fine scroll to finish
 	ora fscrolup
 	bne ?w
 
+	jsr set_dlist_dli	; re-set DLI bits in display list, as fine scroll may have moved them
 	lda #0
 	sta outnum
+	pla
+	sta revvid
 	pla
 	sta finescrol
 	pla

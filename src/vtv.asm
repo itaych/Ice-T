@@ -178,10 +178,11 @@ look		.ds 1
 lookln		.ds 2
 lookln2		.ds 2
 
-online		.ds 1		; whether we are online (connected through dialer)
+online		.ds 1	; whether we are online (connected through dialer)
 mnplace		.ds 1
 crcchek		.ds 1
-isbold		.ds 1		; whether the PM underlay is presently enabled and shown on the screen.
+isbold		.ds 1	; whether the PM underlay is presently enabled and shown on the screen.
+old_revvid	.ds 1	; previous value of revvid. When value changes, a minor one time behavioral change is required in fine scroll
 
 ; used for scrolling boldface underlay
 prep_boldface_scroll_ret1_scroll_top	.ds 1
@@ -200,7 +201,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 18
+	.ds 17
 	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants
@@ -834,6 +835,9 @@ xmdtop2
 
 ; SpartaDOS TDLINE symbol name, space-padded to 8 characters
 sparta_tdline_sym	.byte "I_TDON  "
+
+; Table for filling screen memory depending on revvid
+revvid_fill_tbl	.byte 255, 0
 
 ;  End of data (For menu data see VTDT, VT23)
 

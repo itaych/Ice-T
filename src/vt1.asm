@@ -156,7 +156,7 @@ init_continued
 	sta dlist+135
 	sta linadr_h+13
 
-	jsr set_dlist_dli	; Set DLI enable bits at end of eack text line for PM color changes
+	jsr set_dlist_dli	; Set DLI enable bits at end of each text line for PM color changes
 
 	; Copy display list to dlst2 (it just happens to be precisely $100 bytes long: 3 blanks, 3 JVB, 25 text lines of 10 bytes each)
 	ldx #0
@@ -646,6 +646,7 @@ resttrm			; Reset most VT100 settings
 	sta wrpmode
 	lda #255
 	sta savcursx
+	sta old_revvid
 
 ; set a tabstop at each multiple of 8 except 0
 	ldx #79
@@ -1133,6 +1134,25 @@ print
 yindextab ; table of y offsets (thanks to flashjazzcat for this optimization)
 	.byte 216,0,40,80,120,160,200,240
 
+clrscrn_with_revvid		; Clear screen, respecting revvid flag
+	lda revvid
+	beq clrscrn			; if revvid is off, go to regular clear screen
+	eor eitbit
+	beq ?no_inv_text_mirror
+	lda #128
+?no_inv_text_mirror
+	ora #32
+	sta clrscrn?ers_char+1	; replace character that is to be filled into text mirror
+	lda #0
+	sta erslineraw+1		; replace value to be filled in all cleared lines
+	jsr clrscrn
+	; undo hacks
+	lda #32
+	sta clrscrn?ers_char+1
+	lda #$ff
+	sta erslineraw+1
+	rts
+
 clrscrn			; Clear screen
 	; copy text mirror to scrollback buffer, and clear text mirror
 	lda banksv
@@ -1150,6 +1170,7 @@ clrscrn			; Clear screen
 ?lp
 	lda (cntrl),y
 	sta (scrlsv),y
+?ers_char
 	lda #32
 	sta (cntrl),y
 	dey
@@ -2261,7 +2282,8 @@ vbdn8lp
 	sta dlist+254
 	lda #>dlist
 	sta dlist+255
-	lda #255
+	ldx revvid
+	lda revvid_fill_tbl,x
 	ldy #0
 vbdn8erl1
 	sta (vbtemp2),y
@@ -2558,7 +2580,8 @@ vbup8lp
 	lda #>dlist
 	sta dlist+255
 	jsr vbscrtlu
-	lda #255
+	ldx revvid
+	lda revvid_fill_tbl,x
 	ldy #0
 vbup8erl1
 	sta (vbtemp2),y
@@ -2643,6 +2666,13 @@ number			; Convert value in Y register to 3-digit decimal number, in inverse ASC
 	clc
 	adc #'0+128
 	sta numb+2
+	rts
+
+filline_custom_value_a_x ; Fill line at A with value in X
+	stx erslineraw+1
+	jsr erslineraw_a
+	lda #$ff
+	sta erslineraw+1
 	rts
 
 erslineraw_a	; Erase line in screen (line number in accumulator)
