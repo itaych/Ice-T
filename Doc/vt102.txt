@@ -270,12 +270,12 @@ at a time.
     desired color. Note that the X coordinate is limited to half the normal
     resolution due to hardware limitations.
 
-3 - Set Colors: expects 2 parameters (none/0 --> 1,1, max. 24,5) followed by an
-    arbitrary number of color values. Starts at the given row and PM column and
-    sets the PM color according to the third argument. Continues to read
-    arguments and set them in the color table, moving from left to right and
-    down to the next row in the PM color table until the list of arguments is
-    exhausted or the end of the table is reached.
+3 - Set Underlay Colors: expects 2 parameters (none/0 --> 1,1, max. 24,5)
+    followed by an arbitrary number of color values. Starts at the given row
+    and PM column and sets the PM color according to the third argument.
+    Continues to read arguments and set them in the color table, moving from
+    left to right and down to the next row in the PM color table until the list
+    of arguments is exhausted or the end of the table is reached.
 
 4 - Colors Scroll Lock: expects 1 parameter (none --> 0, max. 1) - this is
     "locks" scrolling of the color PM underlay. If set to 1 then the colors
@@ -294,6 +294,18 @@ at a time.
     Param 4 (none --> 0, max. 1) - 0 or 1, rotation. If set to 0 scroll will
       behave as normal, and the currently set background color will fill the
       new line. If 1, the new line will be a copy of the line scrolled out.
+
+10 - Set Screen Colors: allows setting the color registers affecting ANTIC mode
+     15 (a.k.a. Graphics 8): COLOR1 (luminance of lit pixels), COLOR2
+     (playfield), COLOR4 (border).
+     Setting no arguments will reset the colors to default.
+     You may specify up to three color values to modify the registers.
+     Keep in mind that the screen is normally inverted from what you'd expect,
+     i.e. the background is actually composed of lit pixels, so setting COLOR1
+     and COLOR2 may have the opposite effect of what you expect. These custom
+     colors are reset by VT100 codes Esc [?5 h or l (screen inverse control),
+     Esc c (reset terminal), the "Reset term" menu entry or the Reset console
+     key.
 
 Special codes transmitted from the Ice-T keyboard:
 

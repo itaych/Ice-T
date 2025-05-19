@@ -646,7 +646,7 @@ resttrm			; Reset most VT100 settings
 	sta wrpmode
 	lda #255
 	sta savcursx
-	sta old_revvid
+	sta old_revvid	; set 255 so that setting either 0 or 1 to revvid will be considered a 'new' value
 
 ; set a tabstop at each multiple of 8 except 0
 	ldx #79
@@ -1891,6 +1891,7 @@ vbi1_rt8_ok
 
 vbi1_donetm
 	; refresh PM color registers as deferred VBI sometimes doesn't do it
+	; (this could have been a loop, saving a few bytes, but VBI prefers speed)
 	lda pcolr0
 	sta colpm0
 	lda pcolr1
@@ -2845,34 +2846,57 @@ calctxln
 	sta ersl+1
 	rts
 
-setcolors		; Set color registers
-	lda bckgrnd
+; Alternate version of setcolors, which ignores overrides (invon and private_colors_set). Note that private_colors_set
+; still affects PM colors (later in the function) but we don't care about that.
+setcolors_ignore_overrides
+	lda bckgrnd	; see below for an explanation of this code, except we ignore invon
 	asl a
 	asl a
 	pha
-	tax
-	ldy #0
-?l
-	lda bckcolr
+	jmp setcolors?no_priv_colors	; skip check of private_colors_set
+
+; Set screen color registers
+setcolors
+	lda bckgrnd	; this is 0 or 1 for normal or inverse screen
+	eor invon
 	asl a
 	asl a
-	asl a
-	asl a
-	clc
-	adc sccolors,x
+	pha			; multiply by 4, also keep for later
+	ldx private_colors_set	; Are private colors set?
+	beq ?no_priv_colors		; no (usual state), go set colors
+	ldy #3
+?priv_lp
+	lda private_colors,y
 	sta color1,y
+	dey
+	bpl ?priv_lp
+	bmi ?skip_colors		; always branches
+	
+?no_priv_colors
+	tax			; bckgrnd*4 is used as an index into sccolors, which has two different 4-byte tables of luminances. 
+	lda bckcolr	; Now get the desired backround hue and shift it to the upper 4 bits  
+	asl a
+	asl a
+	asl a
+	asl a
+	ldy #0		; this loop runs on the screen's color registers, so indexes are 0-3
+?l
+	ora sccolors,x	; A contains the hue bits, now OR it with the luminance bits
+	sta color1,y	; store the color
+	and #$f0		; remove the luminance bits so we can reuse the hue for next iteration	
 	inx
 	iny
 	cpy #4
 	bne ?l
 
+?skip_colors
 	; set up bold2color_xlate table according to background state
 	lda bank1
 	sta banksw
-	pla
+	pla			; recall bckgrnd * 4
 	asl a
-	asl a
-	tax
+	asl a		; multiply by another 4 to get it multiplied by 16.
+	tax			; This will point into bold2color_normal or bold2color_inverse, which are 16 bytes each
 	ldy #0
 ?xlate_lp
 	lda bold2color_normal,x
@@ -2884,19 +2908,25 @@ setcolors		; Set color registers
 	lda banksv
 	sta banksw
 
+	lda private_colors_set	; in case of private colors, don't touch PMs
+	bne ?nopm
 	lda boldallw
+	cmp #2		; in case of 0-1 (no PMs, or PMs enabled for ANSI color) don't touch PM color registers at all here
+	bcc ?nopm
 	cmp #3
-	bne ?nbl
+	bne ?noblink
 	lda color1	; blink - copy color of background (lit pixels) to color 3, which will affect all PMs, so they will hide text
 	sta color3
-?nbl
+?noblink
 	lda color3	; for blink/bold - copy color3 (merged Missile = 5th Player) to all Players.
 	ldx #3
 ?p
 	sta pcolr0,x
 	dex
 	bpl ?p
-	sta bold_default_color	; in case of ANSI colors enabled, remember the color used for boldface characters of default color.
+?nopm
+	lda color3
+	sta bold_default_color	; for case of ANSI colors enabled, remember the color used for boldface characters of default color.
 	rts
 
 ; Boldface routines

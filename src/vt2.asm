@@ -78,13 +78,7 @@ gdopause
 	jmp dopause
 
 do_term_main_display
-	lda bckgrnd
-	pha
-	eor invon
-	sta bckgrnd
 	jsr setcolors
-	pla
-	sta bckgrnd
 	jsr boldon
 	cpy #3			; y contains value of boldallw, 3 means blink
 	bne ?nbl		; If blink - turn blinking characters on by disabling PMs
@@ -1047,6 +1041,7 @@ esccode_resttrm	; c - Reset terminal
 	sta tx
 	jsr resttrm
 	jsr clrscrn
+	jsr setcolors
 	jmp fincmnd_reset_seol
 
 ; process chars after Esc #
@@ -1920,12 +1915,9 @@ nodeccolm
 	bne nodecscnm
 	lda modedo
 	sta invon
-	eor bckgrnd
-	sta bckgrnd
+	lda #0
+	sta private_colors_set
 	jsr setcolors
-	lda bckgrnd
-	eor invon
-	sta bckgrnd
 	jmp fincmnd_domode
 nodecscnm
 	cmp #6	; Set origin mode
@@ -2426,6 +2418,8 @@ icet_privcode_jumptable
 	.word icet_privcode_bold_scroll_down
 	.byte 6
 	.word icet_privcode_bold_scroll_up
+	.byte 10
+	.word icet_privcode_screen_colors
 ; more to come.
 	.byte $ff	; default
 	.word fincmnd
@@ -2488,25 +2482,24 @@ icet_privcode_force_blit	; 2 - force blit a bold character or fill a square
 icet_privcode_set_colors	; 3 - set colors
 	CHECK_PARAMS 1,1,24
 	CHECK_PARAMS 2,1,5
-	lda numstk+1
+	lda numstk+1			; this is the row
 	tay
 	dey
-	lda numstk+2
-	sec
-	sbc #1
-	sta x
-	ldx #2
+	ldx numstk+2			; this is the column
+	dex
+	stx x
+	ldx #2					; so the next inx will bring us to the 3rd argument (first color data)
 ?lp
 	inx
-	cpx numgot
+	cpx numgot				; end of args?
 	bcs ?en
-	stx temp	; remember arg read index
+	stx temp				; remember arg read index
 	ldx x
 	lda boldcolrtables_lo,x
 	sta cntrl
 	lda boldcolrtables_hi,x
 	sta cntrh
-	ldx temp	; reload arg read index
+	ldx temp				; recall arg read index
 	lda numstk,x
 	sta (cntrl),y
 	inc x
@@ -2559,6 +2552,46 @@ icet_privcode_bold_scroll_up
 	dec numstk+1
 	bne ?lp
 	jmp fincmnd
+
+icet_privcode_screen_colors
+	ldx numgot
+	cpx #1					; did we get any arguments (beyond the one which was the command that got us here)?
+	bne ?not1
+	dex
+	stx private_colors_set	; no, restore colors to defaults
+	beq ?en					; always branches
+?not1						; we have at least one argument (beyond the command), x>=2
+	cpx #5					; but we can't have more than 3 so x can be up to 4. Check if x<5.
+	bcc ?ok
+	ldx #4
+?ok
+	dex						; point to last argument in numstk, x was in range 2-4, now 1-3.
+	jsr preserve_screen_colors	; copies current colors to private_colors and sets private_colors_set (x is preserved)
+	; if X=3, this is the background color, write to 4th position in private_colors 
+	cpx #3
+	bne ?lp
+	lda numstk,x
+	sta private_colors,x
+	dex
+?lp						; for X=2 and X=1, write to indexes 1 and 0 of private_colors so subtract 1 from position
+	lda numstk,x
+	sta private_colors-1,x
+	dex
+	bne ?lp				; and end the loop when X reaches zero
+?en
+	jsr setcolors
+	jmp fincmnd
+
+preserve_screen_colors
+	ldy #3
+?lp
+	lda color1,y
+	sta private_colors,y
+	dey
+	bpl ?lp
+	lda #1
+	sta private_colors_set
+	rts
 
 fincmnd_reset_seol
 	jsr reset_seol
@@ -5168,7 +5201,7 @@ txnopc
 	lda #0
 	sta y
 	jsr filline		; for smoother transition to menu, set its pixels to all on before displaying it
-	jsr setcolors
+	jsr setcolors_ignore_overrides	; restore colors to normal (if screen is inverse or colors changed) before switching to menu
 	pla
 	pla
 	ldx #>menudta

@@ -568,7 +568,9 @@ setcol			; Set Background colors
 	jsr menudo1
 	lda menret
 	bmi ?n
-	cmp numb		; no change? nothing to do
+	ldx #0			; since user pressed Return we disable private colors even if the setting wasn't changed
+	stx private_colors_set
+	cmp numb		; no change in the setting? nothing further to do
 	beq ?n
 	tax
 	and #$0f
@@ -579,7 +581,7 @@ setcol			; Set Background colors
 	lsr a
 	lsr a
 	sta bckgrnd
-	jsr setcolors		; set color registers according to new setting
+	jsr setcolors_ignore_overrides	; set color registers according to new setting
 	lda boldallw		; in ANSI colors mode, we've just changed the default bold character color, so clear all PMs
 	cmp #1
 	bne ?noansi

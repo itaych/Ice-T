@@ -52,26 +52,27 @@ scrlbot		.ds 1	; bottom of scrolling area, 1-24
 virtual_led	.ds 1	; LEDs, controlled by Esc[q
 ckeysmod	.ds 1	; Cursor keys mode, controlled by Esc[?1h/l
 bold_scroll_lock	.ds 1	; Private extension: lock scroll of bold underlay.
+private_colors_set	.ds 1	; Private extension: host defined colors are set.
 __term_settings_end		; all settings from __term_settings_start to here are cleared at terminal reset
 
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
 modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
-finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 	.guard *=$79, "keydef at {{*}}, must be $79!"
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
-csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
+finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 	.guard *=$7c, "holdch at {{*}}, must be $7c!"
 holdch		.ds 1	; OS reserved - must equal $7c
+csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 
 ; bold_default_color and bold_current_color must remain together!
 bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
-bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
 
 ; here we pass the $80 line, so everything from here is completely untouched by the OS.
 	.guard *=$80, "zero-page $80 marker is wrong (at {{*}})!"
 
+bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
 last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
 
 bold_scroll_underlay	.ds 1
@@ -190,6 +191,8 @@ prep_boldface_scroll_ret2_scroll_bot	.ds 1
 prep_boldface_scroll_var1_update_top	.ds 1
 prep_boldface_scroll_var1_update_bot	.ds 1
 
+private_colors	.ds 4 ; A private extension allows the host to set screen color registers. Valid if private_colors_set is 1. 
+
 ; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
 ; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
 bank0		.ds 1
@@ -201,7 +204,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 17
+	.ds 12
 	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants
