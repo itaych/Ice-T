@@ -1137,14 +1137,13 @@ yindextab ; table of y offsets (thanks to flashjazzcat for this optimization)
 clrscrn_with_revvid		; Clear screen, respecting revvid flag
 	lda revvid
 	beq clrscrn			; if revvid is off, go to regular clear screen
-	eor eitbit
-	beq ?no_inv_text_mirror
-	lda #128
-?no_inv_text_mirror
-	ora #32
+	asl a
+	ora eitbit
+	tax
+	lda ersline_fillchar,x
 	sta clrscrn?ers_char+1	; replace character that is to be filled into text mirror
 	lda #0
-	sta erslineraw+1		; replace value to be filled in all cleared lines
+	sta erslineraw+1		; replace value to be filled in all cleared bitmap lines
 	jsr clrscrn
 	; undo hacks
 	lda #32
@@ -2606,8 +2605,9 @@ endvbi
 endvvv
 	jmp undefined_addr	; Self-modified
 
-screenget		; Refresh screen
-	asl eitbit
+screenget			; Refresh screen from text mirror
+	asl eitbit		; "print" normally ignores eitbit's normal 0/1 value, but here 1 becomes 2 to flag
+					; that bit 7 means PC character rather than inverse.
 	lda #1
 	sta y
 	ldx #0
@@ -2621,6 +2621,8 @@ screenget		; Refresh screen
 	lda (fltmp),y
 	cmp #32
 	beq ?skip_print		; no need to print spaces
+	cmp #255
+	beq ?skip_print		; this is also a blank character
 	sta prchar
 	sty x
 	txa
@@ -2871,10 +2873,10 @@ setcolors
 	dey
 	bpl ?priv_lp
 	bmi ?skip_colors		; always branches
-	
+
 ?no_priv_colors
-	tax			; bckgrnd*4 is used as an index into sccolors, which has two different 4-byte tables of luminances. 
-	lda bckcolr	; Now get the desired backround hue and shift it to the upper 4 bits  
+	tax			; bckgrnd*4 is used as an index into sccolors, which has two different 4-byte tables of luminances.
+	lda bckcolr	; Now get the desired backround hue and shift it to the upper 4 bits
 	asl a
 	asl a
 	asl a
@@ -2883,7 +2885,7 @@ setcolors
 ?l
 	ora sccolors,x	; A contains the hue bits, now OR it with the luminance bits
 	sta color1,y	; store the color
-	and #$f0		; remove the luminance bits so we can reuse the hue for next iteration	
+	and #$f0		; remove the luminance bits so we can reuse the hue for next iteration
 	inx
 	iny
 	cpy #4
@@ -3151,15 +3153,18 @@ scrllnsv		; Copies top line, when
 	sta banksw
 	rts
 
-lkprlp
+lkprlp				; print a line from the scrollback buffer
 	lda bank3
 	sta banksw
-	asl eitbit
+	asl eitbit		; "print" normally ignores eitbit's normal 0/1 value, but here 1 becomes 2 to flag
+					; that bit 7 means PC character rather than inverse.
 ?lp
 	lda (lookln2),y
-	sta prchar
 	cmp #32
-	beq ?lknopr
+	beq ?lknopr		; no need to print spaces
+	cmp #255
+	beq ?lknopr		; this is also a blank character
+	sta prchar
 	tya
 	pha
 	jsr print

@@ -2567,7 +2567,7 @@ icet_privcode_screen_colors
 ?ok
 	dex						; point to last argument in numstk, x was in range 2-4, now 1-3.
 	jsr preserve_screen_colors	; copies current colors to private_colors and sets private_colors_set (x is preserved)
-	; if X=3, this is the background color, write to 4th position in private_colors 
+	; if X=3, this is the background color, write to 4th position in private_colors
 	cpx #3
 	bne ?lp
 	lda numstk,x
@@ -2766,14 +2766,12 @@ ersfmcurs
 	ldy #78
 	sty x
 ?not_wide
-	; fill with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	; fill with spaces (32) or - if revvid=1 - 32+128 or 255, depending on eitbit
 	lda revvid
-	beq ?no_inv
-	eor eitbit
-	beq ?no_inv
-	lda #128
-?no_inv
-	ora #32
+	asl a
+	ora eitbit
+	tax
+	lda ersline_fillchar,x
 ?txerfm
 	sta (ersl),y
 	iny
@@ -2903,14 +2901,12 @@ erstocurs
 	ldy #78
 	sty x
 ?not_wide
-	; fill with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	; fill with spaces (32) or - if revvid=1 - 32+128 or 255, depending on eitbit
 	lda revvid
-	beq ?no_inv
-	eor eitbit
-	beq ?no_inv
-	lda #128
-?no_inv
-	ora #32
+	asl a
+	ora eitbit
+	tax
+	lda ersline_fillchar,x
 ?txerto
 	sta (ersl),y
 	dey
@@ -3123,6 +3119,16 @@ printerm
 ; bold/unbold is also handled here (note that double-size has its own, simpler logic later because it doesn't have the
 ; issue where we sometimes avoid displaying a space character as bold).
 ptxreg
+	stx outdat+1	; we might set bit 7 here but this would be bad for later, so save current value
+	lda revvid		; is reverse video mode on?
+	beq ?norev		; no, skip this
+	lda eitbit		; are values with bit 7 set considered extended PC characters?
+	bne ?norev		; yes, so we can't set inverse in text mirror.
+	txa
+	ora #128		; set bit 7.
+	tax
+?norev
+
 	ldy x
 	lda (ersl),y
 	sta outdat	; remember character we're overwriting
@@ -3136,7 +3142,7 @@ ptxreg
 	ora revvid	; and also if inverse is on.
 	beq ?skip_bold_char_in_x
 ?overwriting_non_space
-	ldx #255	; change to 255 so we know it's there if it needs to be overwritten later (255 is also a blank character).
+	ldx #255	; change to 255 so we know it's there if it needs to be overwritten later (255 is a blank character).
 ?not_writing_space
 	lda boldface
 	beq ?bold_off
@@ -3159,15 +3165,7 @@ ptxreg
 	pla
 ?skip_bold
 	sta (ersl),y	; write character to text mirror.
-	tax
-	; in case of reverse video set bit 7.
-	lda revvid		; is reverse video mode on?
-	beq notxprn		; no, we're done.
-	lda eitbit		; are values with bit 7 set considered extended PC characters?
-	bne notxprn		; yes, so we can't set inverse in text mirror.
-	txa
-	ora #128		; set bit 7.
-	sta (ersl),y
+	ldx outdat+1	; recover original character; the code below needs it in x
 
 ; done with text mirror
 
@@ -4502,15 +4500,13 @@ ersline
 	sta cntrl
 	lda txlinadr_h-1,x
 	sta cntrh
-	ldy #79
-	; fill with spaces (32) or - if revvid=1 and eitbit=0 - add 128
+	; fill with spaces (32) or - if revvid=1 - 32+128 or 255, depending on eitbit
 	lda revvid
-	beq ?no_inv
-	eor eitbit
-	beq ?no_inv
-	lda #128
-?no_inv
-	ora #32
+	asl a
+	ora eitbit
+	tax
+	lda ersline_fillchar,x
+	ldy #79
 ?lp
 	sta (cntrl),y
 	dey
@@ -4772,10 +4768,10 @@ lkzro
 	sbc #$3f
 	sta lookln2+1
 ?ok
-	jsr lkprlp
+	jsr lkprlp			; go print a line from the scrollback buffer
 	jmp lkdnprdn
 
-lkoky
+lkoky					; print a line from the text mirror
 	tax
 	lda txlinadr_l-1,x
 	sta lookln2
@@ -4786,7 +4782,9 @@ lkdnprlp
 	lda (lookln2),y
 	sta prchar
 	cmp #32
-	beq lkdnnopr
+	beq lkdnnopr		; no need to print spaces
+	cmp #255
+	beq lkdnnopr		; this is also a blank character
 	tya
 	pha
 	jsr print

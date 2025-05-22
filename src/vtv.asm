@@ -191,7 +191,7 @@ prep_boldface_scroll_ret2_scroll_bot	.ds 1
 prep_boldface_scroll_var1_update_top	.ds 1
 prep_boldface_scroll_var1_update_bot	.ds 1
 
-private_colors	.ds 4 ; A private extension allows the host to set screen color registers. Valid if private_colors_set is 1. 
+private_colors	.ds 4 ; A private extension allows the host to set screen color registers. Valid if private_colors_set is 1.
 
 ; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
 ; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
@@ -841,6 +841,10 @@ sparta_tdline_sym	.byte "I_TDON  "
 
 ; Table for filling screen memory depending on revvid
 revvid_fill_tbl	.byte 255, 0
+
+; When erasing parts of the screen, fill the text mirror according to this table, where the index
+; is calculated by revvid*2 + eitbit.
+ersline_fillchar .byte 32, 32, 32+128, 255
 
 ;  End of data (For menu data see VTDT, VT23)
 
