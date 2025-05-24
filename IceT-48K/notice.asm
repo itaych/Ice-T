@@ -88,7 +88,7 @@ text
 	.byte ""?" (Shift-?) for instructions.         "
 	.byte "                                        "
 	.byte "If you wish to erase this message,      "
-	.byte "delete NOTICE.AR0.                      "
+	.byte "delete AUTORUN.SYS.                     "
 	.byte "                                        "
 	.byte " Hit any key to continue.               "
 clear

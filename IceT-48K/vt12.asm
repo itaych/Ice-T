@@ -1039,11 +1039,16 @@ calcbufln ; Calculate mybcount
 	sec
 	lda bufput
 	sbc bufget
-	sta mybcount
+	tax
 	lda bufput+1
 	sbc bufget+1
+	tay
+	txa
 	clc
-	adc #$40 ; bug, should be #>(buftop-buffer)
+	adc #<(buftop-buffer)
+	sta mybcount
+	tya
+	adc #>(buftop-buffer) ; was #$40
 	sta mybcount+1
 ?ok
 	rts
