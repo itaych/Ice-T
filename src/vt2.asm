@@ -1184,6 +1184,8 @@ szprloop				; redraw line
 	lda changesize_templine,x
 	cmp #32
 	beq ?s				; skip spaces
+	cmp #255
+	beq ?s				; skip invisible markers
 	cmp #128
 	bcc ?i
 	and #127			; 128 and over is in inverse
