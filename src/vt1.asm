@@ -186,24 +186,8 @@ init_continued
 	sta fastr
 
 	; setup PMs
-	jsr boldoff	; ensures nothing is displayed even when we move players onto the screen
-	lda #$ff
-	sta sizem
-	lda #$80
-	sta pmbase
-	ldx #3
-?pm_lp
-	lda #3
-	sta sizep0,x
-	lda pmhoztbl_players,x
-	sta hposp0,x
-	lda pmhoztbl_missiles,x
-	sta hposm0,x
-	dex
-	bpl ?pm_lp
-	lda #$11	; Players in front of playfield; group missiles into fifth player
-	sta gprior
-
+	jsr boldoff		; ensures nothing is displayed even when we move players onto the screen
+	jsr reset_pms	; reset PM sizes, positions, priority
 	jsr rslnsize	; reset all line sizes
 
 	lda #<buffer	; Initialize serial port input buffer
@@ -1795,15 +1779,15 @@ dli
 	pha
 	ldx dli_counter
 	lda colortbl_0,x
-	sta colpf3			; missiles (leftmost column)
-	lda colortbl_1,x
 	sta colpm0
-	lda colortbl_2,x
+	lda colortbl_1,x
 	sta colpm1
-	lda colortbl_3,x
+	lda colortbl_2,x
 	sta colpm2
-	lda colortbl_4,x
+	lda colortbl_3,x
 	sta colpm3
+	lda colortbl_4,x
+	sta colpf3			; missiles (rightmost column)
 	inx
 	stx dli_counter		; increment index for next DLI
 	pla
@@ -2981,22 +2965,41 @@ boldoff			; Disable PMs
 	sta sdmctl
 	rts
 
-pmhoztbl_players	.byte 80,112,144,176
-pmhoztbl_missiles	.byte 72,64,56,48
+reset_pms		; Reset PM positions, sizes, priority
+	lda #$ff
+	sta sizem
+	lda #$80
+	sta pmbase
+	ldx #3
+?pm_lp
+	lda #3
+	sta sizep0,x
+	lda pmhoztbl_players,x
+	sta hposp0,x
+	lda pmhoztbl_missiles,x
+	sta hposm0,x
+	dex
+	bpl ?pm_lp
+	lda #$11	; Players in front of playfield; group missiles into fifth player
+	sta gprior
+	rts
+
+pmhoztbl_players	.byte 48,80,112,144
+pmhoztbl_missiles	.byte 200,192,184,176
 
 ; for the first line we update the shadow registers, so the hardware registers are updated during VBI,
 ; preventing the need for a DLI before the first line.
 update_colors_line0
 	lda colortbl_0
-	sta color3
-	lda colortbl_1
 	sta pcolr0
-	lda colortbl_2
+	lda colortbl_1
 	sta pcolr1
-	lda colortbl_3
+	lda colortbl_2
 	sta pcolr2
-	lda colortbl_4
+	lda colortbl_3
 	sta pcolr3
+	lda colortbl_4
+	sta color3
 	rts
 
 boldclr			; Clear boldface PMs
@@ -3826,8 +3829,8 @@ initial_program_entry
 ?device_h_pos .byte 255
 
 ; offsets to each PM for bold (5 hi, 5 lo)
-?tb_hi	.byte	$00,$00,$01,$01,$02
-?tb_lo	.byte	$00,$80,$00,$80,$00
+?tb_hi	.byte	$00,$01,$01,$02,$00
+?tb_lo	.byte	$80,$00,$80,$00,$00
 
 ; Make sure we're not conflicting with data tables created by this routine, or fonts
 	.guard * <= macro_data, "initial_program_entry too large (by {{%1}} bytes)!", [* - macro_data]

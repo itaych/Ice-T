@@ -1042,6 +1042,7 @@ esccode_resttrm	; c - Reset terminal
 	jsr resttrm
 	jsr clrscrn
 	jsr setcolors
+	jsr reset_pms
 	jmp fincmnd_reset_seol
 
 ; process chars after Esc #

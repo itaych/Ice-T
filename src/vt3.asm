@@ -716,6 +716,7 @@ rsttrm			; Reset terminal settings
 	ldy #<settmrw
 	jsr drawwin
 	jsr resttrm
+	jsr reset_pms
 	jsr getkeybuff
 	jmp bkopt
 
