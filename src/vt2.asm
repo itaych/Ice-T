@@ -3512,7 +3512,7 @@ boldbok
 	bne ?nocolor
 	tya
 	pha
-	lda boldcolrtables_lo,x
+	lda boldcolrtables_lo,x	; get address of color table for this PM
 	sta ?coloraddr+1
 	lda boldcolrtables_hi,x
 	sta ?coloraddr+2
@@ -3620,11 +3620,6 @@ bolduok
 ; set an entire line at 'y' to bold. This basically calls dobold 5 times, once for each PM. We hack the 'boldwr' table's
 ; first entry to fill in the entire width of the player when normally it would only light one pixel.
 dobold_fill_line
-	lda bold_scroll_underlay
-	bne ?normal
-	lda #0			; this hack prevents dobold from painting anything (but it does set the PM color which we do want).
-	.byte BIT_skip2bytes
-?normal
 	lda #$ff
 	sta boldwr		; this hack means we can call dobold for 1 character but miraculously 8 pixels get lit
 	lda #0
@@ -3823,6 +3818,16 @@ doscroldn_underlay
 	ora bold_scroll_rotate
 	sta ?reset_scroll_limits_flag
 
+	; get boldface default color. This is the color that will be set for lines scrolled in.
+?boldface_default_color = numb+1
+	lda boldface
+	and #$04				; check bit 2 to see which of the two colors we're using
+	lsr a
+	lsr a
+	tax
+	lda bold_default_color,x
+	sta ?boldface_default_color
+
 ; Scroll boldface info DOWN
 
 	ldx #4
@@ -3866,7 +3871,7 @@ doscroldn_underlay
 	sta prfrom+1
 
 	lda bold_scroll_underlay
-	beq ?skip_scroll_underlay
+	beq ?skip_scroll_underlay	; this check could have been done a little bit earlier but then the branch would be out of range.
 
 	tya				; restore return value from prep_boldface_scroll
 	beq ?mlp_skip	; nothing to do for this PM
@@ -3965,9 +3970,10 @@ doscroldn_underlay
 	cpy prep_boldface_scroll_ret2_scroll_bot
 	beq ?cend
 
-	; In case of rotating, get the content of top line and store in temp. Else, store a zero.
-	lda bold_scroll_rotate
+	; In case of rotating, get the color of top line and store in temp. Else, store the current default color.
+	lda ?boldface_default_color
 	sta temp
+	lda bold_scroll_rotate
 	beq ?clp
 	lda (cntrl),y
 	sta temp
@@ -3991,9 +3997,9 @@ doscroldn_underlay
 	lda bold_scroll_rotate
 	bne ?no_backgrnd		; but if we're rotating, don't do anything with the new line
 	lda bold_scroll_underlay
-	beq ?ok_backgrnd		; also, if bold_scroll_underlay=1 and bold_scroll_colors=0 do not fill line.
-	lda bold_scroll_colors	; it's not a very well defined case, filling the line here would probably look ugly
-	beq ?no_backgrnd
+	beq ?no_backgrnd		; and if we haven't scrolled the underlay bitmap, don't fill in the new line either.
+	lda bold_scroll_colors	; also, if bold_scroll_underlay=1 and bold_scroll_colors=0 do not fill line.
+	beq ?no_backgrnd		; it's not a very well defined case, filling the line here would probably look ugly
 ?ok_backgrnd
 	lda boldface
 	and #$08				; check if a background color is set
@@ -4154,6 +4160,16 @@ doscrolup_underlay
 	ora bold_scroll_rotate
 	sta ?reset_scroll_limits_flag
 
+	; get boldface default color. This is the color that will be set for lines scrolled in.
+?boldface_default_color = numb+1
+	lda boldface
+	and #$04				; check bit 2 to see which of the two colors we're using
+	lsr a
+	lsr a
+	tax
+	lda bold_default_color,x
+	sta ?boldface_default_color
+
 ; Scroll boldface info UP
 
 	ldx #4
@@ -4197,7 +4213,7 @@ doscrolup_underlay
 	sta prfrom+1
 
 	lda bold_scroll_underlay
-	beq ?skip_scroll_underlay
+	beq ?skip_scroll_underlay	; this check could have been done a little bit earlier but then the branch would be out of range.
 
 	tya				; restore return value from prep_boldface_scroll
 	beq ?mlp_skip	; nothing to do for this PM
@@ -4302,9 +4318,10 @@ doscrolup_underlay
 	cpy prep_boldface_scroll_ret1_scroll_top
 	beq ?cend
 
-	; In case of rotating, get the content of bottom line and store in temp. Else, store a zero.
-	lda bold_scroll_rotate
+	; In case of rotating, get the color of bottom line and store in temp. Else, store the current default color.
+	lda ?boldface_default_color
 	sta temp
+	lda bold_scroll_rotate
 	beq ?clp
 	lda (cntrl),y
 	sta temp
@@ -4329,9 +4346,9 @@ doscrolup_underlay
 	lda bold_scroll_rotate
 	bne ?no_backgrnd		; but if we're rotating, don't do anything with the new line
 	lda bold_scroll_underlay
-	beq ?ok_backgrnd		; also, if bold_scroll_underlay=1 and bold_scroll_colors=0 do not fill line.
-	lda bold_scroll_colors	; it's not a very well defined case, filling the line here would probably look ugly
-	beq ?no_backgrnd
+	beq ?no_backgrnd		; and if we haven't scrolled the underlay bitmap, don't fill in the new line either.
+	lda bold_scroll_colors	; also, if bold_scroll_underlay=1 and bold_scroll_colors=0 do not fill line.
+	beq ?no_backgrnd		; it's not a very well defined case, filling the line here would probably look ugly
 ?ok_backgrnd
 	lda boldface
 	and #$08				; check if a background color is set
