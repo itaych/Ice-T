@@ -1,0 +1,2 @@
+# AnimationDemo
+This is a demonstration of the private extensions added to Ice-T since version 2.8.0. The `icetdemo.vt` file is the standard output obtained by running `animation_demo.cpp`. Please see the `vt102.txt` file for further details of these added control codes.

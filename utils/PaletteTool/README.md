@@ -1,0 +1,2 @@
+# PaletteTool
+This tool was used to generate the table `xterm_index_to_atari` in `vt2.asm`. The goal of this table is to convert from a color value described [here](https://en.wikipedia.org/wiki/ANSI_escape_code#8-bit) to an Atari color. I started with a Python script originating at that same link, which converted the Xterm index value to an RGB color. Then I added code that searched the Altirra palette for the Atari color nearest to the required RGB color.

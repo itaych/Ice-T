@@ -172,7 +172,8 @@ ANSI allows defining the background and foreground colors separately but this
 is impossible in ANTIC F (Graphics 8) mode which Ice-T uses. So for a colored
 character the foreground and background colors are the same. If different
 background and foreground colors are specified the background color takes
-priority and foreground is ignored.
+priority and foreground is ignored. If only a foreground color is specified
+then spaces are not painted with the color.
 
 Esc [ __ ; ... ; __ q Virtual LEDs control. 0 turns all off, 1-4 turns on the
             respective LED.
@@ -306,6 +307,74 @@ at a time.
      colors are reset by VT100 codes Esc [?5 h or l (screen inverse control),
      Esc c (reset terminal), the "Reset term" menu entry or the Reset console
      key.
+
+The following five commands allow direct control of P/M graphics. This document
+assumes the reader is familiar with the relevant hardware capabilities. Note
+that misuse of these commands can easily render the color underlay unusable, or
+cause a garbage screen display. In any case, you can reset things to normal
+with an "Esc c" code, the "Reset term" menu entry, or the console Reset button.
+Note that player graphics are in double line resolution and this may not be
+changed.
+
+As explained in command 10 above, the screen background is normally composed of
+lit pixels which will mostly obscure any players you may want to draw (their
+luminance will be forced to the background's luminance). To work around this
+you may emit the following series of codes:
+Esc [0;7m Esc [2J
+This resets the graphic rendition and sets inverse mode, then it clears the
+screen with inverse mode still active. The effect of this is that the screen
+will be filled with inverse spaces, which are actually zero bytes. Further
+text that will be written will also be in inverse. Note that to prevent the
+screen from appearing inverse to the user it's recommended to invert the screen
+colors using command 10.
+An example of such a transition (with some additional codes to make it less
+visible to the user) may be found in the example animation created by
+animation_demo.cpp.
+
+11 - Player Control. Allows direct control of player position, size and color.
+    Param 1 (mandatory, 0-7) - 0-3 selects a player, 4-7 selects a missile.
+    Param 2 (mandatory) - set horizontal position. Note that the 4 players and
+      4 missiles are normally positioned at:
+      48, 80, 112, 144, 200, 192, 184, 176
+    Param 3 (optional) - set player width. For players 0-3 the valid values are
+      0-3. For players 4-7 the given value is written as-is to register SIZEM,
+      affecting all missiles.
+    Param 4 (optional) - set player color. For players 4-7 the value is always
+      written to COLOR3 (the "5th player" color register), affecting all
+      missiles unless set otherwise in GPRIOR (see below). Note that setting a
+      player color using this command will immediately disable the DLI
+      normally used for changing the PM colors for each text line. It will also
+      disable any update to the boldface underlay when text is rendered (i.e.
+      no bold text or automatic coloring) and prevent scrolling of the boldface
+      underlay when the text screen is scrolled. If you don't want these
+      changes to happen, use command 3 (Set Colors, described above) instead.
+      This state can be undone by resetting the terminal with the code Esc c.
+
+12 - GPRIOR Control.
+    Param 1 (none --> 17 or $11) - value is masked with $3F (to disable the
+      highest 2 bits, which would garble the display) and written to GPRIOR.
+
+13 - PM Fill Region. Fills a block of PM memory.
+    Param 1 (mandatory, 0-4) - 0-3 selects a player, 4 selects the missiles.
+    Param 2 (mandatory, 0-127) - start offset of area to fill.
+    Param 3 (mandatory) - size of area to fill.
+    Param 4 (none --> 0) - value to fill.
+
+14 - Set PM Shape. Fills a region of PM memory with a given bitmap.
+    Param 1 (mandatory, 0-4) - 0-3 selects a player, 4 selects the missiles.
+    Param 2 (mandatory, 0-127) - start offset of area to fill.
+    Param 3 and on - data of bitmap to apply into PM memory.
+
+15 - Move PM Shape. Copies memory within the PM area.
+    Param 1 (mandatory, 0-4) - 0-3 selects a player, 4 selects the missiles.
+    Param 2 (mandatory, 0-127) - source offset of area to copy.
+    Param 3 (mandatory, 0-127) - destination offset of area to copy.
+    Param 4 (mandatory) - size of area to copy.
+
+20 - Get Inputs. Arguments are ignored. Ice-T will respond with 8 hexadecimal
+      digits, each containing values read from the following locations:
+      stick0; stick1; strig0 and strig1, in bits 0 and 1 respectively; consol;
+      paddl0 (two digits); paddl1 (two digits).
 
 Special codes transmitted from the Ice-T keyboard:
 

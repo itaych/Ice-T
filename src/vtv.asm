@@ -51,27 +51,27 @@ scrltop		.ds 1	; top of scrolling area, 1-24
 scrlbot		.ds 1	; bottom of scrolling area, 1-24
 virtual_led	.ds 1	; LEDs, controlled by Esc[q
 ckeysmod	.ds 1	; Cursor keys mode, controlled by Esc[?1h/l
-bold_scroll_lock	.ds 1	; Private extension: lock scroll of bold underlay.
-private_colors_set	.ds 1	; Private extension: host defined colors are set.
+bold_scroll_lock		.ds 1	; Private extension: lock scroll of bold underlay.
+private_colors_set		.ds 1	; Private extension: host defined colors are set.
+private_pm_colors_set	.ds 1	; Private extension: host defined colors are set for PMs.
 __term_settings_end		; all settings from __term_settings_start to here are cleared at terminal reset
 
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
-modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
 	.guard *=$79, "keydef at {{*}}, must be $79!"
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
-finnum		.ds 1	; currently parsed decimal number in Esc command sequence
+modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
 	.guard *=$7c, "holdch at {{*}}, must be $7c!"
+finnum		.ds 1	; currently parsed decimal number in Esc command sequence
 holdch		.ds 1	; OS reserved - must equal $7c
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
 
-; bold_default_color and bold_current_color must remain together!
-bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
-
 ; here we pass the $80 line, so everything from here is completely untouched by the OS.
 	.guard *=$80, "zero-page $80 marker is wrong (at {{*}})!"
 
+; bold_default_color and bold_current_color must remain together!
+bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
 bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
 last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
 
@@ -204,7 +204,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 12
+	.ds 11
 	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants
@@ -474,6 +474,12 @@ sdlstl	=	$230	; Display list pointer
 brkky	=	$236	; BREAK key vector
 coldst	=	$244	; Coldstart flag
 gprior	=	$26f	; Priority selection register
+paddl0	=	$270	; Paddle 0 position
+paddl1	=	$271	; Paddle 1 position
+stick0	=	$278	; Joystick 0 value
+stick1	=	$279	; Joystick 1 value
+strig0	=	$284	; Joystick 0 trigger
+strig1	=	$285	; Joystick 1 trigger
 pcolr0	=	$2c0	; Player 0 color
 pcolr1	=	$2c1	; Player 1 color
 pcolr2	=	$2c2	; Player 2 color
@@ -508,7 +514,7 @@ banked_memory_top		=	$8000
 ; Hardware registers
 ; GTIA
 hposp0	=	$d000	; Player horizontal positions (4 registers)
-hposm0	=	$d004	; Missile  horizontal positions (4 registers)
+hposm0	=	$d004	; Missile horizontal positions (4 registers)
 sizep0	=	$d008	; Player sizes (4 registers)
 sizem	=	$d00c	; Missile sizes (4 registers)
 grafp0	=	$d00d	; PM display data, used when Antic DMA is disabled (5 registers)

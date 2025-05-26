@@ -2894,7 +2894,8 @@ setcolors
 	lda banksv
 	sta banksw
 
-	lda private_colors_set	; in case of private colors, don't touch PMs
+	lda private_colors_set	; in case of private colors (for screen or PMs), don't touch PMs
+	ora private_pm_colors_set
 	bne ?nopm
 	lda boldallw
 	cmp #2		; in case of 0-1 (no PMs, or PMs enabled for ANSI color) don't touch PM color registers at all here
@@ -2938,6 +2939,8 @@ boldon			; Enable PMs. return value of boldallw in Y.
 	sta sdmctl
 	sta dmactl
 	cpy #1		; color enabled (ANSI mode)? turn on DLI
+	bne ?o
+	lda private_pm_colors_set	; in case of private PM colors, don't set PM colors or enable DLI
 	bne ?o
 	jsr update_colors_line0
 	lda #nmien_DLI_ENABLE

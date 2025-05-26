@@ -2423,7 +2423,18 @@ icet_privcode_jumptable
 	.word icet_privcode_bold_scroll_up
 	.byte 10
 	.word icet_privcode_screen_colors
-; more to come.
+	.byte 11
+	.word icet_privcode_pm_settings
+	.byte 12
+	.word icet_privcode_gprior
+	.byte 13
+	.word icet_privcode_pm_fill_mem
+	.byte 14
+	.word icet_privcode_pm_set_mem
+	.byte 15
+	.word icet_privcode_pm_copy_mem
+	.byte 20
+	.word icet_privcode_get_inputs
 	.byte $ff	; default
 	.word fincmnd
 icet_privcode_jumptable_end
@@ -2595,6 +2606,233 @@ preserve_screen_colors
 	lda #1
 	sta private_colors_set
 	rts
+
+icet_privcode_pm_settings
+	lda numgot
+	cmp #3
+	bcc ?en				; must have at least 3 params (cmd + first 2 args)
+	lda isbold			; is PM underlay on?
+	bne ?ok
+	lda #1				; no, we want to turn it on.
+	sta boldypm			; Hack to mark that at least one PM has valid data
+	jsr boldon			; and turn on bold underlay so that players are visible
+?ok
+	ldy numstk+1		; arg1: player number 0-7 (4 players, 4 missiles) into y
+	cpy #8
+	bcs ?en
+	lda numstk+2		; arg2: horizontal position
+	sta hposp0,y		; player and missile horiz. registers are contiguous
+	ldx #3
+	cpx numgot
+	bcs ?en
+	cpy #5				; for the following args, if they apply to missiles (player 4-7) change to 4
+	bcc ?under5			; so if Y is 5 or above change it to 4
+	ldy #4
+?under5
+	lda numstk,x		; arg3: player width
+	sta sizep0,y
+	inx
+	cpx numgot
+	bcs ?en
+	lda #nmien_DLI_DISABLE	; If we're setting a color, disable the color changing DLI
+	sta nmien
+	lda #1
+	sta private_pm_colors_set	; and indicate that we're in private PM colors mode
+	lda numstk,x		; arg4: player color
+	cpy #4
+	bne ?no4
+	sta color3			; color of fifth player
+	jmp fincmnd
+?no4
+	sta pcolr0,y		; for players 0-3
+?en
+	jmp fincmnd
+
+icet_privcode_gprior
+	ldx #1
+	cpx numgot
+	bcs ?default
+	lda numstk,x		; arg1: value to set into gprior
+	and #$3f			; allow only the lower 6 bits
+	.byte BIT_skip2bytes
+?default
+	lda #$11			; default value, same as the one in reset_pms
+	sta gprior
+	jmp fincmnd
+
+icet_privcode_pm_fill_mem
+	lda numgot
+	cmp #4
+	bcc ?en				; must have at least 4 params (cmd + first 3 args)
+	ldy numstk+1		; arg1: player number 0-4 (4 players and combined missiles) into y
+	cpy #5
+	bcs ?en
+	lda boldtbpl,y
+	sta ?player_base_addr+1
+	lda boldtbph,y
+	sta ?player_base_addr+2
+	lda numstk+2		; arg2: start offset (0-127 due to double line resolution)
+	bmi ?en
+	sta ?offset+1
+	ldy numstk+3		; arg3: size
+	beq ?en
+	ldx #4
+	cpx numgot
+	bcs ?zero_byte
+	lda numstk,x		; arg4: byte to fill, default 0
+	.byte BIT_skip2bytes
+?zero_byte
+	lda #0
+?offset
+	ldx #undefined_val
+?lp
+?player_base_addr
+	sta undefined_addr,x
+	inx
+	bmi ?en
+	dey
+	bne ?lp
+?en
+	jmp fincmnd
+
+icet_privcode_pm_set_mem
+	lda numgot
+	cmp #4
+	bcc ?en				; must have at least 4 params (cmd + first 3 args)
+	ldy numstk+1		; arg1: player number 0-4 (4 players and combined missiles) into y
+	cpy #5
+	bcs ?en
+	lda boldtbpl,y
+	sta ?player_base_addr+1
+	lda boldtbph,y
+	sta ?player_base_addr+2
+	ldy numstk+2		; arg2: start offset (0-127 due to double line resolution)
+	bmi ?en
+	ldx #3
+?lp
+	lda numstk,x		; args 3 and on: player bitmap data
+?player_base_addr
+	sta undefined_addr,y
+	inx
+	cpx numgot
+	bcs ?en
+	iny
+	bpl ?lp
+?en
+	jmp fincmnd
+
+icet_privcode_pm_copy_mem
+;    cmd 14: copy memory in PM. PM#, src_offset, dst_offset, size.
+?src_offset=numb
+?dst_offset=numb+1
+?size=numb+2
+?player_num=temp
+;?asd jmp ?asd
+	lda numgot
+	cmp #5
+	bcc ?en		; must have 5 params (cmd + 4 args)
+	lda numstk+1		; arg1: player number 0-4 (4 players and combined missiles) into y
+	cmp #5
+	bcs ?en
+	sta ?player_num
+	lda numstk+4		; arg4: size
+	beq ?en
+	sta ?size
+	lda numstk+2		; arg2: source offset
+	sta ?src_offset
+	lda numstk+3		; arg3: dest offset
+	sta ?dst_offset
+	cmp ?src_offset
+	beq ?en
+	bcs ?reverse_cpy
+	; simple case: dst < src - forward copy
+	tay					; dest offset in Y
+	bmi ?en
+	ldx ?player_num
+	lda boldtbpl,x
+	sta ?addr1+1
+	sta ?addr2+1
+	lda boldtbph,x
+	sta ?addr1+2
+	sta ?addr2+2
+	ldx ?src_offset		; src offset in X
+	bmi ?en
+?fwd_lp
+?addr1
+	lda undefined_addr,x
+?addr2
+	sta undefined_addr,y
+	iny
+	inx
+	bmi ?en				; we only check if src is overflowing because src > dst
+	dec ?size
+	bne ?fwd_lp
+	beq ?en				; always branches
+
+?reverse_cpy
+	; more complicated case: src < dst - reverse copy
+	clc
+	adc ?size
+	tay					; dest offset in Y
+	ldx ?player_num
+	lda boldtbpl,x
+	sta ?addr3+1
+	sta ?addr4+1
+	lda boldtbph,x
+	sta ?addr3+2
+	sta ?addr4+2
+	lda ?src_offset
+	clc
+	adc ?size
+	tax					; src offset in X
+?rev_lp
+	dex
+	dey					; we only check if dst is overflowing because dst > src (and only dst is potentially dangerous)
+	bmi ?skip			; skip this copy but don't abort, we may enter valid region later
+?addr3
+	lda undefined_addr,x
+?addr4
+	sta undefined_addr,y
+?skip
+	dec ?size
+	bne ?rev_lp
+?en
+	jmp fincmnd
+
+icet_privcode_get_inputs
+	lda stick0
+	jsr ?output_hex_digit	; stick0, 1 hex digit
+	lda stick1
+	jsr ?output_hex_digit	; stick1, 1 hex digit
+	lda strig1
+	asl a
+	ora strig0
+	jsr ?output_hex_digit	; strig0-1, 1 hex digit
+	lda consol
+	jsr ?output_hex_digit	; consol, 1 hex digit
+	lda paddl0
+	jsr ?output_hex_2digits	; paddl0, 2 hex digits
+	lda paddl1
+	jsr ?output_hex_2digits	; paddl1, 2 hex digits
+	jmp fincmnd
+?output_hex_2digits
+	pha
+	lsr a
+	lsr a
+	lsr a
+	lsr a
+	jsr ?output_hex_digit
+	pla
+?output_hex_digit
+	and #$0f
+	; This code converts a hex digit 0 to F (i.e. the accumulator $00 to $0F) to $30 to $39 (for 0 to 9)
+	; and $41 to $46 (for A to F).
+	cmp #$0a
+	bcc ?skip
+	adc #$66 ; Add $67 (the carry is set), convert $0A to $0F --> $71 to $76
+?skip
+	eor #$30 ; Convert $00 to $09, $71 to $76 --> $30 to $39, $41 to $46
+	jmp rputch
 
 fincmnd_reset_seol
 	jsr reset_seol
@@ -3507,6 +3745,9 @@ boldbok
 	lda #1
 	sta boldypm,x	; flag that this PM now contains lit pixels
 
+	lda private_pm_colors_set	; if PM "private" colors are set, don't touch PMs.
+	bne dobold_abort
+
 	; update PM color table, if in color mode
 	lda boldallw
 	cmp #1
@@ -3592,6 +3833,8 @@ bolduok
 	tax
 	and #7
 	tay
+	lda private_pm_colors_set	; if PM "private" colors are set, don't touch PMs.
+	bne ?q
 	lda boldpmus,x
 	tax
 	lda boldypm,x	; does this PM contain no lit pixels? in that case - quit.
@@ -3792,6 +4035,7 @@ nodotxsc
 	lda outnum
 	bmi ?no_bold_scroll
 	lda bold_scroll_lock	; bold scroll lock? we're done
+	ora private_pm_colors_set	; if PM private colors are set, don't scroll either
 	beq ?no_scklk
 ?no_bold_scroll
 	rts
@@ -4135,6 +4379,7 @@ scrlup			; SCROLL UP
 	sta crsscrl
 
 	lda bold_scroll_lock	; bold scroll lock? we're done
+	ora private_pm_colors_set	; if PM private colors are set, don't scroll either
 	beq ?no_scklk
 	rts
 ?no_scklk
