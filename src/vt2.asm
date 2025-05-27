@@ -1264,25 +1264,18 @@ brakpro			; Get numerical arguments and command after 'Esc ['
 ?not_param
 	cmp #'9+1
 	bcs ?not_digit
-	; we got a digit, 0-9
-	sec
-	sbc #'0
-	sta temp
-	lda finnum
-	cmp #255
-	bne ?mltpl10
-	lda temp
+	; we got a digit, 0-9, which is one in a series of digits composing a number. Numbers larger than 255 will
+	; result in some garbage value being parsed; there is no error checking. 
+	and #$f		; fun fact: the low 4 bits of an ASCII digit contain its numerical value. 
+	ldx finnum	; =255 if no digits have been read yet, but no higher than 25 if digits have been read
+	bpl ?mltpl10	; so checking N flag is enough to determine whether this was the first digit or not
+	sta finnum	; this is the first digit, store it as-is
+	rts
+?mltpl10		; multiply current number by 10 and add the new number
+	adc ?mult10tbl,x	; no need for clc since c is known to be 0
 	sta finnum
 	rts
-?mltpl10
-	lda finnum	; multiply existing value by 10
-	asl a		; (we assume high bits are 0 so carry gets cleared)
-	asl a
-	adc finnum
-	asl a
-	adc temp	; and add new digit
-	sta finnum
-	rts
+?mult10tbl .byte 0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250
 ?not_digit		; not a digit, so the number is complete. add it to arguments stack.
 	; in case of no args at all, a spurious 255 argument may be added to the stack. this doesn't matter.
 	tay
