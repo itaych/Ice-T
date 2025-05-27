@@ -4138,21 +4138,22 @@ doscroldn_underlay
 ?sb2
 	ldy prep_boldface_scroll_ret2_scroll_bot
 	lda boldytb,y
-	sta s764		; offset in PM of lower limit of this scroll operation
+?lower_limit_in_pm = s764	; reuse this variable as offset in PM of lower limit of this scroll operation
+	sta ?lower_limit_in_pm
 
 	ldy prep_boldface_scroll_ret1_scroll_top
 	lda boldytb,y
 	tay				; offset in PM of upper limit of this scroll operation
 
-	cpy s764
-	beq ?end		; nothing to scroll (just one line so blank it)
-
 	; In case of rotating, get the content of top line and store in temp. Else, store a zero.
 	lda bold_scroll_rotate
 	sta temp
-	beq ?lp
+	beq ?tempok
 	lda (cntrl),y
 	sta temp
+?tempok
+	cpy ?lower_limit_in_pm
+	beq ?end		; nothing to scroll (just one line so blank it)
 
 ?lp
 	lda (prfrom),y	; Scroll it! Load from lower line (offset+4)
@@ -4166,7 +4167,7 @@ doscroldn_underlay
 	iny
 	sta (cntrl),y
 	iny
-	cpy s764
+	cpy ?lower_limit_in_pm
 	bcc ?lp
 	bcs ?end
 ?lk
@@ -4174,7 +4175,7 @@ doscroldn_underlay
 	iny
 	iny
 	iny
-	cpy s764
+	cpy ?lower_limit_in_pm
 	bcc ?lp
 ?end
 	lda temp		; value to be placed in lowest line (the new line), normally 0 unless we're rotating
@@ -4483,7 +4484,8 @@ doscrolup_underlay
 	lda boldytb,y
 	clc
 	adc #3
-	sta s764		; offset in PM of upper limit of this scroll operation
+?upper_limit_in_pm = s764	; reuse this variable as offset in PM of upper limit of this scroll operation
+	sta ?upper_limit_in_pm
 
 	ldy prep_boldface_scroll_ret2_scroll_bot
 	lda boldytb,y
@@ -4491,15 +4493,15 @@ doscrolup_underlay
 	adc #3
 	tay				; offset in PM of lower limit of this scroll operation
 
-	cpy s764
-	beq ?end		; nothing to scroll (just one line so blank it)
-
 	; In case of rotating, get the content of bottom line and store in temp. Else, store a zero.
 	lda bold_scroll_rotate
 	sta temp
-	beq ?lp
+	beq ?tempok
 	lda (cntrl),y
 	sta temp
+?tempok
+	cpy ?upper_limit_in_pm
+	beq ?end		; nothing to scroll (just one line so blank it)
 
 ?lp
 	lda (prfrom),y	; Scroll it! Load from upper line (offset-4)
@@ -4513,7 +4515,7 @@ doscrolup_underlay
 	dey
 	sta (cntrl),y
 	dey
-	cpy s764
+	cpy ?upper_limit_in_pm
 	beq ?end
 	bcs ?lp
 	bcc ?end
@@ -4522,7 +4524,7 @@ doscrolup_underlay
 	dey
 	dey
 	dey
-	cpy s764
+	cpy ?upper_limit_in_pm
 	beq ?end
 	bcs ?lp
 ?end
