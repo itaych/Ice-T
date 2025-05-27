@@ -1057,3 +1057,9 @@ calcok
 	rts
 
 ;  End of VT-100 emulator
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include vtsend.asm
+	.endif
+;; End of WUDSN workaround

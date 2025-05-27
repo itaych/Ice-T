@@ -398,11 +398,11 @@ cfgname
 	.byte "D:ICET.CFG", 155
 cfgdat
 
-baudrate  .byte 8
+baudrate  .byte 15
 stopbits  .byte 0
 localecho .byte 0
 click     .byte 0
-curssiz   .byte 1
+curssiz   .byte 6
 finescrol .byte 1
 autowrap  .byte 1
 delchr    .byte 0
@@ -719,3 +719,9 @@ xdun .sbyte "File transfer succesful"
 	.sbyte +$80, "!"
 
 ;  End of data
+
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include vtsend.asm
+	.endif
+;; End of WUDSN workaround

@@ -1249,3 +1249,8 @@ cknddrsh
 
 ; EOF
 
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include vtsend.asm
+	.endif
+;; End of WUDSN workaround

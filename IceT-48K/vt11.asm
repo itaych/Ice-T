@@ -109,7 +109,6 @@ reset
 jrst
 	jsr rtsplc
 norst
-	jsr initchtb
 	ldx #0
 getcfglp
 	lda savddat,x
@@ -119,6 +118,7 @@ getcfglp
 	bne getcfglp
 
 interr
+	jsr initchtb
 	lda autowrap
 	sta wrpmode
 
@@ -1744,3 +1744,8 @@ initchtb
 
 ;  EOF
 
+;; This is just a workaround for WUDSN so labels are recognized during development. It is ignored during assembly.
+	.if 0
+	.include vtsend.asm
+	.endif
+;; End of WUDSN workaround
