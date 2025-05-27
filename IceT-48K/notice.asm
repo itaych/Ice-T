@@ -1,5 +1,5 @@
 ;
-;  Autorun help file 
+;  Autorun help file
 ;
 dlist=$80
 	.bank

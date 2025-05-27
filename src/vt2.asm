@@ -1265,8 +1265,8 @@ brakpro			; Get numerical arguments and command after 'Esc ['
 	cmp #'9+1
 	bcs ?not_digit
 	; we got a digit, 0-9, which is one in a series of digits composing a number. Numbers larger than 255 will
-	; result in some garbage value being parsed; there is no error checking. 
-	and #$f		; fun fact: the low 4 bits of an ASCII digit contain its numerical value. 
+	; result in some garbage value being parsed; there is no error checking.
+	and #$f		; fun fact: the low 4 bits of an ASCII digit contain its numerical value.
 	ldx finnum	; =255 if no digits have been read yet, but no higher than 25 if digits have been read
 	bpl ?mltpl10	; so checking N flag is enough to determine whether this was the first digit or not
 	sta finnum	; this is the first digit, store it as-is

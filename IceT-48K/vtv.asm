@@ -2,7 +2,7 @@
 ;  A VT-100 terminal emulator
 ;	 by	Itay Chamiel
 
-; - Program data -- VTV.ASM -  
+; - Program data -- VTV.ASM -
 ;  For	version 1.1 (48K)
 
 	.bank
@@ -200,7 +200,7 @@ banksw	= $d301
 bank0 = $ff
 bank4 = $ef
 
-; Main program data 
+; Main program data
 	.bank
 	*=	$2651	; Lomem with R: and Hyp-E:
 
@@ -447,8 +447,8 @@ dsrdata
 	.byte "[0n"
 
 sccolors
-	.byte 14,0,0,2     ; Black      
-	.byte 4,14,0,12    ; White      
+	.byte 14,0,0,2     ; Black
+	.byte 4,14,0,12    ; White
 
 deciddata
 	.byte 27
@@ -513,9 +513,9 @@ keytab
 	.byte kright,15,0,16,21,kretrn,9,kup
 	.byte kdown,22,0,3,kleft,kright,2,24
 	.byte 26,0,0,0,30,kbrk,0,0,kctrl1,27
-;  Note on this ^^^^:              
-; kbrk will be removed when the    
-; break key works (now it's C-esc) 
+;  Note on this ^^^^:
+; kbrk will be removed when the
+; break key works (now it's C-esc)
 
 	.byte kzero,29,14,0,13,28,0,18,0,5
 	.byte 25,0,20,23,17,123,0,125,96,0

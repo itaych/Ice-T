@@ -1,8 +1,8 @@
-;         -- Ice-T --     
-;  A VT-100 terminal emulator  
-;       by Itay Chamiel        
+;         -- Ice-T --
+;  A VT-100 terminal emulator
+;       by Itay Chamiel
 
-; Version 1.1 - (c)1995 
+; Version 1.1 - (c)1995
 
 ; Part 2 of program (1/2) - VT21.ASM
 
@@ -157,13 +157,13 @@ endlpncrs
 
 dopause
 
-; Enter Pause 
+; Enter Pause
 
 	jsr lookst
 	jsr vdelay
 	jsr shctrl1
 
-; Pause mode 
+; Pause mode
 
 pausloop
 	jsr clokdo
@@ -183,7 +183,7 @@ pausl2
 	jsr putcrs
 pausl1
 	lda 53279
-	cmp #3      ; Option = Up 
+	cmp #3      ; Option = Up
 	bne nolkup
 	lda didrush
 	beq psokup
@@ -197,7 +197,7 @@ psokup
 	bne pausl2
 nolkup
 	lda 53279
-	cmp #5      ; Select = Down 
+	cmp #5      ; Select = Down
 	bne nolkdn
 	lda didrush
 	beq psokdn
@@ -244,7 +244,7 @@ nolkdn
 expnorsh
 	jmp bufgot
 
-dovt100    ; Gets byte from A and 
+dovt100    ; Gets byte from A and
 	and #127	; VT100's it!!!
 	cmp #127
 	beq badbyt
@@ -254,11 +254,11 @@ dovt100    ; Gets byte from A and
 	bcs trmode
 	jmp ctrlcode
 trmode
-	jmp regmode ; Changes during exec 
+	jmp regmode ; Changes during exec
 
 badbyt
 	rts
-putcrs   ; Cursor flasher 
+putcrs   ; Cursor flasher
 	lda ty
 	tay
 	dey
@@ -346,7 +346,7 @@ bgcursloop
 	bne bgcursloop
 	rts
 
-regmode ; Display normal byte 
+regmode ; Display normal byte
 	sta prchar
 	lda #<regmode
 	sta trmode+1
@@ -716,14 +716,14 @@ nonmbr
 
 nmbrpro
 
-; Chars after ' ESC # '           
+; Chars after ' ESC # '
 
-; 3 - double-height/width, top    
-; 4 - double-height/width, bottom 
-; 5 - normal size                 
-; 6 - double-width                
-; 7 - normal size                 
-; 8 - Fill screen with E's        
+; 3 - double-height/width, top
+; 4 - double-height/width, bottom
+; 5 - normal size
+; 6 - double-width
+; 7 - normal size
+; 8 - Fill screen with E's
 
 	cmp #56 ; 8 - see above
 	bne nofle
@@ -819,7 +819,7 @@ szprchng
 	sta invsbl
 	jmp fincmnd
 
-fille ;        Fill screen with E's 
+fille ;        Fill screen with E's
 	lda #1
 	sta y
 fletxlp1
@@ -913,7 +913,7 @@ noqmark
 	pha
 	jsr qmarkdo
 	pla
-brakpro ; Get numbers after 'Esc [' 
+brakpro ; Get numbers after 'Esc ['
 	cmp #59
 	bne notsmic
 	lda finnum
@@ -1777,10 +1777,10 @@ muok
 
 ; Parameters for line size:
 
-; 0 - normal-sized characters 
-; 1 - x2 width, single height 
-; 2 - x2 double height, upper 
-; 3 - x2 double height, lower 
+; 0 - normal-sized characters
+; 1 - x2 width, single height
+; 2 - x2 double height, upper
+; 3 - x2 double height, lower
 
 rslnsize
 	lda #0

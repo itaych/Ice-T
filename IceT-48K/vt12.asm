@@ -1,6 +1,6 @@
 ;         -- Ice-T --
 ;  A VT-100 terminal emulator
-;       by Itay Chamiel  
+;       by Itay Chamiel
 
 ; Version 1.1 - (c)1995
 
@@ -10,8 +10,8 @@
 
 scrldown
 	lda scrltop ; Move scrolled-out line
-	cmp #1      ; into screen-saver     
-	bne noscrsv ; (from top line only)  
+	cmp #1      ; into screen-saver
+	bne noscrsv ; (from top line only)
 	lda txlinadr
 	sta ersl
 	lda txlinadr+1
@@ -47,7 +47,7 @@ noscrsv
 	lda crsscrl
 	bne noscrsv
 	dec scrltop
-	dec scrlbot ; Scroll line-size tbl 
+	dec scrlbot ; Scroll line-size tbl
 	ldx scrltop
 	lda scrlbot
 	sec
@@ -69,7 +69,7 @@ nodnlnsz
 	sec
 	sbc scrltop
 	beq scdnadbd
-	lda scrlbot ; Scroll address-tbl 
+	lda scrlbot ; Scroll address-tbl
 	asl a
 	sta scrlbot
 	lda scrltop
@@ -90,8 +90,8 @@ scdnadlp
 	bne scdnadlp
 	jmp scdnadok
 scdnadbd
-	lda scrlbot ; This is in case top= 
-	asl a       ; bot, so no scroll    
+	lda scrlbot ; This is in case top=
+	asl a       ; bot, so no scroll
 	sta scrlbot
 	tax
 	lda linadr,x
@@ -111,7 +111,7 @@ scdnadok
 	lsr a
 	sta scrlbot
 
-	lda scrltop  ; Scroll text mirror 
+	lda scrltop  ; Scroll text mirror
 	cmp scrlbot
 	beq dncltxln
 	asl a
@@ -161,7 +161,7 @@ dnerstxlp
 	lda rush
 	bne scdnrush
 
-	lda finescrol ; Fine-scroll if on 
+	lda finescrol ; Fine-scroll if on
 	beq doscroldn
 	jsr scvbwta
 	inc fscroldn
@@ -384,7 +384,7 @@ lookst	;	  Init buffer-scroller
 lkupen
 	rts
 
-lookup ;       Buffer-scroll UP 
+lookup ;       Buffer-scroll UP
 	lda look
 	beq lkupen
 	dec look
@@ -405,7 +405,7 @@ lookup ;       Buffer-scroll UP
 novrup
 	jsr crsifneed
 
-	lda linadr+48 ; Scroll linadr table 
+	lda linadr+48 ; Scroll linadr table
 	sta nextlnt
 	lda linadr+49
 	sta nextlnt+1
@@ -443,7 +443,7 @@ lkupscadlp
 	lda $14
 	pha
 lkupnofn
-	ldy #0 ;     Print new line 
+	ldy #0 ;     Print new line
 	sty x
 	lda #1
 	sta y
@@ -481,7 +481,7 @@ lkupwtvb ; continue fine scroll
 lkdnen
 	rts
 lkupcrs
-	jsr vdelay ;  Coarse-scroll 
+	jsr vdelay ;  Coarse-scroll
 	ldx #2
 	ldy #10
 lkupsclp
@@ -529,7 +529,7 @@ lookdn	;	Buffer-scroll DOWN
 novrdn
 	jsr crsifneed
 
-	lda linadr+2 ; Scroll linadr table 
+	lda linadr+2 ; Scroll linadr table
 	sta nextlnt
 	lda linadr+3
 	sta nextlnt+1
@@ -613,7 +613,7 @@ lkdnvbwt ; continue fine-scroll
 	rts
 
 lkdndocr
-	jsr vdelay ;  Coarse scroll 
+	jsr vdelay ;  Coarse scroll
 	ldx #2
 	ldy #10
 lkdnsclp
@@ -636,7 +636,7 @@ lkdnsclp
 	sta cntrh
 	jmp erslineraw
 
-lookbk ;     Go all the way down 
+lookbk ;     Go all the way down
 	lda look
 	cmp #24
 	beq noneedcrs
@@ -650,7 +650,7 @@ crsifneed
 	beq noneedcrs
 	jmp putcrs
 
-clrscrn ; Clear screen 
+clrscrn ; Clear screen
 	ldx #0
 	lda #<txsav
 	sta ersl
@@ -712,8 +712,8 @@ vdelwt
 prmesg
 
 ; Message printer!
-; Reads string and outputs it, byte 
-; by byte, to the 'print' routine.  
+; Reads string and outputs it, byte
+; by byte, to the 'print' routine.
 
 ; Reads from whatever's in X-hi, Y-lo
 ; (registers): x,y,length,string.
@@ -756,9 +756,9 @@ prmesglp
 prmesgen
 	rts
 
-ropen ; Sub to open R: (uses config) 
+ropen ; Sub to open R: (uses config)
 
-	jsr close2 ; Close if already open 
+	jsr close2 ; Close if already open
 
 ; Turn DTR on
 
@@ -817,8 +817,8 @@ rhok3
 	rts
 rhok4
 
-; Enable concurrent mode I/O, use 
-; mini-buffer (after the program) 
+; Enable concurrent mode I/O, use
+; mini-buffer (after the program)
 
 	lda #40
 	sta iccom+$20
@@ -867,10 +867,10 @@ dobreak
 	sta icbal+$20
 	lda #>rname
 	sta icbah+$20
-	jsr ciov    ; Xio 34,#2,2,0,"R:" 
+	jsr ciov    ; Xio 34,#2,2,0,"R:"
 
 	jsr wait10
-	jsr wait10  ; Wait 1/2 sec 
+	jsr wait10  ; Wait 1/2 sec
 	jsr wait10
 
 	ldx #$20
@@ -884,7 +884,7 @@ dobreak
 	sta icbal+$20
 	lda #>rname
 	sta icbah+$20
-	jsr ciov    ; Xio 34,#2,3,0,"R:" 
+	jsr ciov    ; Xio 34,#2,3,0,"R:"
 	jsr ropen
 	jsr wait10
 	lda #17
@@ -988,7 +988,7 @@ scvbwta
 	rts
 
 buffpl ; Pull one byte from buffer
-	lda bufget ; into A 
+	lda bufget ; into A
 	cmp bufput
 	bne bufpok1
 	lda bufget+1
@@ -1128,7 +1128,7 @@ bfok2
 	sta (bufput),y
 	jmp bfnoek2
 bfnoek1
-	ldx #$20 ; No wrap, read data 
+	ldx #$20 ; No wrap, read data
 	lda #7
 	sta iccom+$20
 	lda bcount

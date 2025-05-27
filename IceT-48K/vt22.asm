@@ -1,4 +1,4 @@
-;         -- Ice-T --     
+;         -- Ice-T --
 ;  A VT-100 terminal emulator
 ;	 by	Itay Chamiel
 
@@ -10,11 +10,11 @@
 
 printerm
 
-; Will print character at x,y. 
-; (x,y are memory locations.)  
+; Will print character at x,y.
+; (x,y are memory locations.)
 ; Uses prchar as char to print.
-; Checks all special character 
-; modes: graphic renditions,   
+; Checks all special character
+; modes: graphic renditions,
 ; sizes, etc..
 
 	lda y
@@ -381,11 +381,11 @@ chklnslp
 	bne chklnslp
 	rts
 
-; I need help here! --------------- 
-; This IRQ  should  put  a  #59  in 
+; I need help here! ---------------
+; This IRQ  should  put  a  #59  in
 ; 764	if	it  senses	 a  press  of
 ; Break.. But it just	puts a #1  in
-; there all the time, nonstop! (??) 
+; there all the time, nonstop! (??)
 
 ;irq
 ; pha
@@ -402,10 +402,10 @@ chklnslp
 ; pla
 ;irqexit
 ; jmp $ffff
-; - End of incoming-code processing 
+; - End of incoming-code processing
 
 ; and now...
-; Outgoing stuff - keyboard handler 
+; Outgoing stuff - keyboard handler
 
 readk
 	lda 764
@@ -582,7 +582,7 @@ ctk2
 	bne oknoz
 	rts
 oknoz
-	ldx 53279 ; Start = Meta 
+	ldx 53279 ; Start = Meta
 	cpx #6
 	bne oknostrt
 	ldx #27
@@ -871,7 +871,7 @@ prnterr
 	jsr getkeybuff
 	jmp getscrn
 
-; Status line doers 
+; Status line doers
 
 shcaps
 	lda capslock
@@ -1004,9 +1004,9 @@ clokprlp
 	bne clokprlp
 	rts
 
-; End of status line handlers 
+; End of status line handlers
 
-filline ; Fill line with 255 
+filline ; Fill line with 255
 	lda y
 	asl a
 	tax
@@ -1029,12 +1029,12 @@ fil2
 	bne fil2
 	rts
 
-; Calculate memory position in 
-; ASCII mirror                 
+; Calculate memory position in
+; ASCII mirror
 
-; Puts memory location of X=0, 
-; Y=y (passed data) in ersl    
-; (2 bytes)                    
+; Puts memory location of X=0,
+; Y=y (passed data) in ersl
+; (2 bytes)
 
 calctxln
 	lda y

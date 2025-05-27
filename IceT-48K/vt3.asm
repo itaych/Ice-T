@@ -1,6 +1,6 @@
-;         -- Ice-T -- 
-;  A VT-100 terminal emulator  
-;       by Itay Chamiel        
+;         -- Ice-T --
+;  A VT-100 terminal emulator
+;       by Itay Chamiel
 
 ; Version 1.1 - (c)1995
 
@@ -131,7 +131,7 @@ nodobell
 noctrl1
 	lda 767
 	sta oldctrl1
-	lda finescrol   ; Fine Scroll 
+	lda finescrol   ; Fine Scroll
 	bne vbdofscrl
 	jmp xitvbv
 vbdofscrl
@@ -142,11 +142,11 @@ vbdofscrl
 	jmp vbchu1
 vbnoscup
 	jmp xitvbv
-vbchd1     ;  Fine Scroll DOWN 
+vbchd1     ;  Fine Scroll DOWN
 	cmp #1
 	bne vbchd2
 	jsr vbcp12
-	lda scrltop  ;  1 down 
+	lda scrltop  ;  1 down
 	asl a
 	asl a
 	adc scrltop
@@ -205,7 +205,7 @@ vbchd2
 	cmp #2
 	bne vbchd3
 	jsr vbcp21
-	dec vbfm     ;  2 down 
+	dec vbfm     ;  2 down
 	dec vbto
 	inc vbln
 	inc vbln
@@ -238,7 +238,7 @@ vbchd3
 	cmp #3
 	bne vbchd4
 	jsr vbcp12
-	dec vbfm     ;  3 down 
+	dec vbfm     ;  3 down
 	dec vbto
 	jsr vbmvb2
 	jsr vbscrtld2
@@ -264,7 +264,7 @@ vbchd4
 	cmp #4
 	bne vbchd5
 	jsr vbcp21
-	dec vbfm     ;  4 down 
+	dec vbfm     ;  4 down
 	dec vbto
 	jsr vbmvb
 	jsr vbscrtld
@@ -275,7 +275,7 @@ vbchd5
 	cmp #5
 	bne vbchd6
 	jsr vbcp12
-	dec vbfm     ;  5 down 
+	dec vbfm     ;  5 down
 	dec vbto
 	jsr vbmvb2
 	jsr vbscrtld2
@@ -286,7 +286,7 @@ vbchd6
 	cmp #6
 	bne vbchd7
 	jsr vbcp21
-	dec vbfm     ;  6 down 
+	dec vbfm     ;  6 down
 	dec vbto
 	jsr vbmvb
 	jsr vbscrtld
@@ -297,7 +297,7 @@ vbchd7
 	cmp #7
 	bne vbchd8
 	jsr vbcp12
-	dec vbfm     ;  7 down 
+	dec vbfm     ;  7 down
 	dec vbto
 	jsr vbmvb2
 	jsr vbscrtld2
@@ -308,7 +308,7 @@ vbchd8
 	cmp #8
 	bne vbnod8
 	jsr vbcp21
-	dec vbfm     ;  8 down 
+	dec vbfm     ;  8 down
 	dec vbto
 	dec vbto
 	dec vbto
@@ -350,7 +350,7 @@ vbnod8
 	jsr vbdl1
 	jmp xitvbv
 
-vbscrtlu ; Make top line scroll up 
+vbscrtlu ; Make top line scroll up
 	ldx vbsctp
 	sec
 	lda dlist+1,x
@@ -370,7 +370,7 @@ vbscrtlu2 ; same for dlist2
 	sbc #0
 	sta dlst2+2,x
 	rts
-vbscrtld ; Make top line scroll dwn 
+vbscrtld ; Make top line scroll dwn
 	ldx vbsctp
 	clc
 	lda dlist+1,x
@@ -390,7 +390,7 @@ vbscrtld2 ; same for dlist2
 	adc #0
 	sta dlst2+2,x
 	rts
-vbmvf ;   Mem-move subroutine - fwd 
+vbmvf ;   Mem-move subroutine - fwd
 	lda vbfm
 	clc
 	adc vbln
@@ -432,7 +432,7 @@ vbmvf2lp
 	bne vbmvf2lp
 	inc vbfm
 	rts
-vbmvb ;   Mem-move subroutine - back 
+vbmvb ;   Mem-move subroutine - back
 	ldx vbfm
 	ldy vbto
 	lda #0
@@ -474,11 +474,11 @@ vbdl2 ; Set dlist 2
 	lda #>dlst2
 	sta 561
 	rts
-vbchu1      ; Fine Scroll UP 
+vbchu1      ; Fine Scroll UP
 	cmp #1
 	bne vbchu2
 	jsr vbcp12
-	lda scrltop ;  1 up 
+	lda scrltop ;  1 up
 	asl a
 	asl a
 	adc scrltop
@@ -558,7 +558,7 @@ vbchu3
 	cmp #3
 	bne vbchu4
 	jsr vbcp12
-	inc vbfm ;     3 up 
+	inc vbfm ;     3 up
 	inc vbto
 	jsr vbmvf2
 	jsr vbscrtlu2
@@ -569,7 +569,7 @@ vbchu4
 	cmp #4
 	bne vbchu5
 	jsr vbcp21
-	inc vbfm ;     4 up 
+	inc vbfm ;     4 up
 	inc vbto
 	jsr vbmvf
 	jsr vbscrtlu
@@ -580,7 +580,7 @@ vbchu5
 	cmp #5
 	bne vbchu6
 	jsr vbcp12
-	inc vbfm ;     5 up 
+	inc vbfm ;     5 up
 	inc vbto
 	jsr vbmvf2
 	jsr vbscrtlu2
@@ -591,7 +591,7 @@ vbchu6
 	cmp #6
 	bne vbchu7
 	jsr vbcp21
-	inc vbfm ;     6 up 
+	inc vbfm ;     6 up
 	inc vbto
 	jsr vbmvf
 	jsr vbscrtlu
@@ -602,7 +602,7 @@ vbchu7
 	cmp #7
 	bne vbchu8
 	jsr vbcp12
-	inc vbfm ;     7 up 
+	inc vbfm ;     7 up
 	inc vbto
 	jsr vbmvf2
 	jsr vbscrtlu2
@@ -613,7 +613,7 @@ vbchu8
 	cmp #8
 	bne vbnou8
 	jsr vbcp21
-	inc vbfm ;     8 up 
+	inc vbfm ;     8 up
 	inc vbto
 	dec vbln
 	jsr vbmvf
@@ -1493,7 +1493,7 @@ chk1s
 	sta numb+2
 	rts
 
-chkclok   ; part of clock setter 
+chkclok   ; part of clock setter
 	sta temp ; (from vt1.asm)
 	lda ersl
 	cmp #0
@@ -1529,7 +1529,7 @@ clokbad
 	pla
 	jmp scmn
 
-; Data buffer, fills all free memory 
+; Data buffer, fills all free memory
 
 minibuf .ds $800
 

@@ -1,6 +1,6 @@
 ;         -- Ice-T --
 ;  A VT-100 terminal emulator
-;       by Itay Chamiel  
+;       by Itay Chamiel
 
 ; Version 1.1 - (c)1995
 
@@ -1094,7 +1094,7 @@ savcfgerr
 	jsr getkeybuff
 	jmp bkset
 
-; --- Menu Doer --- 
+; --- Menu Doer ---
 ; Needs:
 ; X,Y - addr of data table holding:
 ; # of plcs X, # of plcs Y, length
@@ -1316,11 +1316,11 @@ invlp2
 	bne invlp
 	rts
 
-;       -- Window drawer --      
+;       -- Window drawer --
 
-; Reads from X,Y registers addr  
-; that holds a table holding...  
-; top-x,top-y,bot-x,bot-y,string 
+; Reads from X,Y registers addr
+; that holds a table holding...
+; top-x,top-y,bot-x,bot-y,string
 
 drawwin
 	stx prfrom+1
@@ -1337,9 +1337,9 @@ winvlp
 	cpy #4
 	bne winvlp
 
-; The following copies the memory 
-; that will be erased because of  
-; this window, into a buffer.     
+; The following copies the memory
+; that will be erased because of
+; this window, into a buffer.
 
 	lda numofwin
 	asl a
