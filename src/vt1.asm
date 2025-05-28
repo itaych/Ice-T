@@ -474,7 +474,7 @@ COLORED_TITLE_SCREEN_SHADED_LOGO = 0	; whether to also shade the Ice-T logo (mus
 	sta kbd_ch
 
 ; wait for user to press a key. If enabled, shade the Ice-T logo.
-.if COLORED_TITLE_SCREEN + COLORED_TITLE_SCREEN_SHADED_LOGO = 2
+.if COLORED_TITLE_SCREEN & COLORED_TITLE_SCREEN_SHADED_LOGO
 	lda bank1
 	sta banksw
 	jsr getkeybuff_titlescreen

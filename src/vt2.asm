@@ -7504,11 +7504,11 @@ getkeybuff_titlescreen
 	tya
 	clc
 	adc numb
-	cmp 20			; check if we want to override this particular scanline with full luminosity for a shimmer effect
+	cmp rtclock_2	; check if we want to override this particular scanline with full luminosity for a shimmer effect
 	bne ?no_shimmer
 ?shimmer_color
 	lda #$8e
-	sta colpm1		; shimmer this scanline
+	sta colpm2		; shimmer this scanline
 	txa				; recover original color value
 	cpy #16			; did we just shimmer the top line? we're done, make the next shimmer happen after a random time
 	bne ?next_color
@@ -7523,7 +7523,7 @@ getkeybuff_titlescreen
 	txa				; recover stored color value
 ?eor_value
 	eor #$00		; reverse color in case of inverse screen
-	sta colpm1		; set player color
+	sta colpm2		; set player color
 	txa				; restore value again in case we inversed it
 ?next_color
 	clc

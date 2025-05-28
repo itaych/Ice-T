@@ -342,6 +342,8 @@ int main() {
 		for (int i=1; i<=24; i++) {
 			set_position(1, i);
 			set_line_size(6);
+			clear_line(); // setting a line size actually clears the line (due to Ice-T limitation when "8-bit set" is
+			// set to "IBM-PC") so this makes lines inverse again
 		}
 
 		// Write header
