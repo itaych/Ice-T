@@ -590,13 +590,13 @@ regmode				; Display character on terminal output.
 	tax
 	ldy #0
 ?lp					; Digraphs (glyphs containing two small letters) are not part of the font so
-	lda digraph,x	; generate and display a special character
-	sta charset+(91*8),y
+	lda digraph,x	; generate and display a special character.
+	sta charset+(91*8),y	; overwrite the bitmap of the otherwise unused "escape" in the character set
 	inx
 	iny
 	cpy #8
 	bne ?lp
-	lda #27
+	lda #27			; print the Escape character
 ?no_digraph
 	sta prchar
 	lda #1
@@ -1089,7 +1089,7 @@ hash_process
 	sta cntrh
 	ldx #0
 ?lpx
-	lda charset+296,x ; (37*8)
+	lda charset+(37*8),x	; character 'E' position in character set
 	eor #255
 	ldy #0
 ?lp1
@@ -1122,8 +1122,8 @@ no_fill_e
 	bcc ?ok			; 3/4/5/6/7 - change size
 	jmp fincmnd		; some other value, quit
 ?ok
-changesize_templine = numstk+$80
 
+changesize_templine = numstk+$80
 	pha
 	jsr chklnsiz
 	pla
@@ -1143,7 +1143,18 @@ changesize_templine = numstk+$80
 	sta lnsizdat,x	; and set new value
 	lda szlen,y		; get size of new line (80 or 40 columns)
 	sta szprchng+1	; self modified code defining size of redrawn line
+	lda boldface	; we don't want line to be filled with bold background or inverse video spaces
+	pha
+	lda revvid
+	pha
+	lda #0
+	sta boldface
+	sta revvid
 	jsr ersline_no_txtmirror	; clear line including bold underlay, but don't erase in text mirror
+	pla
+	sta revvid
+	pla
+	sta boldface
 	jsr calctxln	; calculate position of line in ascii mirror and put in ersl
 	lda #32
 	ldx #79
@@ -1162,7 +1173,11 @@ changesize_templine = numstk+$80
 	inx
 	lda topx			; previously 80 columns?
 	beq ?szlp2v			; yes, don't do anything special
-	iny 				; no - we're switching from 40 to 80, so skip 1 byte when reading because in 40-col
+	; no - we're switching from 40 to 80, so skip 1 byte when reading because in 40-col mode
+	; characters are spaced 1 byte apart in ascii mirror. But don't skip erasing the old text line.
+	lda #32
+	sta (ersl),y
+	iny
 ?szlp2v					; characters are spaced 1 byte apart in ascii mirror.
 	cpy #80
 	bne ?szloop2
@@ -1189,7 +1204,9 @@ szprloop				; redraw line
 	beq ?s				; skip invisible markers
 	cmp #128
 	bcc ?i
-	and #127			; 128 and over is in inverse
+	ldx eitbit			; this is an eight-bit character. Are they allowed?
+	bne ?i				; yes, go print it as is
+	and #127			; no, 128 and over is in inverse, drop the bit and set revvid
 	ldx #1
 	stx revvid
 ?i
@@ -3313,11 +3330,9 @@ printerm
 	asl a
 	tay
 	txa
-	and #127		; double width does not support chars >128 (PC set)!
-	tax
 	sta (ersl),y
 	iny
-	lda #32
+	lda #32			; store a space in the adjacent location
 	sta (ersl),y
 	lda revvid
 	beq ?no_inverse
@@ -3410,13 +3425,13 @@ notxprn
 	beq ignrsh
 	rts
 ignrsh
-	ldy #0
 	txa
 	bpl nopcchar
 	; character >= 128 - this is part of the PC character set.
 	; multiply by 8 to find location in character set
+	ldy #0
 	sty prchar+1
-	asl a
+	asl a			; upper bit is shifted out and intentionally dropped
 	asl a
 	rol prchar+1
 	asl a
@@ -3554,12 +3569,19 @@ ps0ok
 psiznot0
 	; for double width, note that characters under 28 must take glyphs from our custom
 	; character set (rather than the internal OS set) and double their width.
+	txa
+	bpl ?notpcchar
+	ldy #1			; this an 8-bit character (PC character set)
+	sty useset		; indicate not to update the character pointer already set in prchar
+	bpl ?set_dblgrph	; always branches, make sure to set dblgrph to indicate pixel-doubling.
+?notpcchar
 	cpx #32
 	bcs ?nospecial	; 32 and up - nothing special to do here
 	ldy #1
 	sty useset		; use custom font
 	cpx #28			; 28-31 are grave-accent/tilde/curly-braces in double format within custom font,
 	bcs ?nospecial	; so don't set pixel-doubling flag
+?set_dblgrph
 	sty dblgrph
 ?nospecial
 
@@ -5188,6 +5210,8 @@ readk
 	bne ?nobrk
 	jmp ksendbrk
 ?nobrk
+
+.if 0				; set to 1 to enable ctrl-shift-s speed test
 	cmp #'s
 	bne ?ok			; s - internal speed test
 
@@ -5213,6 +5237,7 @@ readk
 	lda #255
 	sta kbd_ch
 	jmp crsifneed	; turn cursor on
+.endif
 
 ; other ctrl-shift keys are the numeric keypad
 
