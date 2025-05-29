@@ -1,0 +1,653 @@
+
+ I c e - T  --  A new terminal emulator for the 8-bits!
+
+ by Itay Chamiel - (c)1994 IceSoft 
+
+Internet Email: bruck@brachot.jct.ac.il
+
+Finally! The telecommunications software for the '90s has arrived for the
+Classic Atari 8-bit computers!
+
+Features:
+
+* Unbeatable VT-100 emulation - as close as possible to the real thing
+* Incredible speed - supports up to 19,200 baud, with little or no data loss!
+* Readable 80-columns, usable even with color TV
+* Fully menu driven, very easy to use
+* Xmodem download (bare-bones only)
+* Fine scroll
+* Backscroll (one page)
+* Print screen function
+* Fully compatible with ALL Atari 8-bits with a minimum of 48K
+
+This release is version 1.0.
+It is not perfect, but is an impressive step forward, compared to the
+demo version. Unlike the previous version, a shareware fee of $15 is
+mandatory. I worked hard on this project, and I deserve compensation!!
+
+Distribute widely and freely!
+
+
+Getting started
+---------------
+As with most modem-using programs, you'll have to prepend your favorite R:
+handler to the program. This small file comes on a disk you get with your
+interface (such as the Atari 850 or P:R: Connection) or your direct-connect
+modem. Some interfaces may not require such a handler. Consult your manual for
+help.
+
+Once you know which file you need, follow these steps:
+
+1) Copy the file to the Ice-T disk
+2) Rename it to ICET.COM
+3) Append the main program, ICET.BAK, onto it. In MyDOS:
+ C (do not press Return)
+ ICET.BAK,ICET.COM/A <Return>
+Other DOSes have similar commands. Consult your DOS manual for further
+information.
+4) Write-protect the disk.. Weird stuff may happen the first time you
+load. YOU HAVE BEEN WARNED! hehehe
+5) Make sure your interface and/or modem are ON.
+6) Binary-load ICET.COM.
+
+Note: Replace occurrences of "ICET" with "ICET_OLD" if you wish to use the
+previous version, also included in this disk image.
+
+SpartaDOS users: This program is guaranteed to be compatible with all DOSes
+except Sparta. I have heard reports of the program working perfectly with it,
+and other, not so optimistic reports, so.. use at your own risk.
+Using the 'X' command may help, but I don't promise it to be a complete 
+solution.
+
+You should now be looking at the title screen. If you see the message "No
+R: handler", it means that you either hadn't prepended an R: handler when
+one was required, or that you loaded the program with your interface/modem
+off or disconnected.
+
+If you can't see anything on your screen, redo the installation, making sure
+nothing goes wrong this time. Or, if you're using SpartaDOS, try MyDOS or
+some vanilla-type DOS like AtariDOS 2.0.
+
+Hit any key to enter the main menu.
+
+The RESET key can be used at any time to reset the terminal settings and
+to get back to the title screen in case of a lockup.
+
+*WARNING*: This program disables the "Attract" mode, that causes the screen
+colors to change a few minutes after the last time a key was pressed,
+protecting the screen from "burning out". Therefore, DO NOT leave this
+program on for long intervals without the display changing. If a wait is
+necessary, turn the monitor off, but leave the computer on.
+("Long interval" would probably best be defined as several months, unless
+you're using a really old monitor.. but don't hold me responsible if you
+ruin your moitor!)
+
+Some notes on the display
+-------------------------
+Achieving the 80-column display was not done using any earth-shattering
+methods - I simply used Graphics 8, with 4 dots per character. I needed
+320x200, to have 25 lines of text, so I added 8 more lines in the display
+list. The thing that IS special about the display is its speed. Previous
+80-column programs were clumsy and slow. This program makes 80-columns
+about as fast as the ordinary 40-column display. This is due to two reasons:
+A) Efficient programming. I made the print-character routine as fast as
+possible, and made it as short as I could. It could be tightened even further
+if I had some memory free for tables..
+B) Tricky scrolling. Scrolling a full 8K graphics screen is quite a pain, and
+slows down most 80-column implementations. This program puts to use the
+advanced display abilities of the 8-bit, and simply tells the display
+processor to look forward in memory 320 bytes (one line). This effectively
+causes the screen to move up. The line that had disappeared at the top of
+the screen is blanked, and pointed to at the bottom of the screen, as the
+new line 25. In this way, no memory is actually moved, but a scrolling
+effect is achieved.
+
+Coarse scrolling is now noticeably faster than it was in the previous version.
+
+Fine scrolling has been added!
+This is done in VBI, so it doesn't slow down the display when you're reading
+text - unless there's no text and just EOL characters.
+There's a bit of a bug in upwards scrolling.. I haven't been able to
+figure out exactly what's going on, but.. Turn Fine off when you're using
+a really complex editor, like Emacs.
+
+----
+There is a bit of competition going on between this program and Earl
+Halliwell's similar program FlickerTerm. FT uses a special display scheme,
+using two alternating 40-column text screens, to create the illusion of
+an 80-column display. The advantage is that it's as fast as plain 40-column
+text. The disadvantage is the flicker.
+
+FT is flickery and annoying, in my opinion, but is extremely fast, and
+does 19.2Kbaud smoothly.
+Ice-T doesn't flicker, and goes up to 4800 baud without any data loss...
+9600 and 14.4K probably aren't really bad either.
+It would be really unfair to say which program *I* use.. (I'm on 2400 baud,
+so there's no contest..)
+
+
+Navigating in menus
+-------------------
+You control the highlighted bar with the arrow keys (do not hold down
+Control). You make a selection with the Spacebar or with <Return>, and back
+off into the previous menu without changing anything by pressing <Escape>.
+That's it. Quite simple really.
+
+The Main menu
+-------------
+This menu has five selections:
+Terminal, Options, Settings, Mini-DOS, Transfer.
+
+Terminal:
+We'll get to that later.
+
+Options menu:
+This menu allows you to configure some cosmetic settings to your liking.
+You can change key-click, fine-scroll, screen colors, cursor style, and
+set the clock.
+
+Keyclick: Choose between the ordinary Atari built-in click, the simple
+quiet click, or no click at all.
+
+Fine Scroll: Turn Fine Scroll on or off. This affects scrolling in Terminal
+mode, and backscroll.
+
+Background:
+You can select the background color, but not its brightness. You CAN choose
+whether you want the screen in inverse, though. Black/white monitor users
+should only use color 0, and choose inverse mode according to their
+preference. Color users should choose the setting which renders the
+80-column screen most readable. I recommend trying 1,2,and F, in both
+inverse and standard modes.
+
+Cursor style: Choose between an underline cursor or a block one.
+
+Set clock: In Terminal mode, a digital clock will be displayed in the upper-
+right corner, and it can be set with this option (no Rtime support).
+
+The current time will be displayed (upon startup it's zeroed).
+For example, if the time is 10:48 you just type "1048" and you're done.
+If it says 10:47, you press "->" 3 times (or "<-" once) and type 8.
+Some effort has been made to eliminate inputting numbers like 57:89, but in
+some cases it can still be fooled. Normally, though, the screen will flash
+if you try to, for example, type "7" as the first digit of the minutes.
+Pressing Return will set the time and zero the seconds.
+
+Zero timer: This will set the clock to zero, and can be used if you wish to
+use the clock as a timer.
+
+Settings menu:
+This menu is for setting your hardware for proper communications, with your
+modem and remote host.
+
+Baud rate: obvious. One note, though: 19.2 is, to the best of my knowledge,
+the same setting used for both 19.2K and 14.4Kbaud.
+
+Local Echo: When on, every character you type in Terminal will be sent to
+your host, and also sent directly to the VT100 processor, echoing what
+you typed. This option should be used with systems that don't automatically
+echo what you type back to you.
+I'm not sure how well it works, though.. I *think* there's a bug which
+causes it not to display anything you type on the screen until something
+comes from your host. Then, everything you typed will suddenly appear in a
+burst. This is a bug... sorry..
+
+Stop bits: Generally set to 1. I don't think 2 will ever be needed, I just
+put it in since it wasn't too difficult.
+
+Auto-wrap: You decide whether the cursor will wrap-around to the next line
+when it reaches the edge of the screen. Note that when entering this menu,
+the highlighted bar will NOT indicate the present status (which can be
+changed by a code from your host), but it shows the default mode, present
+when you load the program or reset the terminal (by pessing <Reset>).
+Changing this setting WILL alter the current state, though (leaving this
+menu by hitting Esc will not).
+
+Delete key:
+Some hosts will only recognize $7F as delete, and others will need ^H.
+Choose the one suitable for yours, or the one used most often.
+
+Save configuration:
+This will save the parameters into the ICET.CFG file. In case of an error,
+the error-number will be displayed, in decimal.
+
+
+Mini-DOS menu:
+
+Directory:
+This will display the directory of the drive specified in Drive No.
+Hit any key to return to the menu. Errors will be displayed.
+
+Filename:
+Select filename to delete, lock or unlock, or to download into.
+Keys available when editing name:
+A-Z, 0-9, period (for the name)
+left, right arrow keys (do not use control) for cursor movement
+<Delete> deletes character behind cursor
+Ctrl-<Delete> deletes character under cursor
+<Return> Enters name
+<Esc> Leaves previous name unmodified
+Most illegal file names (starting with a number, or having a space in the
+middle) will not be allowed through. Purposefully doing stupid things like
+"filename.ez.ez" will manage to bypass the checker, though.
+
+Drive number:
+Selects drive number to use for all functions. Saved in configuration file.
+
+Verbosity:
+A dummy. Setting will only be relevant when file-transer has text messages.
+Will decide how much information will appear on-screen when a transfer is in
+progress. Also saved in configuration file.
+
+Delete, Lock, Unlock:
+Will do just that, to the file specified in Filename.
+You will be notified of errors.
+
+
+Transfer menu:
+This menu has only one option, Xmodem download.
+This download is extremely simple (8-bit, checksum error-checking,
+no EOL translation, file can be padded with up to 127 extraneous bytes,
+usually ^Z characters), but seems to work fine for UUencoded files, and
+plain text. One user has already managed to sucessfully download and
+run a binary file. I haven't, so you'll have to test it. Try also modifying
+the remote Xmodem server's settings.
+
+When entering Xmodem, you'll realize what a program under construction
+really looks like.
+The screen will blank, with a "h" in the middle. This is short for
+"Hit any key to continue or Esc to abort".
+
+Press any key to continue. A file with the name you typed in the MiniDOS
+menu will be opened (errors will be ignored.. The transfer will simply
+proceed with no file created at all! So pay attention to I/O noises).
+"g" will appear in the middle, which means "Getting packet". The program
+will then get the first packet, also displaying it on-screen for 
+convenience. It'll look weird though, since you're seeing screen-codes
+and not ATASCII codes. Simply put, lower-case letters will look fine, but
+most other characters will _look_ completely different, but will make it to
+the disk file intact.
+
+There are a few other superbrief error messages, which you'll have to figure
+out yourself.. I just can't remember them all, and I don't even have the
+sources handy!!
+
+If the transfer gets stuck for any reason, you'll have to RESET your way out.
+When back in Terminal, type ^U (NAK) repeatedly until the remote Xmodem 
+gives up and aborts the transmission.
+
+
+Quitting the program
+--------------------
+Hit <Escape> in the main menu. You will be asked whether you really wish to
+quit. A positive response will terminate the program, exitting to DOS,
+while saying no or pressing <Escape> will return you to the main menu.
+
+The Terminal
+------------
+The terminal is entered by selecting "Terminal" in the main menu. In this
+mode, whatever you type on the keyboard is sent to your host via the modem,
+and anything received is handled, either as a control command or as a
+character to be displayed.
+
+Pause:
+Ctrl-1 will toggle Pause mode. In Pause, all the keys work normally, and
+you can continue typing. Whatever you type WILL be sent to the host, but
+anything received from the host will be saved in a buffer, and will only be
+displayed when you press Ctrl-1 again. You can also exit to the menu from
+within Pause. Returning to terminal will put you back into Pause. An
+indicator in the status line wil show you how full the buffer is. Take care
+not to let it overflow.
+This indicator was originally intended for a much larger buffer, and I
+made each dot represent 1 free K of memory. This gives the illusion of
+something like 11K of buffer space. This is not true, and actually you
+only have about 1K to fill before the program goes into the buggy "Rush"
+mode (which I'll explain later).
+
+When in Pause mode, you can use Option and Select to scroll the screen
+up and down respectively, to view one page of history. This is quite a
+sight with Fine Scroll.. and incredibly fast without it!
+Note, that only lines that get scrolled out of line 1 get saved in this
+history buffer. If you're scrolling a lower portion of the screen (which
+is one of the capabilities of the VT100), the data is not retained.
+
+Incoming characters also accumulate in the buffer when you are not in
+Terminal mode. They are displayed when you return to Terminal with Pause
+off.
+
+"Rush mode":
+In certain situations, the small buffer can overflow. This can happen:
+- When over 1.5K arrives during Pause mode
+- When high-speed data arrives during the slower Fine-Scroll mode, in a way
+  that 1.5K's worth of data accumulates
+- When ultra-speed (9600/14.4K) data arrives in large amounts, and is simply
+  too much for Ice-T to handle before the buffer overflows.
+
+The following describes what Rush mode would, ideally, look like:
+Instead of "Online", "Paused", or "Menu" in the upper left corner, "Rush!"
+lights up. All output to screen is stopped (unless you're in the Menu), and,
+if in Pause, backscroll will immediately scroll back to the main screen,
+and cease to work.
+During this time, the computer will be chugging away in the background,
+processing the incoming data as quickly as possible, not displaying it and only
+saving it into the 2K text mirror of the screen, which is much faster (used in
+Print-screen and when scrolling downwards in Backscroll). When the buffer
+has shrunk back into normal proportions, this process stops.
+
+(Note that this text-mirror, which is always active, is, like the 8K graphics
+screen, scrolled "virtually", which means that I'm not actually moving 2K of
+data around.)
+
+-If you were in a menu, everything will be as usual, but returning to
+Terminal mode will totally update and redraw the screen. Entering Pause
+mode and backscrolling will work as usual (the backscroll info will be updated
+as well).
+-If you were in Pause mode, you won't be able to backscroll. Leaving Pause
+will totally update the screen. Entering Pause again will allow you to
+backscroll as usual (but the older history info may have been lost).
+-If you were in Terminal mode, the screen will freeze during Rush, then
+suddenly blank and get redrawn. You can then Pause and Backscroll as usual.
+
+This process can repeat if data keeps coming in quickly. You can try remotely
+pausing it by typing ^S (Xoff). Note that Pause mode is local and doesn't
+affect your host's output.
+
+Anyway, the above describes Rush as it should be. In reality, well.. pray,
+or, more simply, don't let the buffer overflow... 
+
+
+Print-screen (^Shift-P):
+Will print the screen, as regular text, to any printer that is accessible
+through P:. Underlined or inverse text will appear normal on the printed
+page, and large-sized characters will look normal, but will be spaced
+apart. In case of an error, you will be notified, and the error number will
+be displayed. Be careful of graphics characters! Weird stuff can happen.
+Also, backscrolling will not affect the printout. Only the "main" screen
+gets printed.
+
+Using the keyboard in Terminal
+------------------------------
+Every usable key sounds a click when pressed (if click is enabled), so you'll
+know whether what you just pressed actually did something. 
+
+Pressing a key with START held down is like Meta-[key], which means it sends
+an Escape before that key. For example, START-x will send a Meta-x, or
+"Esc x". This does not work with keys that send more than one code, like
+the arrow keys.
+
+Here is a list of legal keys:
+
+^ means the Control key.
+
+Local-function keys:
+Shift-Esc  Exit to menu
+^1         Pause (indicated in status line)
+^Esc       Send break
+Caps       Toggle Caps lock (indicated in status line)
+Shift-Caps Set caps lock to on
+^Shift-P   Print screen
+
+Numeric keypad emulation:
+Codes sent depend on setting of Num-lock, which is indicated in
+the status-line, and is controlled by a code sent from host.
+
+The following used with ^Shift:
+0-9    -  Numeric-keypad 0-9
+Comma, period, minus, <Return> - Numeric keypad equivalents
+Q,W,E,R - PF1,2,3,4 respectively
+
+General keys:
+A-Z       - Lower or upper case according to Caps setting.
+Shift-A-Z - upper-case if Caps is off, lower-case if on.
+^A-Z, 0-9, Shift-0-9, Esc, Tab, <Return>, others not mentioned - obvious
+<Delete>  - Delete code specified in Parameters menu
+Shift-<Delete>  - Other delete code, the one you didn't specify.
+Ctrl-arrow keys - up, down, left, right. Code sent depends on cursor-key mode
+                  (controlled by host).
+(1200-XL only) Function keys: same as Ctrl-arrow keys - F1,2,3,4 are up, down,
+                  left, right, respectively.
+^7 - Accent mark
+^9,0 - Curly brackets
+Inverse/Atari logo key - tilde
+
+Special-purpose ASCII characters:
+^comma  - ^[ (same as Esc)
+^period - ^]
+^6      - ^^
+^8      - ^@ (null)
+^space  - ditto
+^colon  - ^_
+^?      - ^? ($7F, DEL)
+
+
+Ice-T took me about 2 years to write, and took a lot of effort.
+Please pay the shareware fee as a compensation for this time, and
+for encouraging me to write more Atari 8-bit software. This program
+is definitely worth more than $15, despite its bugs.
+
+My mailing address is clearly written in the title screen. I would greatly
+prefer cash. A check would actually _cost_ me $5 to cash!!!
+
+(You may stop reading at this point if you're not interested in the workings
+of the VT-100 emulator.)
+
+Enjoy Ice-T!!!!!
+
+-Itay Chamiel
+ Jerusalem, Israel
+ October 11th 1994, 2:02 AM..  :)
+
+-----------------------------------------------------------
+                    - APPENDIX -
+                 VT100 Command list
+       as implemented in Ice-T Terminal Emulator
+              by Itay Chamiel, (c)1994.
+
+Based on list from Omnicom's documentation, by David Young.
+
+-----------------------------------------------------------
+
+Conventions used:
+
+Esc    - the ascii character 27
+^      - control.
+spaces - for clarity. They're not sent.
+__     - Decimal number from 0 to 255 (can be any number of digits: 001 or 1)
+
+"can scroll" means that if the cursor cannot move up or down without passing
+the scrolling limits (not necessarily the top or bottom of the screen), it
+will not move, and cause a scroll to occur.
+If the scrolling margin is not the same as the screen limit, and the cursor
+is at the top or bottom of the screen, "can scroll" commands will NOT cause a
+scroll. A scroll occurs ONLY at scroll margins.
+
+The VT100 commands are case-sensitive. C is not the same as c.
+
+Commands with parameters look like this:
+Esc [ __ ; __ ; __ ; ....... ; __ x (where x is a different letter for each
+command). Ice-T allows up to 255 numbers to be received in one command,  but
+most commands will only treat the first one or two numbers.
+All such commands have "defaults" which are used if no parameters are
+received, or if one is sent when two are expected.
+
+Unknown control characters, Unknown "Esc x" commands and unknown 
+"Esc [ __ ; ... ; __ x" commands are all absorbed by the emulator with no
+effect.
+
+Control characters
+------------------
+
+^G  Bell, flash border color.
+^H  Cursor left one character. No effect if cursor on col 1
+^I  Tab. Cursor moves to next tabstop, or to column 80 if no further tabs.
+    Default tabstops are at column 9, 17, 25, and so on, spaced 8 apart.
+^J  Linefeed, move cursor down one line. Move cursor to col 1 ONLY if newline
+    mode is SET (see Esc [ __ h). Can scroll.
+^K  Same as ^J
+^L  Formfeed, treated as Linefeed (^J)
+^M  Carriage-Return, move cursor to col 1
+^N  Invoke G1 character set (see "Esc )" commands)
+^O  Invoke G0 character set (see "Esc (" commands)
+^X  Abort any Esc sequence currently in progress. If a sequence was in progress
+^Y  and ^X or ^Y were sent, the checkerboard character is displayed to inform
+    of an error. If not - the code is ignored.
+^[  Escape. Begins a new Escape-sequence, cancelling any other which may have
+    been in progress. (^[ is 27 or Esc.)
+
+Esc x Codes
+-----------
+
+Esc D  Cursor down 1 line, can scroll.
+Esc E  Cursor down one line and moves to col 1, can scroll.
+Esc H  Set tab at current cursor horizontal position.
+Esc M  Cursor up 1 line, can scroll
+Esc Z  Identify Term. Software replies by sending response Esc [?1;0c
+Esc 7  Save cursor position, graphic rendition, character set, wrap mode.
+Esc 8  Restore stuff saved with Esc 7
+Esc >  Keypad NumLock On
+Esc =  Keypad NumLock Off
+
+Esc [ __ x commands
+-------------------
+These commands are also recognized if they do not receive any parameter
+(Esc [ x), or if they receive less than the required amount of parameters.
+In these cases, the default(s) replace the required number.
+
+Esc [ __ A  (none/0 --> 1) Cursor up __ lines, does not scroll, stops at edge
+          of screen
+Esc [ __ B  Down, same as above
+Esc [ __ C  Forward, same as above, cursor stays on same line
+Esc [ __ D  Backward, same as above
+Esc [ __ ; __ H  (none/0 --> 1,1) Set cursor to row, col. If any parameter is
+          not within range (80 for x or 24 for y) they are truncated to 80
+          or 24. 0 is converted to 1.
+Esc [ __ J  (none --> 0) Erase part of the screen:
+          0 - cursor position to end of line (inclusive) and all lines below
+          1 - cursor position to start of line (inclusive) and all lines above
+          2 - entire screen. cursor does not move.
+          Other - ignore command
+Esc [ __ K  (none --> 0) Erase part of line:
+          0 - cursor position to end of line (inclusive)
+          1 - cursor position to start of line (inclusive)
+          2 - entire line
+          Other - ignore command
+Esc [ __ c  (Parameter ignored) Device attributes. Returns Esc [?1;0c
+Esc [ __ ; __ f  (none --> 1,1) same as Esc[_;_H (above)
+Esc [ __ g  (none --> 0)
+          0 - Clear tab at cursor column
+          3 - Clear all tabs. 
+          Other - ignore command
+Esc [ __ h  (20 only accepted) 20 - Set newline mode
+          Receiving an lf will be treated as cr + lf
+          Pressing Return on keyboard sends cr + lf
+          Not 20 - ignore command.
+Esc [ __ l (20 only accepted) opposite of above, Reset newline mode
+          lf = lf alone
+          return sends lf alone
+          Not 20 - ignore command.
+Esc [ ? __ h  Set mode, see below
+Esc [ ? __ l  Reset mode, see below
+Parameter          Set           Reset
+ 1 - cursor keys   Application   Numeric
+ 3 - columns       clear screen in both cases 
+ 5 - screen color  Reverse-vid   Normal
+ 7 - autowrap      On            Off
+Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
+ Select graphic rendition:
+ 0 - Normal      5 - Blink (recognized but not implemented)
+ 4 - Underline   7 - Reverse video   8 - Invisible (writes blank spaces)
+Esc [ __ n  (none --> 5)
+            Device Status Report. Response depends on parameter:
+            5: response is "ready" - Esc [0n
+            6: report cursor position - Esc [ row ; col R
+Esc [ __ ; __ r (defaults: 1,24) Set top and bottom scrolling margins.
+            1 and 24, for example, mean the entire screen scrolls.
+            14 and 24 cause the last 10 lines to scroll. 14,24 mean lines
+            14 to 24 INCLUSIVE.
+
+Esc ( A or Esc ( B             Set G0 to point to ASCII characters
+Esc ( 0 or Esc ( 1 or Esc ( 2  Set G0 to point to line-drawing graphics
+Esc ) A or Esc ) B             Set G1 to point to ASCII characters
+Esc ) 0 or Esc ) 1 or Esc ) 2  Set G1 to point to line-drawing graphics
+
+Esc # 3 Double-Height, top half
+Esc # 4 Double-Height, bottom half
+Esc # 5 Normal size
+Esc # 6 Double-width
+Esc # 7 Normal size
+Esc # 8 Fill screen with the letter E for screen adjustment (useless, but
+        was too easy to implement)
+
+The line-changing commands preserve anything already on that line, unless
+an 80-column line is changed into a 40-column line. In that case, the
+last 40 characters of that line are lost.
+Double-size characters use the standart built-in character set (since it's
+40 columns) plus a few characters like tilde and curly braces, and for the
+special graphics characters, which don't exist in ATASCII, a simple routine
+which doubles the 80-column characters is used.
+Double-height characters are the same as double-width, but their height is
+doubled with a simple routine.
+
+Special codes sent from the Ice-T keyboard:
+
+Numeric keypad: 
+(Shift-Ctrl-key)            Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
+
+ Key  | On <NumLock> Off    Arrow |         Cursor key mode
+------+-----+------------    Key  | Reset (Numeric) | Set (Application)
+  0   | 0   | Esc O p       ------+-----------------+------------------
+  1   | 1   | Esc O q        Up   | Esc [ A         | Esc O A
+  2   | 2   | Esc O r       Down  | Esc [ B         | Esc O B
+  3   | 3   | Esc O s       Right | Esc [ C         | Esc O C
+  4   | 4   | Esc O t       Left  | Esc [ D         | Esc O D
+  5   | 5   | Esc O u
+  6   | 6   | Esc O v
+  7   | 7   | Esc O w
+  8   | 8   | Esc O x
+  9   | 9   | Esc O y
+  -   | -   | Esc O m
+  ,   | ,   | Esc O l
+  .   | .   | Esc O n
+Enter | ^M  | Esc O M
+ PF1  | --> | Esc O P  (Shift-Ctrl-Q)
+ PF2  | --> | Esc O Q  (Shift-Ctrl-W)
+ PF3  | --> | Esc O R  (Shift-Ctrl-E)
+ PF4  | --> | Esc O S  (Shift-Ctrl-R)
+
+Special characters in graphics mode:
+
+ASCII| Character in graphics mode
+-----+-------------------------------------
+ _    Blank
+ \    Diamond
+ a    Checkerboard
+ b    Two small letters HT, in upper-left and lower-right corners of character
+ c    Letters FF
+ d    Letters CR
+ e    Letters LF
+ f    Degree symbol
+ g    +/- symbol
+ h    Letters NL
+ i    Letters VT
+ j    lower-right corner of square
+ k    upper-right corner
+ l    upper-left corner
+ m    lower-left corner
+ n    crossing lines (+)
+ o    horizontal line - line 1 in character
+ p    horiz line - line 2
+ q    line 4
+ r    line 6
+ s    line 8
+ t    Left T            |-    (approximate appearance shown here)
+ u    Right T        -|
+ v    Bottom T         _|_
+ w    Top T          T
+ x    vertical bar      |
+ y    less/equal     _<
+ z    greater/equal     >_
+ {    Pi symbol
+ |    Not equal        =/=   
+ }    UK pound symbol
+ ~    Centered dot
+
