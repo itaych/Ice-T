@@ -210,7 +210,7 @@ init_continued
 
 	; Display title screen
 COLORED_TITLE_SCREEN = 1				; whether to use colors in title screen (must be 0 or 1)
-COLORED_TITLE_SCREEN_SHADED_LOGO = 0	; whether to also shade the Ice-T logo (must be 0 or 1)
+COLORED_TITLE_SCREEN_SHADED_LOGO = 1	; whether to also shade the Ice-T logo (must be 0 or 1)
 
 	lda boldallw
 	pha
