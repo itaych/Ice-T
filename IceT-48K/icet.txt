@@ -1,7 +1,7 @@
 
  I c e - T  --  A new terminal emulator for the 8-bits!
 
- by Itay Chamiel - (c)1994 IceSoft 
+ by Itay Chamiel - (c)1994 IceSoft
 
 Internet Email: bruck@brachot.jct.ac.il
 
@@ -56,7 +56,7 @@ previous version, also included in this disk image.
 SpartaDOS users: This program is guaranteed to be compatible with all DOSes
 except Sparta. I have heard reports of the program working perfectly with it,
 and other, not so optimistic reports, so.. use at your own risk.
-Using the 'X' command may help, but I don't promise it to be a complete 
+Using the 'X' command may help, but I don't promise it to be a complete
 solution.
 
 You should now be looking at the title screen. If you see the message "No
@@ -262,7 +262,7 @@ Press any key to continue. A file with the name you typed in the MiniDOS
 menu will be opened (errors will be ignored.. The transfer will simply
 proceed with no file created at all! So pay attention to I/O noises).
 "g" will appear in the middle, which means "Getting packet". The program
-will then get the first packet, also displaying it on-screen for 
+will then get the first packet, also displaying it on-screen for
 convenience. It'll look weird though, since you're seeing screen-codes
 and not ATASCII codes. Simply put, lower-case letters will look fine, but
 most other characters will _look_ completely different, but will make it to
@@ -273,7 +273,7 @@ out yourself.. I just can't remember them all, and I don't even have the
 sources handy!!
 
 If the transfer gets stuck for any reason, you'll have to RESET your way out.
-When back in Terminal, type ^U (NAK) repeatedly until the remote Xmodem 
+When back in Terminal, type ^U (NAK) repeatedly until the remote Xmodem
 gives up and aborts the transmission.
 
 
@@ -353,7 +353,7 @@ pausing it by typing ^S (Xoff). Note that Pause mode is local and doesn't
 affect your host's output.
 
 Anyway, the above describes Rush as it should be. In reality, well.. pray,
-or, more simply, don't let the buffer overflow... 
+or, more simply, don't let the buffer overflow...
 
 
 Print-screen (^Shift-P):
@@ -368,7 +368,7 @@ gets printed.
 Using the keyboard in Terminal
 ------------------------------
 Every usable key sounds a click when pressed (if click is enabled), so you'll
-know whether what you just pressed actually did something. 
+know whether what you just pressed actually did something.
 
 Pressing a key with START held down is like Meta-[key], which means it sends
 an Escape before that key. For example, START-x will send a Meta-x, or
@@ -470,7 +470,7 @@ most commands will only treat the first one or two numbers.
 All such commands have "defaults" which are used if no parameters are
 received, or if one is sent when two are expected.
 
-Unknown control characters, Unknown "Esc x" commands and unknown 
+Unknown control characters, Unknown "Esc x" commands and unknown
 "Esc [ __ ; ... ; __ x" commands are all absorbed by the emulator with no
 effect.
 
@@ -535,7 +535,7 @@ Esc [ __ c  (Parameter ignored) Device attributes. Returns Esc [?1;0c
 Esc [ __ ; __ f  (none --> 1,1) same as Esc[_;_H (above)
 Esc [ __ g  (none --> 0)
           0 - Clear tab at cursor column
-          3 - Clear all tabs. 
+          3 - Clear all tabs.
           Other - ignore command
 Esc [ __ h  (20 only accepted) 20 - Set newline mode
           Receiving an lf will be treated as cr + lf
@@ -549,7 +549,7 @@ Esc [ ? __ h  Set mode, see below
 Esc [ ? __ l  Reset mode, see below
 Parameter          Set           Reset
  1 - cursor keys   Application   Numeric
- 3 - columns       clear screen in both cases 
+ 3 - columns       clear screen in both cases
  5 - screen color  Reverse-vid   Normal
  7 - autowrap      On            Off
 Esc [ __ ; ... ; __ m  (at least one parameter, none --> 0)
@@ -590,7 +590,7 @@ doubled with a simple routine.
 
 Special codes sent from the Ice-T keyboard:
 
-Numeric keypad: 
+Numeric keypad:
 (Shift-Ctrl-key)            Arrows: (Ctrl-Up/Down/Right/Left arrow keys)
 
  Key  | On <NumLock> Off    Arrow |         Cursor key mode
@@ -647,7 +647,7 @@ ASCII| Character in graphics mode
  y    less/equal     _<
  z    greater/equal     >_
  {    Pi symbol
- |    Not equal        =/=   
+ |    Not equal        =/=
  }    UK pound symbol
  ~    Centered dot
 

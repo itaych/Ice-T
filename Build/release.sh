@@ -9,20 +9,27 @@ mkdir release
 mkdir atrdisk
 
 ./build.sh
-../../atasm/src/atasm -mae -I../Col80 ../Col80/col80.asm -oatrdisk/col80.com
+# Add files to disk image
 cp ../bin/icet.xex atrdisk/icet.com
-cp ../bin/icet_axlon.xex atrdisk/icet4ax.com
+cp ../bin/icet_axlon.xex atrdisk/icetaxln.com
+../../atasm/src/atasm -mae -I../Col80 ../Col80/col80.asm -oatrdisk/col80.com
+../../atasm/src/atasm -mae -I../IceT-48K ../IceT-48K/vtsend.asm -oatrdisk/icet48k.com
 cp ../RHandlers/* atrdisk/
-cp ../Doc/readme.txt atrdisk/
 cp ../Doc/icet.txt atrdisk/
 cp ../Doc/vt102.txt atrdisk/
+cp ../utils/AnimationDemo/icetdemo.vt atrdisk/
 cp mydos/* atrdisk/
 
+# Add files to .7z archive
 cp ../bin/icet.xex release/
 cp ../bin/icet_axlon.xex release/
+cp atrdisk/icet48k.com release/icet_48k.xex
+cp ../Doc/readme.txt release/
 cp ../Doc/quickstart.txt release/
 cp ../Doc/icet.txt release/
 cp ../Doc/vt102.txt release/
+cp ../Doc/icet_cfg.h release/
+cp ../utils/AnimationDemo/icetdemo.vt release/
 
 ./dir2atr.exe -d -m -b MyDos4534 1040 icet.atr atrdisk
 #/mnt/c/Users/Itay/Emulators/Atari/ATasm/Projects/Ice-T/Build/dir2atr.exe -d -m -b MyDos4534 1040 icet.atr atrdisk
