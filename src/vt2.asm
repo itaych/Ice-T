@@ -6225,9 +6225,12 @@ parse_macro
 	ldy #0
 ?lp
 	lda (cntrl),y
+	beq ?end		; null character means end of macro
 	cmp #'$
 	bne ?nohex
 	iny
+	cpy #macrosize
+	bcs ?end
 	lda (cntrl),y
 	cmp #'$
 	beq ?noctrl
@@ -6238,6 +6241,8 @@ parse_macro
 	asl a
 	sta temp
 	iny
+	cpy #macrosize
+	bcs ?end
 	lda (cntrl),y
 	jsr ?hg
 	ora temp
@@ -6246,6 +6251,8 @@ parse_macro
 	cmp #'%
 	bne ?noctrl
 	iny
+	cpy #macrosize
+	bcs ?end
 	lda (cntrl),y
 	cmp #'%
 	beq ?noctrl
@@ -6256,6 +6263,7 @@ parse_macro
 	iny
 	cpy #macrosize
 	bcc ?lp
+?end
 	rts
 
 ?hg				; Convert ascii hex digit (0123456789abcdef) to 4-bit value
