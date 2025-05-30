@@ -466,10 +466,12 @@ trmode
 vt100_check_hi_chars
 	cmp #155	; ATASCII end-of-line?
 	bne ?ok1
-	ldx eolchar	; Change to ASCII if
-	cpx #3		; enabled
+	ldx eolchar	; Handle as a CR+LF if enabled.
+	cpx #3
 	bne ?ok1
-	lda #$0d	; convert to a CR - which will later be handler as a CR/LF
+	lda #0		; home cursor (so we don't need a CR)
+	sta tx
+	lda #$0a	; and convert it to an LF.
 ?ok1
 	ldx eitbit
 	bne ?ok8
@@ -710,13 +712,13 @@ ctrlcode_unused
 ctrlcode_0d		; ^M - CR
 	lda #0
 	sta tx
-	lda eolchar	; Add an LF? (user)
+	lda eolchar	; Add an LF? (user setting)
 	cmp #2
-	bcs ctrlcode_0c	; yes
+	beq ctrlcode_0c	; yes
 	jmp reset_seol	; no
 
 ctrlcode_0a		; ^J - LF
-	lda eolchar	; Add a CR? (user)
+	lda eolchar	; Add a CR? (user setting)
 	cmp #1
 	bne ctrlcode_0c
 	lda #0		; yes.
