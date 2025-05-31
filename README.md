@@ -1,5 +1,5 @@
 ## Ice-T XE - Telecommunications Software for the Atari 8-bit.
-
+Ice-T is a terminal emulator, allowing Atari computers with extended memory (128KB and above) to connect to remote dialup and Telnet hosts, such as Unix shells and BBSs. A limited version for machines without extended memory is also available.
 ### Features
 * Highly accurate VT-102, VT-52 and ANSI-BBS emulation, including boldface, blink, and limited color support.
 * Takes advantage of extended RAM to provide many features.
@@ -25,4 +25,4 @@
 This should generate `icet.xex` and `icet_axlon.xex` in the `Ice-T/bin` directory.
 
 ### Usage
-In the "Doc" directory please see `icet.txt` for the full user guide, or `quickstart.txt` for a minimal guide on getting Ice-T running in the [Altirra](https://www.virtualdub.org/altirra.html)  Atari 8-bit emulator.
+In the "Doc" directory please see `icet.txt` for the full user guide. If you don't have an Atari computer handy, see `quickstart.txt` for a minimal guide on getting Ice-T up and running in the [Altirra](https://www.virtualdub.org/altirra.html) emulator.
