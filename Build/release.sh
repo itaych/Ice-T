@@ -39,7 +39,7 @@ BUILD_DIR=`pwd`
 cd /mnt/c
 PROG_FILES=$(wslpath -au "$(cmd.exe /c 'echo %programfiles%' | tr -d '\r\n')")
 cd ${BUILD_DIR}/release
-"${PROG_FILES}/7-Zip/7z.exe" a ../release.7z *
+"${PROG_FILES}/7-Zip/7z.exe" a ../release.zip *
 cd ..
 rm -rf atrdisk
 rm -rf release

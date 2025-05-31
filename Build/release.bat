@@ -38,7 +38,7 @@ if errorlevel 1 goto error
 rd /s/q atrdisk
 
 cd release
-"%programfiles%\7-Zip\7z" a ..\release.7z *.*
+"%programfiles%\7-Zip\7z" a ..\release.zip *.*
 cd ..
 if errorlevel 1 goto error
 

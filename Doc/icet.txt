@@ -403,7 +403,7 @@ menu by hitting Esc will not).
 Emulation: Choose VT-102, ANSI-BBS, or VT-52. BBS users should use the
 corresponding option. The differences between VT-102 and ANSI-BBS are subtle;
 some BBS art will be affected by it, as would certain pedantic applications
-such as Emacs.
+such as Emacs. The vt102.txt document details the differences.
 
 Return sends: Normally pressing Return will transmit a CR, unless the remote
 host sends a control code named Set Insert mode after which Return will
