@@ -826,7 +826,7 @@ svscrlms
 version_str
 	.byte 	"2.8.0"
 version_str_end
-	.byte	", Jun 1, 2025. Contact: itaych@gmail.com"
+	.byte	", June 1, 2025. Contact: itaych@gmail.com"
 tilmesg3_end
 
 tilmesg3_len = tilmesg3_end-svscrlms
