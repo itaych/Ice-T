@@ -10,13 +10,13 @@
 Features:
 
 * Highly accurate VT-102, VT-52 and ANSI-BBS emulation, including boldface,
-  blink and limited color support.
+  blink, and limited color support.
 * Takes advantage of extended RAM to provide many features.
-* Incredible speed - supports up to 19,200 baud, typically with no data loss
-* Readable 80-columns, usable even with color TV.
+* Incredible speed - supports up to 19,200 baud, typically with no data loss.
+* Readable 80-columns, usable even with a color TV.
 * Fully menu driven, very easy to use.
 * Xmodem-CRC, Xmodem-1K, Ymodem-batch, Ymodem-G, Zmodem download protocols.
-* ASCII upload, 16K capture buffer.
+* Xmodem upload, ASCII upload, 16K capture buffer.
 * 16K scrollback buffer.
 * Macro support, with up to 12 macros of 64 characters each.
 * Auto-dialer, with a directory of up to 20 entries.
@@ -131,10 +131,10 @@ characters. It took me one late night session to implement it, but there were
 many little problems with it and so I released it as an alpha version. This
 naturally heightened users' interest, and I released a series of alpha versions
 with more improvements, but since I never felt that it was quite ready there
-was no official release. Real life began to affect my spare time, and a new and
-demanding job meant that I didn't have enough time and energy to devote to the
-increasingly complex project. Thus version 2.8.0-alpha7 from October 2014
-remained the current version for over a decade.
+was no official release. Real life began to affect my spare time once more, and
+a new and demanding job meant that I didn't have enough time and energy to
+devote to the increasingly complex project. Thus version 2.8.0-alpha7 from
+October 2014 remained the current version for over a decade.
 
 In May of 2025 I finally found the time, grabbed the old todo list and got to
 work. I fixed many lingering bugs and finally brought the color emulation to
@@ -155,18 +155,19 @@ As with all software that communicates over the serial port, you need some kind
 of R: handler to enable the software to communicate with your particular modem/
 interface. Some interfaces already have such a handler built in, and don't need
 any software to install them. The 850, P:R: connection, and anything else that
-hooks up through the SIO or joystick ports, definitely needs such a file.
+hooks up through the SIO or joystick ports, definitely need such a file.
 
 Included with this disk are a number of such handlers. ATARI850.HND is for the
 850 interface. The rest of the .HND files were taken from the Bobterm archive,
 and are included for your convenience - I credit Bob Puff for collecting these.
 
 For MyDOS users, Ice-T is capable of loading the R: handler automatically if it
-is needed. Rename the appropriate file to RS232.COM and make sure it is located
-in the 'current' path (D:) when Ice-T is loading.
+is needed, and even automatically unloading it at program exit. Rename the
+appropriate file to RS232.COM and make sure it is located in the 'current' path
+(D:) when Ice-T is loading.
 
 SpartaDOS users are advised to create a batch file that will load the R:
-handler, then load Ice-T. SDX users must use 'X' to load the program.
+handler, then load Ice-T. SDX users must use 'X' to load the application.
 
 For other DOSes (such as Atari DOS) there is no easy solution other than to
 load the R: handler manually each time, rename it to AUTORUN.SYS or prepend it
