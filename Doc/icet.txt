@@ -296,6 +296,10 @@ will send Ctrl-X (ASCII code 24) and %[ will send Esc (ASCII code 27). To send
 the percent sign use '%%'.
 - To insert an arbitrary byte use '$' followed by 2 case-insensitive hex
 digits. To send the dollar sign use '$$'.
+As a useful example, the following sequence will send an Xterm style "page
+down" key code: %[[6$7E
+Instead of the 6 you can place any digit from 1 to 6 for Home, Insert, Delete,
+End, Page Up and Page Down, respectively.
 
 Keyclick: Choose between the standard Atari built-in click, the simple quiet
 'tick' sound, or no click at all.
@@ -551,7 +555,7 @@ VT-parse file: This loads a local file from disk and sends its contents to the
 Terminal, as if they had been received from the remote side. This is useful
 mostly as a way to view clever VT100 animations, such as the ones available at
 http://artscene.textfiles.com/vt100/ . Note that some of the animations require
-setting Settings > End of Line to "LF alone". A demo animation named
+changing Settings > End of Line to "LF alone". A demo animation named
 "icetdemo.vt" is included on the Ice-T disk, I hope you enjoy it.
 
 The following controls are available during animation playback:
