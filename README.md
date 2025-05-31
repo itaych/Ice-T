@@ -2,7 +2,6 @@
 Ice-T is a terminal emulator, allowing Atari computers with extended memory (128KB or more) to connect to remote dialup and Telnet hosts, such as Unix shells and BBSs. A limited version for machines without extended memory is also available.
 ### Features
 * Highly accurate VT-102, VT-52 and ANSI-BBS emulation, including boldface, blink, and limited color support.
-* Takes advantage of extended RAM to provide many features.
 * Incredible speed for the platform - supports up to 19,200 baud, typically with no data loss.
 * Readable 80-column text display, usable even with a color TV.
 * Fully menu driven, very easy to use.
