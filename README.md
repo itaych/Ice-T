@@ -4,7 +4,7 @@
 * Highly accurate VT-102, VT-52 and ANSI-BBS emulation, including boldface, blink, and limited color support.
 * Takes advantage of extended RAM to provide many features.
 * Incredible speed for the platform - supports up to 19,200 baud, typically with no data loss.
-* Readable 80-columns, usable even with a color TV.
+* Readable 80-column text display, usable even with a color TV.
 * Fully menu driven, very easy to use.
 * Xmodem-CRC, Xmodem-1K, Ymodem-batch, Ymodem-G, Zmodem download protocols.
 * Xmodem upload, ASCII upload, 16K capture buffer.
