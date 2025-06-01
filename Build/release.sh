@@ -12,7 +12,7 @@ mkdir atrdisk
 # Add files to disk image
 cp ../bin/icet.xex atrdisk/icet.com
 cp ../bin/icet_axlon.xex atrdisk/icetaxln.com
-../../atasm/src/atasm -mae -I../Col80 ../Col80/col80.asm -oatrdisk/col80.com
+../../atasm/src/atasm -mae -I../utils/Col80 ../utils/Col80/col80.asm -oatrdisk/col80.com
 ../../atasm/src/atasm -mae -I../IceT-48K ../IceT-48K/vtsend.asm -oatrdisk/icet48k.com
 cp ../RHandlers/* atrdisk/
 cp ../Doc/icet.txt atrdisk/

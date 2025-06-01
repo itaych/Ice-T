@@ -9,7 +9,7 @@ mkdir atrdisk
 
 atasm -mae -I..\src -I..\fonts -o..\bin\icet.xex ..\src\icet.asm -l..\bin\icet.lab
 if errorlevel 1 goto error
-atasm -mae -I..\Col80 ..\Col80\col80.asm -oatrdisk\col80.com
+atasm -mae -I..\utils\Col80 ..\utils\Col80\col80.asm -oatrdisk\col80.com
 if errorlevel 1 goto error
 
 copy ..\bin\icet.xex atrdisk\icet.com
@@ -25,7 +25,7 @@ copy ..\Doc\icet.txt release
 copy ..\Doc\vt102.txt release
 
 rem TEMP
-rem atasm -mae -I..\Col80 ..\Col80\col80.asm -oatrdisk\col80.com -lcol80.lab
+rem atasm -mae -I..\utils\Col80 ..\utils\Col80\col80.asm -oatrdisk\col80.com -lcol80.lab
 rem ren atrdisk\col80.com col80.ar0
 rem ren atrdisk\icet.txt i
 rem copy g atrdisk\
