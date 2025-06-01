@@ -87,6 +87,15 @@ terminal emulator, which was briefly named MegaTerm but soon renamed to Ice-T
 (IC are my initials; T is for Terminal), a project that took up most of my
 spare time for the next 5 years.
 
+Initially I wrote the code with the T:Edit text editor (by Bryan Schappel,
+ANALOG Computing magazine, May 1987) and assembled it with A65 by Charles
+Marslett. However when John Harris released the MAE integrated assembler and
+editor around 1996 I quickly made the switch, and even joined efforts with him
+to add 80-column as well as 64-column text modes for the editor. The greatest
+advantage other than assembly speed and streamlined workflow was that the
+assembler supported automatic local labels which eliminated the need to invent
+a new and unique name for every minor loop and branch point in the project.
+
 In 1997 the project was pretty much done; the program had established itself
 among the standard telecommunications packages for the platform, people seemed
 happy with it (several even paying the shareware fee), and for personal
@@ -101,9 +110,12 @@ emulated platform, I did not get around to trying to fix it.
 
 In April 2005 I decided to bring the source code out of the old Atari disk
 images and convert them to files that could be edited and assembled on a
-modern machine; I chose ATasm as the assembler and (thanks to its author,
-who added a special build option at my request) managed to get it to create
-an executable bitwise-identical to the 1997 release.
+modern machine. It was difficult to find a cross-assembler that supported MAE-
+style local labels; after some searching I came across the ATasm assembler
+which seemed very close to what I needed, and its author, Mark Schmelzenbach
+was kind enough to add a build option "-mae" that the trick. With that I was
+able to build an executable bitwise-identical to the last 1997 release, and
+ATasm remains my assembler of choice for further development.
 
 In October 2007, addressing fresh complaints about the aforementioned bug on
 the Atariage forums, I cleaned up and released the source code to the forum in
