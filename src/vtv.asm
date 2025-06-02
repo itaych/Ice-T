@@ -94,9 +94,9 @@ oldctrl1	.ds 1
 dobell		.ds 1
 doclick		.ds 1
 capslock	.ds 1
-s764		.ds 1
+s764		.ds 1	; temporarily stores code of last key pressed. Reused as a temp variable in other places.
 outnum		.ds 1	; number of bytes to output.
-outdat		.ds 3
+outdat		.ds 3	; data to output over serial port by routine "outputdat"
 
 ctrl1mod	.ds 1
 oldbufc		.ds 1
@@ -734,36 +734,38 @@ keytab
 
 	.byte	108,106,59,kup,kdown,107,43,42
 	.byte	111,0,112,117,kretrn,105,45,61
-	.byte	118,0,99,kleft,kright,98,120
-	.byte	122,52,0,51,54,27,53,50,49,44
-	.byte	32,46,110,0,109,47,126,114,0
-	.byte	101,121,9,116,119,113,57,0,48
-	.byte	55,kdel,56,60,62,102,104,100
-	.byte	kbrk,kcaps,103,115,97
+	.byte	118,0,99,kleft,kright,98,120,122
+	.byte	52,0,51,54,27,53,50,49
+	.byte	44,32,46,110,0,109,47,126
+	.byte	114,0,101,121,9,116,119,113
+	.byte	57,0,48,55,kdel,56,60,62
+	.byte	102,104,100,kbrk,kcaps,103,115,97
 ; (note: 59 is an unused keycode; it is inserted by the BREAK key hook)
 
 ; Shift-char (64-127)
 
-	.byte	76,74,58,kup,kdown,75,92,94,79
-	.byte	0,80,85,kretrn,73,95,124,86,0
-	.byte	67,kleft,kright,66,88,90,36,0
-	.byte	35,38,kexit,37,34,33,91,32,93
-	.byte	78,0,77,63,0,82,0,69,89,0,84
-	.byte	87,81,40,0,41,39,ksdel,64,0,0
+	.byte	76,74,58,kup,kdown,75,92,94
+	.byte	79,0,80,85,kretrn,73,95,124
+	.byte	86,0,67,kleft,kright,66,88,90
+	.byte	36,0,35,38,kexit,37,34,33
+	.byte	91,32,93,78,0,77,63,0
+	.byte	82,0,69,89,0,84,87,81
+	.byte	40,0,41,39,ksdel,64,0,0
 	.byte	70,72,68,0,kscaps,71,83,65
 
 ; Ctrl-char (128-191)
 
-	.byte	12,10,31,kup,kdown,11,kleft
-	.byte	kright,15,0,16,21,kretrn,9,kup
-	.byte	kdown,22,0,3,kleft,kright,2,24
-	.byte	26,0,0,0,30,kbrk,0,0,kctrl1,27
-;			Note on this ^^^^: Enables C-esc = break.
+	.byte	12,10,31,kup,kdown,11,kleft,kright
+	.byte	15,0,16,21,kretrn,9,kup,kdown
+	.byte	22,0,3,kleft,kright,2,24,26
+	.byte	0,0,0,30,kbrk,0,0,kctrl1
+;       Note on this ^^^^: Enables C-esc = break.
 ; Keep this, even though break key also works
 
-	.byte	kzero,29,14,0,13,28,0,18,0,5
-	.byte	25,0,20,23,17,123,0,125,96,0
-	.byte	kzero,0,0,6,8,4,0,0,7,19,1
+	.byte	27,kzero,29,14,0,13,28,0
+	.byte	18,0,5,25,0,20,23,17
+	.byte	123,0,125,96,0,kzero,0,0
+	.byte	6,8,4,0,0,7,19,1
 
 ctr1offp
 	.byte	1,0,6

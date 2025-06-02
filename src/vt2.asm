@@ -5182,7 +5182,7 @@ readk
 	sta ctrl1mod
 ?c1ok
 	lda kbd_ch
-	cmp #255
+	cmp #255		; has a key been pressed?
 	bne ?gtky
 	rts
 ?gtky
@@ -5196,29 +5196,33 @@ readk
 	and #$3f
 	tax
 	lda keytab,x
-	cmp #'d			; d - dump screen to disk
-	bne ?nodiskdump
-	jmp diskdumpscrn
-?nodiskdump
-	cmp #'p			; p - print screen
-	bne ?noprtscrn
-	jmp prntscrn
-?noprtscrn
-	cmp #'h			; h - hangup
-	bne ?nh
-	jmp hangup
-?nh
-	cmp #27			; esc - send break (shift-ctrl-esc is accepted in addition to ctrl-esc)
-	bne ?nobrk
-	jmp ksendbrk
-?nobrk
+	ldx #>ctshft_key_jumptable
+	ldy #<ctshft_key_jumptable
+	jmp parse_jumptable
 
-.if 0				; set to 1 to enable ctrl-shift-s speed test
-	cmp #'s
-	bne ?ok			; s - internal speed test
+ENABLE_SPEED_TEST = 0	; set to 1 to enable ctrl-shift-S internal speed test
 
-; this is an internal speed test, press any key to end.
+ctshft_key_jumptable
+	.byte 'd		; d - dump screen to disk
+	.word diskdumpscrn
+	.byte 'p		; p - print screen
+	.word prntscrn
+	.byte 'h		; h - hangup
+	.word hangup
+	.byte 27		; esc - send break (shift-ctrl-esc is accepted in addition to ctrl-esc)
+	.word ksendbrk
+.if ENABLE_SPEED_TEST
+	.byte 's		; internal speed test
+	.word internal_speed_test
+.endif
+	.byte $ff		; other ctrl-shift keys - emulated numeric keypad
+	.word numeric_keypad
+ctshft_key_jumptable_end
+	.guard ctshft_key_jumptable_end - ctshft_key_jumptable <= $100, "ctshft_key_jumptable too big!"
 
+.if ENABLE_SPEED_TEST
+
+internal_speed_test	; this is an internal speed test, press any key to end.
 	jsr crsifneed	; turn cursor off
 	ldx #'a
 	lda #255
@@ -5241,24 +5245,20 @@ readk
 	jmp crsifneed	; turn cursor on
 .endif
 
-; other ctrl-shift keys are the numeric keypad
-
-?ok
-	lda numlock
-	beq keyapp
-	jmp keynum
+numeric_keypad		; other ctrl-shift keys: numeric keypad
+	ldx numlock
+	bne keynum
 
 ; Keypad application mode (numlock off)
 
 keyapp
-	lda #27		; Esc
-	sta outdat
-	lda #'O		; the letter O
-	sta outdat+1
-	lda #3
-	sta outnum
+	ldx #27		; Esc
+	stx outdat
+	ldx #'O		; the letter O
+	stx outdat+1
+	ldx #3
+	stx outnum
 
-	lda keytab,x
 	cmp #44 ; ,
 	beq ?add64
 	cmp #45 ; -
@@ -5309,9 +5309,9 @@ keyapp
 ; Numeric-keypad mode (numlock on)
 
 keynum
-	lda #1
-	sta outnum
-	lda keytab,x
+	ldx #1
+	stx outnum
+
 	cmp #44 ; ,
 	beq ?numnok
 	cmp #45 ; -
@@ -5345,14 +5345,13 @@ keynum
 	jmp outputdat
 
 noctshft
-	lda s764
-	tax
+	ldx s764
 	lda keytab,x
-	bne ?nozero		; a zero in keytab means ignore me
-	rts
-?nozero
-	bpl normal_key
+	beq ?zero		; a zero in keytab means ignore me
+	bpl normal_key	; under 128 is a normal keycode
 	jmp special_key
+?zero
+	rts
 
 ; Basic key pressed.
 
@@ -5603,7 +5602,7 @@ knobrk
 	cmp #kzero
 	bne knozero
 	ldx #0
-	stx outdat
+	stx outdat		; send null character
 	inx
 	stx outnum
 	jmp outputdat
@@ -5623,9 +5622,9 @@ knozero
 	sta ctrl1mod
 	rts
 knoctrl1
-	cmp #kup
+	cmp #kup		; check if in range of kup/kdown/kright/kleft
 	bcc knoarrow
-	cmp #kexit
+	cmp #kleft+1
 	bcs knoarrow
 	sec 			; arrow keys
 	sbc #(kup-'A)
@@ -7471,6 +7470,7 @@ parse_jumptable
 	iny
 	lda (cntrl),y
 	sta ?jumpaddr+2
+	lda temp	; so that 'A' will the contain original value when we jump to the vector
 ?jumpaddr
 	jmp undefined_addr
 
