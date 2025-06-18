@@ -6,7 +6,7 @@ struct icet_config_t {
 	uint8_t baudrate = 15; // Serial port baud rate: 8-15 for 300, 600, 1200, 1800, 2400, 4800, 9600, 19200 baud respectively.
 	uint8_t stopbits = 0; // Serial port stop bits: 0 for 1, 128 for 2.
 	uint8_t localecho = 0; // Local Echo: 0 for off, 1 for on.
-	uint8_t click = 2; // Key click type: 0 for no click, 1 for single write to console speaker register, 2 for Atari OS keyclick.
+	uint8_t click = 4; // Key click type: 0 for no click, 1-5 for various pitches (3 sounds like the standard Atari OS keyclick).
 	uint8_t curssiz = 6; // Cursor size: 0 for a block, 6 for underline.
 	uint8_t finescrol = 0; // Enable fine scroll: 0 to disable, 4 to enable. Only one of finescrol or boldallw may be nonzero.
 	uint8_t boldallw = 1; // Enable additional graphics: 0 to disable, 1 for ANSI colors, 2 for bold only, 3 to enable blinking text.

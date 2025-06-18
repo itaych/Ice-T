@@ -43,6 +43,12 @@ init_continued
 	dex
 	bpl ?cfg_lp
 
+	; increase keyboard repeat rate (no effect for OS-B users, sorry)
+	lda #$19
+	sta krpdel
+	lda #$3
+	sta keyrep
+
 	; detect R-Time8 cartridge
 	jsr rt8_detect
 	sta rt8_detected
@@ -963,32 +969,15 @@ getkey			; Get key pressed
 	tay
 	lda #$ff	; clear BREAK key flag (or else it will be caught
 	sta brkkey	; by OS keyboard handler in standard keyclick mode)
-getkey_modify_keydef	; modified with value taken from KEYDEF at startup.
-	lda undefined_addr,y ; get translated value and keep it in A until return
-	ldx click	; check keyclick type
-	beq ?done_click
-	cpx #1
-	bne ?standardclick
-	stx doclick	; VBI will sound the simple click
-?done_click
+getkey_modify_keydef		; modified with value taken from KEYDEF at startup.
+	lda undefined_addr,y	; get translated value and keep it in A until return
+	ldx click	; get keyclick type
+	beq ?noclick
+	inx			; add 1, for a range of delay values of 2-6 rather than 1-5.
+	stx doclick	; VBI will sound the click, this value will determine click pitch
+?noclick
 	ldx #255	; clear keyboard buffer
 	stx kbd_ch
-	rts
-?standardclick
-	pha
-	lda #1		; some keys don't generate a click when calling OS routines
-	sta kbd_ch	; so stuff a value that will always sound a click
-	jsr ?do_std_click
-	pla
-	rts
-
-?do_std_click			; Call get K: for keyclick
-	lda #4
-	sta icax1z	; indicate open for read (thanks to Avery Lee, author of the Altirra emulator, for this fix)
-	lda k_device_get+1
-	pha
-	lda k_device_get
-	pha
 	rts
 
 blurbyte
@@ -1797,10 +1786,8 @@ dli
 
 ; Immediate VBI (occurs every frame)
 vbi1
-	lda #8
-	sta consol		; reset console speaker
 	lda #1
-	sta dli_counter	; First DLI reads colors for second line
+	sta dli_counter	; First DLI reads colors for second line, because the first line's colors are already set by VBI
 ;	lda sdlstl
 ;	sta dlistl
 ;	lda sdlstl+1
@@ -2044,28 +2031,20 @@ vbi2_donetm
 ?no
 ;	lda #$0f
 ;	sta colbk
-	lda doclick
-	beq nodoclick
-	sta consol	; value is always 1
-	lda #0
-	sta doclick
-nodoclick
 	lda dobell
 	cmp #2
 	bcc nodobell
-	clc
-	adc #$40
+	ora #$40
 	sta colbk
 	dec dobell
 nodobell
-	lda oldctrl1
-	cmp ctrl1flag
-	beq noctrl1
-	lda kbcode
-	sta kbd_ch
-noctrl1
 	lda ctrl1flag
+	cmp oldctrl1
+	beq noctrl1
 	sta oldctrl1
+	lda kbcode
+	sta kbd_ch		; ensures that ctrl-1 generates a keyclick
+noctrl1
 	lda finescrol	  ; Fine Scroll
 	bne vbdofscrl
 	jmp endvbi
@@ -2582,12 +2561,43 @@ vbnou8
 	sta fscrolup
 	jsr vbdl1
 endvbi
-;	lda #$2
-;	sta colbk
+	lda doclick
+	beq nodoclick
+
+; generate keyclick
+	ldx #5					; number of repeats (note that the standard Atari OS keyclick repeats 8 times with a delay of 4)
+	bne ?clicklp_skipdelay	; always jumps (skip first delay)
+; repeat X times: write 0, wait, write 8, wait
+?clicklp
+	jsr keyclick_delay
+?clicklp_skipdelay
+	lda #0
+	sta consol
+	jsr keyclick_delay
+	lda #8
+	sta consol
+	dex
+	bne ?clicklp
+	stx doclick
+
+nodoclick
 	lda #0
 	sta nowvbi
+;	lda #$2
+;	sta colbk
 endvvv
 	jmp undefined_addr	; Self-modified
+
+keyclick_delay
+	ldy doclick		; doclick defines length of delay, and therefore pitch of sound.
+?lp1
+	lda vcount
+?lp2
+	cmp vcount
+	beq ?lp2
+	dey
+	bne ?lp1
+	rts
 
 screenget			; Refresh screen from text mirror
 	asl eitbit		; "print" normally ignores eitbit's normal 0/1 value, but here 1 becomes 2 to flag

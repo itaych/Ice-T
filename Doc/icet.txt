@@ -65,7 +65,7 @@ ICET.TXT     - Ice-T user's guide (you are here).
 VT102.TXT    - A technical reference of control codes accepted by the Ice-T
   terminal emulation.
 ICET.COM     - The Ice-T executable.
-ICETAXLN.COM - Ice-T for the Axlon Memory Board.
+ICETAXLN.COM - Ice-T for computers upgraded with the Axlon Memory Board.
 ICET48K.COM  - Ice-T version 1.1 for 48K computers.
 ICETDEMO.VT  - A demonstration animation, viewable with "VT-parse file".
 *.HND - Various R: handlers. See below ("Getting started") for details.
@@ -314,8 +314,9 @@ down" key code: %[[6$7E
 Instead of the 6 you can place any digit from 1 to 6 for Home, Insert, Delete,
 End, Page Up and Page Down, respectively.
 
-Keyclick: Choose between the standard Atari built-in click, the simple quiet
-'tick' sound, or no click at all.
+Keyclick: Choose between five different pitches for the keyboard click, or no
+click at all. The one named Standard sounds the same as the standard Atari OS
+built-in click (though it is slightly shorter).
 
 Special: Select one of the special display modes. "None" is for none at all.
 

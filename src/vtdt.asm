@@ -232,13 +232,16 @@ setmacros_redefine_pr
 	.byte	~01,8,10,64	; must be copied to a location with 64 usable bytes following.
 
 setclkw
-	.byte	34,3,47,7
+	.byte	34,3,47,10
 	.byte	" None     "
-	.byte	" Simple   "
+	.byte	" Highest  "
+	.byte	" Higher   "
 	.byte	" Standard "
+	.byte	" Lower    "
+	.byte	" Lowest   "
 setclkd
-	.byte	1,3,10
-	.byte	36,4,36,5,36,6
+	.byte	1,6,10
+	.byte	36,4,36,5,36,6,36,7,36,8,36,9
 
 setscrw
 	.byte	36,4,55,10

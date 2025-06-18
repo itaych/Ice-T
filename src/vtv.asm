@@ -91,8 +91,8 @@ flashcnt	.ds 1
 newflash	.ds 1
 oldflash	.ds 1
 oldctrl1	.ds 1
-dobell		.ds 1
-doclick		.ds 1
+dobell		.ds 1	; indicate that border is flashing as a "bell".
+doclick		.ds 1	; indicate that console speaker is to be sounded for keyboard click. Also defines delay between each console speaker tick.
 capslock	.ds 1
 s764		.ds 1	; temporarily stores code of last key pressed. Reused as a temp variable in other places.
 outnum		.ds 1	; number of bytes to output.
@@ -155,7 +155,7 @@ savflow		.ds 1
 crcl		.ds 1
 crch		.ds 1
 
-nowvbi		.ds 1
+nowvbi		.ds 1	; indicates deferred VBI is currently active
 
 rush		.ds	1
 didrush		.ds	1
@@ -488,6 +488,8 @@ color1	=	$2c5	; ANTIC mode 15: luminance of lit pixels
 color2	=	$2c6	; ANTIC mode 15: playfield color
 color3	=	$2c7	; Color of fifth player
 color4	=	$2c8	; ANTIC mode 15: border color
+krpdel	=	$2d9	; delay before keyboard repeat begins
+keyrep	=	$2da	; keyboard repeat rate
 dos_runad	=	$2e0	; When executable load is complete, runs at this vector
 dos_initad	=	$2e2	; During executable load, whenever this vector is updated the loader will jsr to this vector
 bcount	=	$2eb	; DVSTAT+1. When serial port is open in concurrent mode, after a STATUS command this word holds the amount of data in the input buffer
@@ -632,7 +634,7 @@ cfgdat	; Configuration data (size: cfgnum) stored to configuration file.
 baudrate	.byte 15	; Serial port baud rate: 8-15 for 300, 600, 1200, 1800, 2400, 4800, 9600, 19200 baud respectively.
 stopbits	.byte 0		; Serial port stop bits: 0 for 1, 128 for 2.
 localecho	.byte 0		; Local Echo: 0 for off, 1 for on.
-click		.byte 2		; Key click type: 0 for no click, 1 for single write to console speaker register, 2 for Atari OS keyclick.
+click		.byte 4		; Key click type: 0 for no click, 1-5 for various pitches (3 sounds like the standard Atari OS keyclick).
 curssiz		.byte 6		; Cursor size: 0 for a block, 6 for underline.
 finescrol	.byte 0		; Enable fine scroll: 0 to disable, 4 to enable. Only one of finescrol or boldallw may be nonzero.
 boldallw	.byte 1		; Enable additional graphics: 0 to disable, 1 for ANSI colors, 2 for bold only, 3 to enable blinking text.
