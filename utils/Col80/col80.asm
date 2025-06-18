@@ -169,7 +169,7 @@ init
 	lda #$f0
 	sta postbl+1
 
-	lda #0			
+	lda #0
 	sta svcolor		; set default color - black background, light text
 	sta scrlst		; scroll flag down
 
@@ -182,9 +182,9 @@ init
 	sta 12
 	lda #>reset
 	sta 13
-	
+
 	jsr grph0		; reopen screen in graphics mode 0
-	
+
 	ldy #0			; indicate no error for 'restart'
 
 ; program restart point (when quitting file viewer)
@@ -198,7 +198,7 @@ restart				; when jumping here Y reg can contain error value
 	bpl done_reset	; positive (<128)? no error
 	jsr printerr	; error - print it
 	jmp done_reset
-	
+
 ; init common to program startup as well as after reset
 common_init
 	lda $79			; KEYDEF. not set in OS-B so set to $fefe
@@ -220,7 +220,7 @@ common_init
 	lda #2			; gray border
 	sta 712
 	rts
-	
+
 ; Reset routine
 reset
 	lda #0
@@ -1233,7 +1233,7 @@ pplc2
 	dey
 	bpl prtlp
 	rts
-?dec_hi	
+?dec_hi
 	dec cntrh
 	dey
 	bpl prtlp
@@ -1371,7 +1371,7 @@ quit
 	lda sv_ramtop
 	sta ramtop
 	jsr grph0_no_ramtop
-	
+
 	lda #>exiting_to_dos
 	ldy #<exiting_to_dos
 	jsr cioprint
@@ -1757,7 +1757,7 @@ dskerr
 	tya
 	pha
 	jmp adskerr
-	
+
 ; vertical blank delay
 vdelay
 	lda $14

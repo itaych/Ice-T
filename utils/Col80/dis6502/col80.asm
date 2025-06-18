@@ -1,14 +1,14 @@
 ;
 ; Col80 - an 80-column FAST file
 ; reader!       --> Version 2.0
- 
+
 ; A superbrief history:
- 
+
 ; v1.0 July      1992
-; v1.1 July      1992 
-; v1.2 July      1992 
-; v1.3 August    1992 
-; v1.4 August    1992 
+; v1.1 July      1992
+; v1.2 July      1992
+; v1.3 August    1992
+; v1.4 August    1992
 ; v1.5 September 1992
 ; v1.6 April     1993
 ; v2.0 October   1995
@@ -21,11 +21,11 @@
 ;  routines from Ice-T
 
 ; (c)1995 Itay Chamiel
- 
+
 ; Zero-page equates
 
  *= $80
- 
+
 stat  .ds 1
 pos  .ds 1
 x       .ds 1
@@ -57,7 +57,7 @@ linadrl .ds 26
 linadrh .ds 26
 
 ; Other equates
- 
+
 chrtbll = $600
 chrtblh = $680
 L9500 = $9500
@@ -172,7 +172,7 @@ init
  sta chrtbll,x
  lda #>(screen+8)
  sta chrtblh,x
-?notabchar 
+?notabchar
  inx
  cpx #128
  bne ?lp
@@ -387,7 +387,7 @@ dodl
  sta eolchar
  sta bufinfo_top
  jsr begvbi
- 
+
 restrtfl
  lda scrlst
  bne restrtfl
@@ -432,7 +432,7 @@ svclrok
  lda #>dlist
  sta 561
  jsr vdelay
- 
+
  lda eolchar
  bne ?eolok
  tax
@@ -458,7 +458,7 @@ mnloop
  bne ?eolknown
 
 ; EOL detection
- 
+
  sta dldoer
  sta dldoer+1
  sta pos
@@ -521,7 +521,7 @@ mnloop
  lda #<L2e21
  sta jmpchn+1
  lda #>L2e21
- sta jmpchn+2 
+ sta jmpchn+2
  jmp loopp
 endof
  lda #<buffer
@@ -818,7 +818,7 @@ L2ff4
  lda #1
  sta endtop
  jmp domore
- 
+
 check_more_keys
  cmp #63 ; Question mark?
  bne ?no
@@ -830,14 +830,14 @@ L300d ; should this be named endofile?
  lda #1
  sta endtop
  jmp domore
- 
+
 adskerr
  jsr grph0
  pla
  tay
  jmp restart
 
-L301c       
+L301c
  dec L0090
  clc
  lda L009d
@@ -857,9 +857,9 @@ L301c
  bne L3041
  dec L009d+1
  dec cntrh
-L3041       
+L3041
  ldx #0
-L3043       
+L3043
  lda buffer,x
  sta L9600,x
  inx
@@ -882,7 +882,7 @@ L3043
  sta bufplc
  sta bufplc+1
  jmp getbuffer
-mvup1line   
+mvup1line
  lda L009d+1
  ora L009d
  bne L3096
@@ -891,10 +891,10 @@ mvup1line
  iny
  bne L3081
  inx
-L3081       
+L3081
  jsr L30df
  lda #0
-L3086       
+L3086
  ldx L009d+1
  ldy L009d
  pha
@@ -904,7 +904,7 @@ L3086
  adc #1
  cmp #24
  bne L3086
-L3096       
+L3096
  ldx L009d+1
  ldy L009d
  jsr L30df
@@ -916,7 +916,7 @@ L3096
  sty endtop
  sty x
  sty y
-L30ae       
+L30ae
  lda (L009d),y
  cmp eolchar
  beq L30d2
@@ -924,7 +924,7 @@ L30ae
  bne L30be
  jsr dotab
  jmp L30c9
-L30be       
+L30be
  sta prchar
  tya
  pha
@@ -932,13 +932,13 @@ L30be
  pla
  tay
  inc x
-L30c9       
+L30c9
  lda x
  cmp #80
  bcs L30d2
  iny
  bne L30ae
-L30d2       
+L30d2
  lda #0
  sta x
  sta bufplc
@@ -946,13 +946,13 @@ L30d2
  lda #24
  sta y
  rts
-L30df       
+L30df
  sty cntrl
  stx cntrh
  dex
  stx L009d+1
  sty L009d
-L30e8       
+L30e8
  ldy #0
  lda L009d
  sta temp
@@ -963,11 +963,11 @@ L30e8
  bcc L3102
  beq L30fc
  bcs L312f
-L30fc       
+L30fc
  lda L009d
  cmp L0099
  bcs L312f
-L3102       
+L3102
  lda L0090
  bne L311d
  lda L0099
@@ -982,34 +982,34 @@ L3102
  lda #2
  sta endtop
  rts
-L311d       
+L311d
  jsr L301c
  jmp L30e8
-L3123       
+L3123
  lda L0099
  sta L009d
  sta temp
  lda L0099+1
  sta L009d+1
  sta L0096
-L312f       
+L312f
  lda (L009d),y
  cmp eolchar
  beq L3146
  cmp tabchar
  bne L3140
-L3139       
+L3139
  iny
  tya
  and #7
  bne L3139
  dey
-L3140       
+L3140
  iny
  cpy #80
  bne L312f
  dey
-L3146       
+L3146
  iny
  clc
  tya
@@ -1023,12 +1023,12 @@ L3146
  cmp cntrh
  bne L3161
  rts
-L315a       
+L315a
  sta L009d
  plp
  lda #0
  adc L009d+1
-L3161       
+L3161
  sta L009d+1
  lda L009d+1
  cmp cntrh
@@ -1043,17 +1043,17 @@ L3161
  lda L0096
  sbc #0
  sta L009d+1
-L317c       
+L317c
  lda L009d+1
  cmp buflim+1
  bcc L31d3
  beq L3186
  bcs L318c
-L3186       
+L3186
  lda L009d
  cmp buflim
  bcc L31d3
-L318c       
+L318c
  inc L0090
  sec
  lda L009d
@@ -1073,9 +1073,9 @@ L318c
  bne L31b1
  inc L009d+1
  inc cntrh
-L31b1       
+L31b1
  ldx #0
-L31b3       
+L31b3
  lda L9500,x
  sta bufinfo_table,x
  inx
@@ -1091,14 +1091,14 @@ L31b3
  lda #150
  sta buflim+1
  jsr getbuffer
-L31d3       
+L31d3
  jmp L30e8
-L31d6       
+L31d6
  ldx L009d+1
  ldy L009d
  jsr L31f0
  ldx #0
-L31df       
+L31df
  txa
  pha
  ldx bufplc+1
@@ -1110,28 +1110,28 @@ L31df
  cpx #24
  bne L31df
  rts
-L31f0       
+L31f0
  sty cntrl
  stx cntrh
  ldy #0
-L31f6       
+L31f6
  lda (cntrl),y
  cmp eolchar
  beq L320d
  cmp tabchar
  bne L3207
-L3200       
+L3200
  iny
  tya
  and #7
  bne L3200
  dey
-L3207       
+L3207
  iny
  cpy #80
  bne L31f6
  dey
-L320d       
+L320d
  iny
  tya
  clc
@@ -1158,9 +1158,9 @@ L320d
  cmp #2
  bne L323d
  inc bufplc+1
-L323d       
+L323d
  ldx #0
-L323f       
+L323f
  lda L9500,x
  sta bufinfo_table,x
  inx
@@ -1179,15 +1179,15 @@ L323f
  sta L009d
  sta L009d+1
  jmp getbuffer
-L3265       
+L3265
  rts
-L3266       
+L3266
  ldy buflim
  ldx buflim+1
  dey
  bne L326e
  dex
-L326e       
+L326e
  stx cntrh
  sty cntrl
  ldx #0
@@ -1199,7 +1199,7 @@ L326e
  lda eolchar
  sta (cntrl),y
  iny
-L3282       
+L3282
  lda eofprn,x
  sta (cntrl),y
  inx
@@ -1227,12 +1227,12 @@ grph0
  sta 106
  lda #0
  sta 767
- 
+
  ldx #$60
  lda #12 ; close
  sta iccom+$60
  jsr ciov
- 
+
  ldx #$60
  lda #3 ; open
  sta iccom+$60
@@ -1246,7 +1246,7 @@ grph0
  sta icax1+$60
  jmp ciov
 sopen .byte "S"
- 
+
 getkey
  lda 764
  cmp #255
@@ -1384,7 +1384,7 @@ scrlup
  lda linadrh+25
  sta cntrh
  jmp ersline
- 
+
 scrldown
  lda #0
  sta endtop
@@ -1445,7 +1445,7 @@ prtitle
  lda #>title
  ldy #<title
  jmp cioprint
- 
+
 quit
  lda #5
  sta 85
@@ -1485,7 +1485,7 @@ erfname
  inx
  cpx #fname_len
  bne erfname
- 
+
  ldx #0
  lda #5
  sta iccom
@@ -1499,7 +1499,7 @@ erfname
  sta icblh
  jsr ciov
  bmi prprompt
- 
+
  lda fname+1
  cmp #155
  bne ?noquit
@@ -1519,7 +1519,7 @@ dirdo
  lda #12
  sta iccom+$10
  jsr ciov
- 
+
  lda #>dirpr
  ldy #<dirpr
  jsr cioprint
@@ -1574,7 +1574,7 @@ dirdo
  cmp #10
  bcs goback
 nogoback
- 
+
  ldx #$10
  lda #3
  sta iccom+$10
@@ -1595,9 +1595,9 @@ nodopath
  lda #0
  sta icax2+$10
  jsr ciov
- 
+
 dirloop
- 
+
  ldx #$10
  lda #5
  sta iccom+$10
@@ -1611,7 +1611,7 @@ dirloop
  sta icblh+$10
  jsr ciov
  bmi dirend
- 
+
  lda #155
  sta fname+29
  ldx #0
@@ -1634,7 +1634,7 @@ dirend
  lda #12
  sta iccom+$10
  jsr ciov
- 
+
  lda #155
  sta fname
  pla
@@ -1677,13 +1677,13 @@ okcolon
  jsr openfile
  bmi gprprmpt
  rts
- 
+
 openfile
  ldx #$20
  lda #12
  sta iccom+$20
  jsr ciov
- 
+
  ldx #$20
  lda #3
  sta iccom+$20
@@ -1696,7 +1696,7 @@ openfile
  lda #0
  sta icax2+$20
  jmp ciov
- 
+
 gprprmpt
  jmp prprompt
 cioprint
@@ -1751,7 +1751,7 @@ printerr
  lda #>error
  ldy #<error
  jmp cioprint
- 
+
 title
  .byte 125, "IceSoft's "
  .byte +$80, " Col80 "
@@ -1876,5 +1876,5 @@ buffer
 
  *= charset+6
  .incbin col80-snipped.fnt
- 
+
 ; <EOF> (c) 1993 Itay Chamiel
