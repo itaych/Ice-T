@@ -176,14 +176,12 @@ setfstd
 	.byte	48,10,48,11,48,12
 
 setflww
-	.byte	46,10,59,15
+	.byte	46,10,59,13
 	.byte	" None     "
 	.byte	" Xon/Xoff "
-	.byte	" ",34,"Rush",34,"   "
-	.byte	" Both     "
 setflwd
-	.byte	1,4,10
-	.byte	48,11,48,12,48,13,48,14
+	.byte	1,2,10
+	.byte	48,11,48,12
 
 setbtsw
 	.byte	44,3,55,6

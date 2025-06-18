@@ -250,13 +250,12 @@ setflw			; Set flow control type(s)
 	jsr drawwin
 	ldx #>setflwd
 	ldy #<setflwd
-	lda savflow
+	lda flowctrl
+	and #1		; ensure value is not over 1 (possible if user loaded some old config file)
 	sta mnucnt
 	jsr menudo1
 	lda menret
 	bmi ?n
-	sta savflow
-	and #1
 	sta flowctrl
 ?n
 	jmp bkset
@@ -870,9 +869,6 @@ savcfg			; Save configuration
 	jsr buffdo
 	jsr close2
 
-	lda savflow		; Get true flow-control
-	sta flowctrl	; setting for save
-
 	ldx #$20
 	lda #3			; open file
 	sta iccom+$20
@@ -946,10 +942,6 @@ savcfg			; Save configuration
 	dex
 	bpl ?lp
 
-	lda flowctrl	; Restore flow control
-	and #1	; setting ("rush" off)
-	sta flowctrl
-
 	jsr ropen
 	jmp bkset
 ?er
@@ -966,10 +958,6 @@ savcfg			; Save configuration
 	ldx #>savcfgwe2
 	ldy #<savcfgwe2
 	jsr prmesg
-
-	lda flowctrl	; Restore flow control
-	and #1	; setting ("rush" off)
-	sta flowctrl
 
 	jsr ropen
 	jsr getkeybuff

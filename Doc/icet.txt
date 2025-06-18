@@ -36,7 +36,7 @@ BBS support.
 Added limited ANSI colored text support, implemented using Player/Missile
 graphics.
 Added Macros.
-For emulator users: if the D: device is absent, set H: as the default path,
+For emulator users: if the D: device is absent, H: is set as the default path,
 allowing you to save configuration and perform file operations without DOS.
 Added Xmodem upload, albeit in its barest form (128-byte packets).
 Added VT-parse file.
@@ -459,10 +459,10 @@ Normal   - 1024 bytes
 Medium   - 16 bytes
 Constant - 1 byte.
 
-Flow control: Choose between None, XON/XOFF, Rush, or both.
+Flow control: Choose between None or XON/XOFF.
 
-Ice-T has a 16 KB cyclic buffer for all incoming data. Both of these flow-
-control schemes kick in when 12 KB of the buffer are full.
+Ice-T has a 16 KB cyclic buffer for incoming data. If flow control is enabled
+it will take effect when 12 KB of the buffer are full.
 
 This can happen if:
 
@@ -473,61 +473,23 @@ gradually accumulate characters (rare at low speeds);
 much for the software to handle, in which case the buffer will gradually
 fill up.
 
-If the buffer gets full (16K), Ice-T will stop GETting data from the port.
-This will enable automatic hardware flow control, for those interfaces which
-support it. You may disable all flow controls by selecting "None", and this
-will still happen.
+If the buffer gets completely full (16K), Ice-T will stop GETting data from the
+serial port, whether flow control is enabled or not. This will implicitly
+activate hardware flow control if your hardware happens to support it. If it
+does not, further incoming data will be lost.
 
-Any form of flow control will actually occur quite rarely; At 9600 baud, about
-37 KB of data have to come in, non-stop, for the flow control schemes to kick
-in; At 19.2kbaud, 16 KB of data has to come in. Even if no flow control is
-enabled, much more that that has to arrive before any overflow (and therefore
-data loss, if your interface doesn't support auto hardware flow control)
-occurs.
-
-Incoming data keeps getting buffered up even if you're in the menus. XOFF
-remains enabled, but Rush does not, meaning that if you select Rush only, no
-flow control will be active and the buffer may overflow.
-
-When XOFF is working, a small brick character will appear at the upper left
-corner of the screen. Ice-T is smart enough to send more Ctrl-S characters if
-the first one was ignored, or if the remote host begins sending data again
-after a period of silence. In no case, though, will more than one ^S code be
-sent per second.
-
-As for the "Rush" flow control, I'm pretty sure it's never been done before
-(with good reason, too, I guess), so here's a quick description:
-
-Instead of "Online", "Paused", or "Manual" in the upper left corner, "Rush"
-lights up. All output to screen is stopped, and, if in Pause, scrollback will
-immediately scroll back to the main screen, and stop working. Note that this
-cannot happen in the menus. If you quit to the menu, only the XOFF flow control
-remains active, *if* you selected it or both.
-
-During this time, the computer will be chugging away in the background,
-processing the incoming data as quickly as possible, not displaying it and only
-saving it into the 2K text mirror of the screen, which is much faster (used in
-Print-screen, screen refreshes and scrollback). When the buffer has shrunk
-back to safer proportions, this process stops.
-
-(Note that this text-mirror, which is always active, is, like the 8K graphics
-screen, scrolled "virtually", which means that I'm not actually moving 2K of
-data around.)
-
--If you were in Pause mode, you won't be able to scrollback. Leaving Pause
-will refresh and update the screen, after which you will be able to
-scrollback as usual, but the older history info may have been lost.
--If you were in Terminal mode, the screen will freeze during Rush, then blank
-and get redrawn. You can then Pause or scrollback as usual.
-
-This process can repeat if data keeps coming in quickly. You can try remotely
-pausing it by typing ^S (Xoff), but that would be done for you anyway if
-you selected "both" in the flow control menu. (^Q is Xon.)
+When XOFF is in effect, a small brick character will appear at the upper left
+corner of the screen. Ice-T is smart enough to transmit additional XOFF codes
+if data continues being received, but it will not do so more than once per
+second.
 
 Save config:
-This will save the current settings and the dialing data into D:ICET.DAT, or H:
-if the D: device is not available. Note that the path setting in the Mini-DOS
-menu has no effect on where this file is saved.
+This will save the current settings, autodial entries, and macros into
+D:ICET.DAT, or H: if the D: device is not available. Note that the path setting
+in the Mini-DOS menu has no effect on where this file is saved.
+
+See the file icet_cfg.h (from the distribution zip file or Ice-T's GitHub
+repository) for a description of the file format, contents, and valid values.
 
 Mini-DOS menu
 -------------
@@ -539,7 +501,7 @@ Change path:
 Select the general pathname for all disk operations.
 Ice-T will try to complete incomplete names. If what you entered doesn't
 begin with a "D", a "D" will be added. If it doesn't end with a ":" or with
-a ">", a ":" will be added. This means that "2" will be traslated to "D2:".
+a ">", a ":" will be added. This means that "2" will be translated to "D2:".
 ":icet" will be translated to "d:icet:".
 Also note that all names are displayed and entered in lower case.
 

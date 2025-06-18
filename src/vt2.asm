@@ -51,23 +51,7 @@ connect
 	sta timer_1sec
 	sta timer_10sec
 	jsr timrdo
-	lda didrush
-	bne entnorsh
 	jsr putcrs
-
-	lda rush
-	bne entnorsh
-	lda didrush
-	beq entnorsh
-	jsr clrscrnraw
-	lda #1
-	sta crsscrl
-	jsr vdelayr
-	jsr screenget
-	jsr crsifneed
-	lda #0
-	sta didrush
-entnorsh
 	lda baktow
 	cmp #2
 	beq gdopause
@@ -101,8 +85,6 @@ termloop
 	cmp oldflash
 	beq noflsh
 	sta oldflash	; Flash cursor
-	lda didrush
-	bne noflsh
 	jsr putcrs
 noflsh
 	jsr timrdo
@@ -113,21 +95,6 @@ noflsh
 	pla
 	beq bufgot
 
-	lda didrush
-	beq ?nr
-	lda rush
-	bne ?nr
-	jsr clrscrnraw
-	lda #1
-	sta crsscrl
-	jsr vdelayr
-	jsr screenget
-	jsr buffdo
-	jsr crsifneed
-	lda #0
-	sta didrush
-
-?nr
 	jsr readk	; Get key if bfr empty
 	lda ctrl1mod
 	beq termloop	; Check for ^1
@@ -138,8 +105,6 @@ bufgot
 	sta chrcnt+1
 	lda oldflash
 	beq keepget
-	lda didrush
-	bne keepget
 	lda #0	; Remove cursor
 	sta oldflash
 	jsr putcrs
@@ -148,7 +113,6 @@ keepget
 	cpx #1
 	beq endlp
 	jsr dovt100	; Process char
-;	jmp getno256 ; TEMP TEMP TEMP DELETE ME
 	lda fastr
 	beq ?nofr
 	cmp #2
@@ -189,19 +153,6 @@ keepget
 	jsr bufcntdo?ok
 ?skip_bufcntdo
 
-	lda didrush
-	beq getno256
-	lda rush
-	bne getno256
-	jsr clrscrnraw
-	lda #1
-	sta crsscrl
-	jsr vdelayr
-	jsr screenget
-	jsr buffdo
-	jsr crsifneed
-	lda #0
-	sta didrush
 getno256
 	lda kbd_ch
 	cmp #255
@@ -216,8 +167,6 @@ endlp
 	lda newflash
 	sta oldflash
 	beq endlpncrs
-	lda didrush
-	bne endlpncrs
 	jsr putcrs	; Return cursor
 endlpncrs
 	jmp termloop
@@ -241,37 +190,16 @@ pausloop
 	beq extpaus
 ?ok
 	jsr bufcntdo
-	lda rush
-	beq pausl2
-	lda #0
-?lp
-	pha
-	jsr buffpl
-	jsr dovt100
-	pla
-	clc
-	adc #1
-	ldx fastr
-	cmp pstbl,x
-	bne ?lp
 pausl2
 	lda newflash
 	cmp oldflash
 	beq pausl1
 	sta oldflash
-	lda didrush
-	bne pausl1
 	jsr putcrs
 pausl1
 	lda consol
 	cmp #3	;  Option = Up
 	bne nolkup
-	lda didrush
-	beq psokup
-	lda #14
-	sta dobell
-	jmp nolkup
-psokup
 	jsr buffifnd
 	jsr timrdo
 	jsr lookup
@@ -281,12 +209,6 @@ nolkup
 	lda consol
 	cmp #5	;  Select = Down
 	bne nolkdn
-	lda didrush
-	beq psokdn
-	lda #14
-	sta dobell
-	jmp nolkdn
-psokdn
 	jsr buffifnd
 	jsr timrdo
 	jsr lookdn
@@ -317,19 +239,6 @@ extpaus
 	jsr shctrl1
 	lda #0
 	sta baktow
-	lda rush
-	bne expnorsh
-	lda didrush
-	beq expnorsh
-	jsr clrscrnraw
-	lda #1
-	sta crsscrl
-	jsr vdelayr
-	jsr screenget
-	jsr crsifneed
-	lda #0
-	sta didrush
-expnorsh
 	jmp bufgot
 
 dovt100			; ANSI/VT100 emulation code
@@ -3421,12 +3330,6 @@ ptxreg
 ; done with text mirror
 
 notxprn
-	lda rush	; if "rush" is off or y=0 (status bar), proceed. Else we're done.
-	beq ignrsh
-	lda y
-	beq ignrsh
-	rts
-ignrsh
 	txa
 	bpl nopcchar
 	; character >= 128 - this is part of the PC character set.
@@ -4023,9 +3926,6 @@ dnerstxlp
 	bpl dnerstxlp
 
 nodotxsc
-	lda rush		; rush mode on? we're done
-	bne ?sr
-
 	lda finescrol	; Fine-scroll if on
 	beq ?coarse_scroll
 	ldy revvid		; if revvid has changed since last scroll, we need to clear the incoming line.
@@ -4038,7 +3938,6 @@ nodotxsc
 ?no_inv_bits_fs
 	jsr scvbwta		; wait for previous fine scroll to finish
 	inc fscroldn	; initiate new fine scroll
-?sr
 	rts
 
 ?coarse_scroll
@@ -4371,9 +4270,6 @@ scrlup			; SCROLL UP
 	cpy #80
 	bne ?ut
 
-	lda rush
-	bne ?sr
-
 	lda finescrol
 	beq ?coarse_scroll
 	ldy revvid		; if revvid has changed since last scroll, we need to clear the incoming line.
@@ -4386,7 +4282,6 @@ scrlup			; SCROLL UP
 ?no_inv_bits_fs
 	jsr scvbwta
 	inc fscrolup
-?sr
 	rts
 ?coarse_scroll
 	ldy revvid			; in revvid mode, fill new line with inverse spaces
@@ -5929,12 +5824,6 @@ numlon
 	ldy #<numlonp
 	jmp prmesgnov
 shctrl1
-	lda rush
-	beq ctrl1pok
-	ldx #>rushpr
-	ldy #<rushpr
-	jmp prmesgnov
-ctrl1pok
 	lda ctrl1mod
 	cmp #1
 	beq ctrl1on

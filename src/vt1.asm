@@ -87,9 +87,6 @@ init_continued
 	sta banksw
 	sta banksv
 
-	lda flowctrl
-	sta savflow
-
 	; Create display list
 	lda #$70	; blank 7 lines
 	sta dlist
@@ -517,10 +514,6 @@ COLORED_TITLE_SCREEN_SHADED_LOGO = 1	; whether to also shade the Ice-T logo (mus
 
 gomenu
 	jsr boldoff
-	lda flowctrl
-	sta savflow
-	and #1
-	sta flowctrl
 	lda xoff
 	beq ?o1
 	lda #0
@@ -530,23 +523,6 @@ gomenu
 	sta prchar
 	jsr print
 ?o1
-	lda rush
-	beq ?o2
-
-	lda #0	; Cancel "rush"
-	sta rush
-	sta didrush
-	sta oldflash
-	lda #1
-	sta newflash
-	jsr clrscrnraw
-	lda #1
-	sta crsscrl
-	lda bank1
-	sta banksw
-	jsr vdelayr
-	jsr screenget
-?o2
 gomenu2
 	lda bank2
 	sta banksw
@@ -603,8 +579,6 @@ gozmdm
 	jmp zmddnl_from_vt
 
 goterm
-	lda savflow
-	sta flowctrl
 	lda bank1
 	sta banksw
 	sta banksv
@@ -1550,7 +1524,7 @@ buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is 
 ?ok
 ;	jsr calcbufln	;
 ?okn
-	jsr chkrsh		; Not empty, check for flow control
+	jsr chkflowctl	; Not empty, check for flow control
 	ldx #0			; Report buffer not empty
 	rts
 ?bf
@@ -1580,7 +1554,7 @@ buffdo			; Buffer manager. Returns X=1 if buffer empty, X=0 if incoming data is 
 	cmp #$40	; Buffer full? No calculating.
 	beq ?gn
 	jsr calcbufln	; Calculate buffer size
-?gn	jsr chkrsh
+?gn	jsr chkflowctl
 	ldx #0
 	lda banksv
 	sta banksw
@@ -1618,7 +1592,7 @@ putbufbk		; Insert byte into buffer
 	sta banksw
 	rts
 
-chkrsh			; Check for impending buffer overflow, and use flow control
+chkflowctl		; Check for impending buffer overflow, and activate flow control if needed
 
 ; Xon/Xoff flow control:
 	lda xoff
@@ -1632,8 +1606,7 @@ chkrsh			; Check for impending buffer overflow, and use flow control
 	jmp ?do
 
 ?n1
-	lda flowctrl
-	and #1
+	lda flowctrl	; is XOFF allowed?
 	beq ?ok
 	lda mybcount+1
 	cmp #$30
@@ -1673,51 +1646,6 @@ chkrsh			; Check for impending buffer overflow, and use flow control
 	pla
 	sta x
 ?ok
-
-; "Rush" flow control (speeds up processing by not displaying
-; anything on the screen until buffer shrinks)
-
-	lda mybcount+1
-	cmp #$30
-	bcc ?no
-	lda rush
-	bne ?nd
-	lda flowctrl
-	and #2
-	beq ?nd
-	lda #1
-	sta rush
-	sta didrush
-	lda bank1
-	sta banksw
-	jsr shctrl1
-	lda finescrol
-	pha
-	jsr scvbwta
-	lda #0
-	sta finescrol
-	jsr lookbk
-	pla
-	sta finescrol
-	jmp ?nd_banksv
-?no
-	lda rush	; Check for end of fast mode
-	beq ?nd
-	lda mybcount+1
-	cmp #$20
-	bcs ?nd
-	lda #0
-	sta rush
-	sta oldflash
-	lda #1
-	sta newflash
-	lda bank1
-	sta banksw
-	jsr shctrl1
-?nd_banksv
-	lda banksv
-	sta banksw
-?nd
 	rts
 
 buffifnd		; Status call in time-costly routines
@@ -2043,7 +1971,7 @@ nodobell
 	beq noctrl1
 	sta oldctrl1
 	lda kbcode
-	sta kbd_ch		; ensures that ctrl-1 generates a keyclick
+	sta kbd_ch		; ensures that ctrl-1 is processed by getkey
 noctrl1
 	lda finescrol	  ; Fine Scroll
 	bne vbdofscrl

@@ -149,16 +149,13 @@ bufput		.ds 2	; serial port data cyclic data buffer put address
 bufget		.ds 2	; serial port data cyclic data buffer get address
 chrcnt		.ds 2
 
-xoff		.ds 1
-savflow		.ds 1
+xoff		.ds 1	; flag if we've sent XOFF to halt incoming traffic
 
 crcl		.ds 1
 crch		.ds 1
 
 nowvbi		.ds 1	; indicates deferred VBI is currently active
 
-rush		.ds	1
-didrush		.ds	1
 crsscrl 	.ds 1	; indicates to VBI that a coarse scroll has occured, update the display list.
 capture 	.ds 1
 captold 	.ds 1
@@ -204,7 +201,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 11
+	.ds 14
 	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants
@@ -649,7 +646,7 @@ ueltrns		.byte 3		; EOL translation for ASCII uploads. 0-3 for CRLF/CR/LF/None. 
 ansibbs		.byte 0		; Terminal emulation: 0 for VT-102, 1 for ANSI-BBS, 2 for VT-52.
 eitbit		.byte 1		; Enables PC graphical character set for values 128 and above: 0 to disable, 1 to enable.
 fastr		.byte 2		; Frequency of status calls to serial port device. 0 for normal, 1 for medium, 2 for constant.
-flowctrl	.byte 1		; Flow control method: 0-3 for None, Xon/Xoff, "Rush", Both.
+flowctrl	.byte 1		; Flow control method: 0 for None, 1 for Xon/Xoff.
 eolchar		.byte 0		; EOL handling for terminal. 0=CR/LF, 1=LF alone, 2=CR alone, 3=ATASCII ($9b) (3 also accepts ATASCII Tabs)
 ascdelay	.byte 2		; In ASCII upload: 0 for no delay between lines, 1-7 for some delay, higher value waits for that character
 						; to arrive from the remote side. Delay values are 1/60 sec, 1/10 sec, 1.5 sec, 1/2 sec, 1 sec, 1.5 sec, 2 sec.
@@ -778,9 +775,6 @@ ctr1offm
 ctr1onp
 	.byte	1,0,6
 	.byte	"Paused"
-rushpr
-	.byte	1,0,6
-	.byte	+$80, " Rush "
 ststmr
 	.byte	8,0,8
 	.byte	"00:00:00"
