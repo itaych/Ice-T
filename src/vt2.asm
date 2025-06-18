@@ -6553,11 +6553,10 @@ dodial
 	lda #1			; yes - we're online!
 	sta online
 	jsr zrotmr
-	ldx #0
+	ldx #40
 ?dl2
 	jsr vdelay
-	inx
-	cpx #120
+	dex
 	bne ?dl2
 	jsr clrscrnraw
 	jsr screenget
