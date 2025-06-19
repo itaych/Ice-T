@@ -62,13 +62,15 @@ qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've receive
 keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
 	.guard *=$7c, "holdch at {{*}}, must be $7c!"
-finnum		.ds 1	; currently parsed decimal number in Esc command sequence
+finnum		.ds 1	; currently parsed decimal number in CSI (Esc command) sequence
+finnumerror	.ds 1	; error flag if parsed value has passed 255.
 holdch		.ds 1	; OS reserved - must equal $7c
-csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
-numgot		.ds 1	; amount of values received in an Esc [ n ; n ... sequence (and hence valid in numstk)
+numgot		.ds 1	; amount of values received in a CSI (Esc command) sequence, and hence valid in numstk
 
 ; here we pass the $80 line, so everything from here is completely untouched by the OS.
 	.guard *=$80, "zero-page $80 marker is wrong (at {{*}})!"
+
+csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 
 ; bold_default_color and bold_current_color must remain together!
 bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
@@ -201,7 +203,7 @@ bank4		.ds 1
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
 ; spare
-	.ds 14
+	.ds 13
 	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants

@@ -1,6 +1,6 @@
 -----------------------------------------------------------
                    VT102 Commands
-     as implemented in Ice-T Terminal Emulator v2.8.0+
+     as implemented in Ice-T Terminal Emulator v2.8.1+
                    by Itay Chamiel
 -----------------------------------------------------------
 
@@ -8,9 +8,9 @@ Conventions used:
 
 Esc    - the ASCII character 27
 ^      - Control.
-__     - Decimal number from 0 to 254 in ASCII digits 0-9. Leading zeros are
-         ignored. 255 is a reserved value and higher values will be
-         truncated to an arbitrary 8-bit value.
+__     - Decimal number from 0 to 255 in ASCII digits 0-9. Leading zeros are
+         ignored. An absent value is parsed as a zero. Any argument higher than
+         255 is also parsed as zero.
 Spaces are shown only for clarity and are never part of any command sequence.
 
 "Can scroll" means that if the cursor cannot move up or down without passing

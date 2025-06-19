@@ -709,9 +709,8 @@ retrn
 	jmp cmovedwn
 
 esccode
-	ldx #255
-	stx numstk
 	ldx #0
+	stx numstk		; empty args stack, and put a zero as first value
 	stx numgot
 	ldx ansibbs
 	cpx #2
@@ -845,10 +844,10 @@ esccode_vt52_decanm
 ; End of VT-52 code
 
 esccode_brak	; '[' - start escape sequence with arguments (CSI)
-	lda #255
-	sta finnum	; mark that we haven't received a number yet
 	lda #0
-	sta qmark	; mark that we didn't (yet) get a question mark character after '['
+	sta finnum		; we're about to read a new decimal number, start from 0
+	sta finnumerror	; mark no parse error
+	sta qmark		; mark that we haven't (yet) received a question mark character after '['
 	sta csi_last_interm
 	ldy #<brakpro_first_char
 	ldx #>brakpro_first_char
@@ -1192,21 +1191,30 @@ brakpro			; Get numerical arguments and command after 'Esc ['
 ?not_param
 	cmp #'9+1
 	bcs ?not_digit
-	; we got a digit, 0-9, which is one in a series of digits composing a number. Numbers larger than 255 will
-	; result in some garbage value being parsed; there is no error checking.
+	; we got a digit, 0-9, which is one in a series of digits composing a number.
+	tay			; just so we have a nonzero number in the Y register
 	and #$f		; fun fact: the low 4 bits of an ASCII digit contain its numerical value.
-	ldx finnum	; =255 if no digits have been read yet, but no higher than 25 if digits have been read
-	bpl ?mltpl10	; so checking N flag is enough to determine whether this was the first digit or not
-	sta finnum	; this is the first digit, store it as-is
-	rts
-?mltpl10		; multiply current number by 10 and add the new number
-	adc ?mult10tbl,x	; no need for clc since c is known to be 0
+	ldx finnum	; = 0 if no digits have been read yet, but normally no higher than 25 if digits have been read
+	cpx #26
+	bcc ?noerr1
+	sty finnumerror		; mark an error. We don't care what value we write here as long as it's nonzero
+?noerr1
+	; multiply current value by 10 and add the new digit
+	adc ?mult10tbl,x	; no need for clc since c is known to be 0 if there was no overflow (if there was an overflow we don't care for correctness)
 	sta finnum
+	bcc ?noerr2			; if carry is set now it means we've overflowed the limit of 255
+	sty finnumerror		; mark an error.
+?noerr2
 	rts
 ?mult10tbl .byte 0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200,210,220,230,240,250
 ?not_digit		; not a digit, so the number is complete. add it to arguments stack.
-	; in case of no args at all, a spurious 255 argument may be added to the stack. this doesn't matter.
+	; in case no digits have been read, the value is parsed as a zero.
 	tay
+	lda finnumerror		; if there was an error reading this number, consider it as a zero.
+	beq ?noerr3
+	lda #0
+	.byte BIT_skip2bytes
+?noerr3
 	lda finnum
 	ldx numgot
 	sta numstk,x
@@ -1214,8 +1222,9 @@ brakpro			; Get numerical arguments and command after 'Esc ['
 	tya
 	cmp #59		; was this character a semicolon?
 	bne ?notsemic
-	lda #255	; yes, we're done, wait for more arguments
+	lda #0		; yes, get ready to parse another numerical argument
 	sta finnum
+	sta finnumerror
 	rts
 ?notsemic
 	; this is the command character. Jump according to whether sequence started with a question mark
@@ -1319,27 +1328,25 @@ csi_code_jumptable_end
 .endm
 
 ; common routine to check arguments.
-; X - arg number (0-based) to check in numstk
+; X - arg number (zero-based) to check in numstk
 ; A - default value to set if none or 0 given
 ; Y - highest allowed value for arg (arg is truncated to this value)
 csicode_checkparams
-	sta ?yes0+1
+	sta ?default+1
 	lda numstk,x
 	cpx numgot	; did we actually get this many args?
 	bcc ?ok		; ok (skip this) if X < numgot indicating that this value is actual input
 	inx
-	stx numgot	; increment numgot because we are adding a value in this case
+	stx numgot	; set numgot to index+1 because we are adding a value to the stack
 	dex
-	lda #255	; default is 255 indicating invalid value
+	lda #0		; an absent value is always assumed to be 0
 ?ok
 	cmp #0
-	beq ?yes0	; we replace 0 with the requested default value
-	cmp #255
-	bne ?no255	; we also replace 255 with the default value
-?yes0
+	bne ?nodefault	; we replace 0 with the requested default value
+?default
 	lda #0		; self modified to caller's requested default value
 	sta numstk,x
-?no255
+?nodefault
 	tya			; now check if we need to truncate the value to a limit
 	cmp numstk,x
 	bcs ?no_truncate
@@ -1584,20 +1591,13 @@ csicode_leds	; q - control LEDs
 	ldx #0
 ?lp
 	lda numstk,x
-	bne ?notzero
-?zero
-	lda #0
-	sta virtual_led
-	jmp ?next
-?notzero
-	cmp #255
 	beq ?zero
 	cmp #5
 	bcs ?next
 	tay
-	dey
 	lda virtual_led
-	ora led_tbl,y
+	ora led_tbl-1,y
+?zero
 	sta virtual_led
 ?next
 	inx
@@ -1617,15 +1617,15 @@ csicode_dsr	; n - device status
 	ldy #<dsrdata
 	lda #4
 	jsr rputstring
+dsrno6
 	jmp fincmnd
 dsrdata
 	.byte 27, "[0n"
 
 dsrno5
 	cmp #6
-	beq dsrys6
-	jmp dsrno6
-dsrys6
+	bne dsrno6
+
 	; report cursor position
 cprd = numstk + $80
 
@@ -1693,7 +1693,6 @@ cpr2
 	ldy #<cprd
 	lda #8
 	jsr rputstring
-dsrno6
 	jmp fincmnd
 
 csicode_decreqtparm	; x - DECREQTPARM - Request Terminal Parameters
@@ -1870,7 +1869,7 @@ csicode_sgr	; m - set graphic rendition
 	ldy #255
 	lda numgot
 	bne sgrlp
-	inc numgot	; no args? act as if there was 1 arg. (contains value 255)
+	inc numgot	; no args? act as if there was 1 arg. (contains value 0)
 sgrlp
 	iny
 	cpy numgot
@@ -1878,11 +1877,7 @@ sgrlp
 	jmp fincmnd
 ?ok
 	lda numstk,y
-	beq sgrmd0	; arg 0 or 255 (indicating there was no argument) will reset the rendition parameters
-	cmp #255
-	bne sgrmdno0
-sgrmd0
-	lda #0
+	bne sgrmdno0	; arg 0 (default if there was no arg) will reset the rendition parameters
 	sta undrln
 	sta revvid
 	sta invsbl
