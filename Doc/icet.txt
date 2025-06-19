@@ -3,7 +3,7 @@
 
  by Itay Chamiel - (c)1993-2025
 
- Version 2.8.0 - June 1, 2025
+ Version 2.8.1 - June 20, 2025
 
  Email: itaych@gmail.com
 
@@ -28,6 +28,15 @@ Features:
 with less than 128K, including the 800. It is included with this release but
 keep in mind that it is rather limited in its capabilities, and I ceased its
 development when I started working on the 128K version.
+
+New for version 2.8.1:
+----------------------
+Added a selection of keyclick sounds and increased the keyboard repeat rate.
+Removed "Rush" flow control. It was never really useful or effective.
+Fixed crash that happened if data was received during the title screen.
+Dialer: shortened the delay after connecting.
+Fixed CSI sequence number parser to accept values up to 255, since at least
+one BBS uses it during connection to detect the screen size.
 
 New for version 2.8.0:
 ----------------------
@@ -806,8 +815,9 @@ The following additional documentation is available:
 quickstart.txt - contains instructions to quickly configure an emulator for
   running Ice-T.
 vt102.txt - this is a reference of all control codes accepted by the Ice-T
-  terminal emulation; an in-depth documentation of graphical abilities and
+  terminal emulation; an in-depth documentation of the graphical abilities and
   limitations unique to Ice-T; and the extended "private" control codes.
+icet_cfg.h - this is a description of Ice-T's configuration file format.
 
 Acknowledgments
 ---------------
