@@ -480,6 +480,7 @@ COLORED_TITLE_SCREEN_SHADED_LOGO = 1	; whether to also shade the Ice-T logo (mus
 .if COLORED_TITLE_SCREEN & COLORED_TITLE_SCREEN_SHADED_LOGO
 	lda bank1
 	sta banksw
+	sta banksv
 	jsr getkeybuff_titlescreen
 .else
 	jsr getkeybuff
