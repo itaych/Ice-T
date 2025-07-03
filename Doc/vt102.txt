@@ -1,6 +1,6 @@
 -----------------------------------------------------------
                    VT102 Commands
-     as implemented in Ice-T Terminal Emulator v2.8.1+
+     as implemented in Ice-T Terminal Emulator v2.8.2+
                    by Itay Chamiel
 -----------------------------------------------------------
 
@@ -258,7 +258,7 @@ where the first argument defines the command to perform and the following
 arguments are parameters for that command. Only one command may be performed
 at a time.
 
-1 - Time Delay: expects 1 parameter (none/0 --> 1, max. 240) - pauses for a
+1 - Time Delay: expects 1 parameter (none/0 --> 1, max. 255) - pauses for a
     time delay of that many vertical blanks. If the user presses a key during
     the delay period then the delay is aborted and the key is handled as usual.
 
@@ -278,9 +278,9 @@ at a time.
     left to right and down to the next row in the PM color table until the list
     of arguments is exhausted or the end of the table is reached.
 
-4 - Colors Scroll Lock: expects 1 parameter (none --> 0, max. 1) - this is
-    "locks" scrolling of the color PM underlay. If set to 1 then the colors
-    will remain fixed on the screen even when the text is scrolling.
+4 - Colors Scroll Lock: expects 1 parameter (none --> 0, max. 1) - this "locks"
+    scrolling of the color PM underlay. If set to 1 then the colors will remain
+    fixed on the screen even when the text is scrolling.
     This may cause a minor side effect: when outputting space characters in
     normal (i.e. no color) rendition mode and the cursor was over a colored
     region, the coloring at that position might not be cleared.

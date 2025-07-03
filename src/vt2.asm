@@ -2357,7 +2357,7 @@ icet_privcode_jumptable_end
 	.guard icet_privcode_jumptable_end - icet_privcode_jumptable <= $100, "icet_privcode_jumptable too big!"
 
 icet_privcode_vdelay		; 1 - vdelay
-	CHECK_PARAMS 1,1,240	; limit to 240 (4 seconds in NTSC)
+	CHECK_PARAMS 1,1,255
 	lda numstk+1
 ?lp
 	ldx kbd_ch	; pressing a key during this wait aborts the delay
