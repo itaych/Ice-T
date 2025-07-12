@@ -56,6 +56,13 @@ vewdat	= numstk+$80
 mnmnuxdt
 	.byte	5,1,10
 	.byte	10,0,20,0,30,0,40,0,50,0
+mntbjmp
+	.word	connect-1
+	.word	options-1
+	.word	settings-1
+	.word	file-1
+	.word	xfer-1
+
 mnquitw
 	.byte	28,4,49,9
 	.byte	"   Exit to DOS?   "
@@ -65,12 +72,6 @@ mnquitw
 mnquitd
 	.byte	1,3,18
 	.byte	30,6,30,7,30,8
-mntbjmp
-	.word	connect-1
-	.word	options-1
-	.word	settings-1
-	.word	file-1
-	.word	xfer-1
 
 setmnu
 	.byte	30,1,47,13

@@ -18,10 +18,9 @@ cntrl		.ds 1	; general 16-bit counter, lo byte
 cntrh		.ds 1	; general 16-bit counter, hi byte
 x			.ds 1	; x coordinate when displaying a character
 y			.ds 1	; y coordinate when displaying a character
-prchar		.ds 2
-temp		.ds 1
-prcntr		.ds 2
-prfrom		.ds 2
+prchar		.ds 2	; character to print. Second byte used when multiplying by 8 for charset offset. Also used as temp in many places.
+temp		.ds 1	; general temp value
+prfrom		.ds 2	; "print from", this is used as a 16-bit pointer in many places.
 numb		.ds	3	; for converting numbers to human readable form
 rt8_detected		.ds 1	; whether R-Time8 cartridge is present
 clock_cnt			.ds 1	; count increases each video frame
@@ -58,28 +57,30 @@ __term_settings_end		; all settings from __term_settings_start to here are clear
 
 gntodo		.ds 1	; When processing Esc '(' or Esc ')' this indicates which one of the two was received.
 qmark		.ds 1	; Some commands start with Esc [ ? - indicate whether we've received the question mark.
-	.guard *=$79, "keydef at {{*}}, must be $79!"
-keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
 modedo		.ds 1	; When handling Esc [ _ h / Esc [ _ l, indicate which of the two we're handling (set/reset).
-	.guard *=$7c, "holdch at {{*}}, must be $7c!"
 finnum		.ds 1	; currently parsed decimal number in CSI (Esc command) sequence
+keydef		.ds 2	; OS reserved - must equal $79 - Points to keyboard code conversion table (from keyboard code to ASCII)
+	.guard keydef=$79, "keydef at {{%1}}, must be $79!", keydef
 finnumerror	.ds 1	; error flag if parsed value has passed 255.
 holdch		.ds 1	; OS reserved - must equal $7c
+	.guard holdch=$7c, "holdch at {{%1}}, must be $7c!", holdch
 numgot		.ds 1	; amount of values received in a CSI (Esc command) sequence, and hence valid in numstk
-
-; here we pass the $80 line, so everything from here is completely untouched by the OS.
-	.guard *=$80, "zero-page $80 marker is wrong (at {{*}})!"
-
 csi_last_interm	.ds 1	; last 'Intermediate' ($20-2f) character seen in CSI command sequence
 
 ; bold_default_color and bold_current_color must remain together!
 bold_default_color	.ds 1	; color used for boldface/blink characters when no ANSI or custom color has been set.
+
+; here we pass the $80 line, so everything from here is completely untouched by the OS.
+	.guard *=$80, "zero-page $80 marker is wrong (at {{*}})!"
+
 bold_current_color	.ds 1	; when bit 2 of 'boldface' is set, paint new characters with this color.
+	.guard bold_current_color=bold_default_color+1, "bold_default_color and bold_current_color must be consecutive!"
 last_ansi_color		.ds 1	; Last ANSI color (0-7) that was set, or 255 for invalid value.
 
-bold_scroll_underlay	.ds 1
-bold_scroll_colors		.ds 1
-bold_scroll_rotate		.ds 1
+; these flags affect scrolling of the boldface underlay.
+bold_scroll_underlay	.ds 1	; whether to scroll the PM bitmap
+bold_scroll_colors		.ds 1	; whether to scroll the color table
+bold_scroll_rotate		.ds 1	; whether to rotate data (i.e. whatever is scrolled out from one end comes back in the other)
 
 __mass_initialized_zero_page	; this block is mass-cleared at program start and at every reset.
 
@@ -89,81 +90,80 @@ ty			.ds 1	; Terminal cursor Y position, 1-24 (not zero based because the status
 useset		.ds 1	; in double-width, set to indicate use of Ice-T's character set rather than OS font
 seol		.ds 1	; flag that cursor has written last character in line, so next character will wrap
 
-flashcnt	.ds 1
-newflash	.ds 1
-oldflash	.ds 1
-oldctrl1	.ds 1
+flashcnt	.ds 1	; counts frames until we need to flash the cursor (and blink characters)
+newflash	.ds 1	; current status of cursor
+oldflash	.ds 1	; previous status of cursor
+oldctrl1	.ds 1	; previous value of ctrl1flag. We detect a press of ctrl-1 (pause) by monitoring ctrl1flag and comparing to the previous value.
 dobell		.ds 1	; indicate that border is flashing as a "bell".
 doclick		.ds 1	; indicate that console speaker is to be sounded for keyboard click. Also defines delay between each console speaker tick.
-capslock	.ds 1
+capslock	.ds 1	; caps lock state
 s764		.ds 1	; temporarily stores code of last key pressed. Reused as a temp variable in other places.
-outnum		.ds 1	; number of bytes to output.
+outnum		.ds 1	; number of bytes of outdat to output. In scrldown, indicate that the screen being scrolled is not the terminal screen.
 outdat		.ds 3	; data to output over serial port by routine "outputdat"
 
-ctrl1mod	.ds 1
-oldbufc		.ds 1
-mybcount	.ds 2
-baktow		.ds 1
+ctrl1mod	.ds 1	; ctrl-1 (pause) mode
+oldbufc		.ds 1	; previous amount of blocks displayed in "Bf:" (buffer size filled) counter
+mybcount	.ds 2	; serial port cyclic data buffer size. This is where data is copied from R: device and stored until it's displayed.
+baktow		.ds 1	; "back to where" - when returning from main menu to terminal, indicate if we're returning to pause mode.
 
-mnmnucnt	.ds 1
-mnmenux		.ds 1
-mnlnofbl	.ds 1
-svmnucnt	.ds 1
-
-noplcs		.ds 1
-noplcx		.ds 1
-noplcy		.ds 1
-lnofbl		.ds 1
-mnucnt		.ds 1
-menux		.ds 1
-menret		.ds 1
-invlo		.ds 1
-invhi		.ds 1
-nodoinv		.ds 1
-
-numofwin	.ds 1
-topx		.ds 1	; these 4 must not be separated
+mnmnucnt	.ds 1	; current position in "main" (top bar) menu
+mnmenux		.ds 1	; current horizontal position of highlighted area in main menu
+mnlnofbl	.ds 1	; width of highlighted block of a menu selection in main menu
+svmnucnt	.ds 1	; saves menu counter when descending from a menu to a secondary menu
+noplcs		.ds 1	; number of total entries in current menu
+noplcx		.ds 1	; number of columns of current menu
+noplcy		.ds 1	; number of rows of current menu
+lnofbl		.ds 1	; width of highlighted block of a menu selection
+mnucnt		.ds 1	; position in current menu
+menux		.ds 1	; horizontal position of current selection (highlighted area) in menu
+menret		.ds 1	; return value from "menudo" routine, indicates the user's selection.
+invlo		.ds 1	; address of highlighted menu selection (lo)
+invhi		.ds 1	; address of highlighted menu selection (hi)
+nodoinv		.ds 1	; in some menus the initial selection is already highlighted, so if this flag is set we skip initial highlighting.
+numofwin	.ds 1	; when opening multiple menu windows, indicate serial number of current window.
+topx		.ds 1	; top x, top y, bottom x, bottom y of current menu. These 4 must not be separated.
 topy		.ds 1
 botx		.ds 1
 boty		.ds 1
+	.guard boty=topx+3, "topx, topy, botx, boty must be consecutive!"
 
-ersl		.ds 2
+ersl		.ds 2	; erase-line pointer. Also used as a general pointer in many places.
 
 nextln		.ds 2	; when fine scrolling, this is an extra, off-screen line that will scroll in next
-nextlnt		.ds 2
-fscroldn	.ds 1
-fscrolup	.ds 1
-vbsctp		.ds 1
-vbscbt		.ds 1
-vbfm		.ds 1
-vbto		.ds 1
-vbln		.ds 1
-vbtemp		.ds 1
-vbtemp2		.ds 2
-dli_counter	.ds 1
+nextlnt		.ds 2	; an extra pointer used when scrolling to temporarily hold the pointer to be stored in nextln
+fscroldn	.ds 1	; current state of fine scroll (down) mechanism
+fscrolup	.ds 1	; current state of fine scroll (up) mechanism
+vbsctp		.ds 1	; VBI scroll top, start of offset in display list that is to be scrolled
+vbscbt		.ds 1	; VBI scroll bottom, end of offset in display list that is to be scrolled
+vbfm		.ds 1	; VBI "from" for memory copy used in fine scroll
+vbto		.ds 1	; VBI "to"
+vbln		.ds 1	; VBI "length"
+vbtemp		.ds 1	; VBI temp used in fine scroll
+vbtemp2		.ds 2	; VBI temp pointer used in fine scroll
+dli_counter	.ds 1	; for DLI, indicates index of color table to load. Increments as we progress down the screen and is zeroed by VBI.
 
-fltmp		.ds 2
-dbltmp1		.ds 1
+fltmp		.ds 2	; used as a pointer/temp value in various places
+dbltmp1		.ds 1	; temps used in character width doubling routine
 dbltmp2		.ds 1
-dblgrph		.ds 1
+dblgrph		.ds 1	; indicate that this character, if printed at double size, needs to be doubled by a routine (i.e. there is no 8-pixel bitmap for it)
 
-bufput		.ds 2	; serial port data cyclic data buffer put address
-bufget		.ds 2	; serial port data cyclic data buffer get address
-chrcnt		.ds 2
+bufput		.ds 2	; serial port cyclic data buffer put address
+bufget		.ds 2	; serial port cyclic data buffer get address
+chrcnt		.ds 2	; counts characters received to determine whether it's time to do a port status check, depending on "Status calls" setting.
 
 xoff		.ds 1	; flag if we've sent XOFF to halt incoming traffic
 
-crcl		.ds 1
+crcl		.ds 1	; CRC calculated during file transfers.
 crch		.ds 1
 
 nowvbi		.ds 1	; indicates deferred VBI is currently active
 
 crsscrl 	.ds 1	; indicates to VBI that a coarse scroll has occured, update the display list.
-capture 	.ds 1
-captold 	.ds 1
-captplc 	.ds 2
+capture 	.ds 1	; whether capture is on
+captold 	.ds 1	; previous amount of blocks displayed in "C:" (capture buffer size filled) counter
+captplc 	.ds 2	; write pointer for capture data
 
-diltmp1		.ds	1
+diltmp1		.ds	1	; temp variables used by dialer menu
 diltmp2		.ds	1
 zmauto		.ds 1	; indicates receiving ^X B00 sequence (in Terminal mode) to automatically start Zmodem.
 
@@ -171,16 +171,16 @@ __mass_initialized_zero_page_end
 
 vframes_per_sec	.ds 1	; 50/60 depending on video system
 
-looklim		.ds 1
-
-scrlsv		.ds 2	; scrollback save pointer
-look		.ds 1
-lookln		.ds 2
-lookln2		.ds 2
+looklim		.ds 1	; scrollback limit indicator. It's a bit hacky, 24 indicates empty, decremented with each added line until limit of 76 for a total of 204 lines.
+scrlsv		.ds 2	; scrollback save pointer (this is where the next line scrolled out is to be saved)
+look		.ds 1	; when scrolling back, this is the current line number (of the line at the bottom of the screen). Starts at 24 and decrements until looklim.
+lookln		.ds 2	; when scrolling back, points to data in scrollback buffer that is displayed at the top of the screen.
+lookln2		.ds 2	; print pointer used during scrollback. This points to data that is displayed either at the top or bottom of the screen (depends whether
+					; the user is currently scrolling up or down), hence the need for this additional pointer.
 
 online		.ds 1	; whether we are online (connected through dialer)
-mnplace		.ds 1
-crcchek		.ds 1
+mnplace		.ds 1	; 1 in main menu, 2 in main submenus, else 0. Used to give special treatment to down in the former case, left/right in the latter.
+crcchek		.ds 1	; whether or not we use CRC in the present file transfer.
 isbold		.ds 1	; whether the PM underlay is presently enabled and shown on the screen.
 old_revvid	.ds 1	; previous value of revvid. When value changes, a minor one time behavioral change is required in fine scroll
 
@@ -192,18 +192,21 @@ prep_boldface_scroll_var1_update_bot	.ds 1
 
 private_colors	.ds 4 ; A private extension allows the host to set screen color registers. Valid if private_colors_set is 1.
 
-; Store values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
+; Values to be written to PORTB ("banksw") to switch banks. Bit 0 is taken from PORTB's value at startup so we don't
 ; modify the state of OS RAM from whatever this machine's OS uses. These five variables MUST remain together and in this order.
 bank0		.ds 1
 bank1		.ds 1
 bank2		.ds 1
 bank3		.ds 1
 bank4		.ds 1
+	.guard bank4=bank0+4, "bank0...4 must be consecutive!"
 
 banksv		.ds 1	; save current selected bank when temporarily switching to a different bank
 
+chartemp	.ds 8	; temporary area used for constructing a character with special attributes (e.g. underline, double size)
+
 ; spare
-	.ds 13
+	.ds 7
 	.guard *=$100, "page zero equates end at {{*}}!"
 
 ; Xmodem constants
@@ -309,9 +312,9 @@ backscroll_top		= $7fc0		; enough for 204 lines of 80 bytes each (remainder is 6
 ; unmodified while the new line scrolling in is already being written to
 xtraln		.ds 320
 
-xmdblock	.ds 3
-xmdsave		.ds 5
-xm128		.ds 1
+xmdblock	.ds 3	; 3-byte header of every packet
+xmdsave		.ds 5	; used to restore state in case of dropping a bad block
+xm128		.ds 1	; counts amount of 128-byte blocks received (up to 8, at which point we know we got a full KByte)
 ymodem		.ds 1	; 0 in xmodem, 1 in ymodem, 255 in zmodem
 ymdbk1		.ds 1	; 0 in xmodem or (ymodem and invalid file size),
 					; 1 in ymodem before getting file info,
@@ -324,7 +327,7 @@ ymodemg_warn	.ds 1	; indicates user warning for Ymodem-G should be shown.
 ; Zmodem equates
 
 ; 5 bytes for Zmodem header data (incoming and outgoing) + 2 CRC bytes
-type	.ds	1
+ztype	.ds	1
 zf3
 zp0		.ds	1
 zf2
@@ -334,15 +337,16 @@ zp2		.ds	1
 zf0
 zp3		.ds	1
 gcrc	.ds	2
+	.guard gcrc=ztype+5, "ztype...gcrc must be consecutive!"
 ; (note: the above struct must remain intact.)
 
 hexg	.ds	1	; flag whether we're receiving a binary or hex header
-filepos	.ds	4
-filesav	.ds	4
+filepos	.ds	4	; current position in file being transferred
+filesav	.ds	4	; most recent value of filepos with valid data, used in case of a retry
 trfile	.ds	1	; flag whether we're currently receiving file data
-ztime	.ds	1
-z_came_from_vt_flag	.ds 1
-z_read_from_buffpl	.ds 1
+ztime	.ds	1	; time counter used when waiting for data
+z_came_from_vt_flag	.ds 1	; 0 - entered zmodem from menu. 1 - entered automatically from terminal.
+z_read_from_buffpl	.ds 1	; 1 - read data from cyclic serial port buffer (required at startup), 0 - read directly from serial port device.
 ;zchalflag	.ds 1	; have we challenged this sender yet?
 
 ; spare
@@ -354,7 +358,7 @@ boldpm	=	$8180	; P/M underlay for bold/blink/color text. 5 players at $80 each, 
 wind3	=	$8400	; 1k
 wind3_oob = wind3 + $400
 
-minibuf	=	$8800	; used as R: input buffer (probably only by Atari 850)
+minibuf	=	$8800	; used as R: input buffer (this request is possibly respected only by Atari 850 R: handler)
 minibuf_end = $8900
 
 macro_data =	$8900	; Macro data. 64 bytes * 12 macros.
@@ -373,9 +377,9 @@ savddat		.ds cfgnum	; Copy of configuration settings. Mirrors what's stored to d
 clock_update	.ds 1	; flagged when VBI has updated the time (normally every second)
 clock_enable	.ds 1	; enables clock display in menu
 clock_flag_seconds	.ds 1	; VBI1 tells VBI2 to increase clock by this many seconds
-timer_1sec	.ds 1
-timer_10sec	.ds 1
-brkkey_enable	.ds 1	; enables generating a keyboard code when BREAK key detected.
+timer_1sec	.ds 1		; set once a second, tells terminal to update the timer display
+timer_10sec	.ds 1		; set once in 10 seconds, tells terminal to update instruction banner at the top of the screen (when offline)
+brkkey_enable	.ds 1	; enables generating a keyboard code when BREAK key detected. Enabled in terminal, disabled in menus.
 
 ; Current terminal settings saved by Esc 7 (DECSC) and restored by Esc 8
 decsc_save_data
@@ -407,14 +411,14 @@ numstk	.ds	$100	; when terminal reads a sequence of the form Esc [ n ; n .. the 
 ; at $aff0 is a second unused line
 	.bank
 	*=	$aff0
-chartemp	.ds 8
-block		.ds 1
-putbt		.ds 1
-retry		.ds 1
-chksum		.ds 1
-rsttbl		.ds 3
-			.ds 1 ; spare
-dlst2		.ds $103
+second_unused_line
+blocknum	.ds 1	; block number during file transfers
+putbt		.ds 1	; in file transfers, byte to send for requesting the next packet
+retrynum	.ds 1	; retry counter for file transfers
+chksum		.ds 1	; calculated checksum in file transfers, compared with received checksum
+rsttbl		.ds 3	; saved reset vectors for restoring when quitting
+			.ds 9 ; spare
+dlst2		.ds $103	; additional display list used for fine scrolling
 	.guard dlst2 & $FF = 0, "dlst2 unaligned, {{%1}}!", dlst2
 
 lnsizdat	.ds 24	; line sizes (normal/wide/double-upper/double-lower)
@@ -424,7 +428,7 @@ macro_key_assign
 			.ds macronum_rsvd
 ; spare
 			.ds 5
-	.guard *=chartemp+320, "*={{*}}, not using full second line, must be chartemp+320 which is {{%1}}!!", [chartemp+320]
+	.guard *=second_unused_line+320, "*={{*}}, not using full second line, must be second_unused_line+320 which is {{%1}}!!", [second_unused_line+320]
 
 	.bank
 	*=	$bef0
@@ -462,7 +466,6 @@ brkkey	=	$11		; BREAK key flag
 rtclock_0	=	$12
 rtclock_1	=	$13
 rtclock_2	=	$14	; Increments by 1 each vblank
-icax1z	=	$2a
 atract	=	$4d		; Attract mode timer and flag
 lmargn	=	$52		; Text mode left margin
 vdslst	=	$200	; DLI vector
@@ -538,9 +541,9 @@ skstat	=	$d20f	; for checking if Shift key is pressed
 portb	=	$d301	; PORTB, used for bank switching
 
 .ifdef AXLON_SUPPORT
-banksw	=	$cfff	; Axlon memory bank switch register
+banksw	=	$cfff	; Memory bank switch register on Axlon upgraded machines
 .else
-banksw	=	portb
+banksw	=	portb	; Memory bank switch register on XE and upgraded XL machines
 .endif
 
 ; ANTIC
@@ -556,7 +559,6 @@ nmien_DLI_DISABLE	=	$40
 
 ; OS vectors
 os_charset	=	$e000	; OS built-in character set
-k_device_get	=	$e424 ; K: device get character vector
 ciov	=	$e456
 setvbv	=	$e45c
 sysvbv	=	$e45f
@@ -598,6 +600,7 @@ winbufs_oob_hi .byte >wind1_oob, >wind3_oob, >wind2_oob	; size limits of these b
 
 winbanks	.byte	1, 0, 2	; which bank holds which buffer (wind3 is 0 but not actually in banked memory)
 
+; bitmasks used to isolate the left or right side of characters when printing
 postbl	.byte	$f0,$0f
 
 sname	.byte	"S:"
@@ -665,6 +668,7 @@ graftabl
 
 BLOCK_CHARACTER = 127 ; block shaped character for indicating buffer full, etc.
 
+; Digraph and simulated LED character glyphs
 digraph
 	.byte	170,238,170,0,119,34,34,0  ; ht
 	.byte	238,204,136,0,119,102,68,0 ; ff
@@ -676,8 +680,10 @@ digraph
 leds_off_char	.byte $00,$44,$44,$00,$00,$44,$44,$00
 leds_on_char	.byte $ee,$ee,$ee,$00,$ee,$ee,$ee,$00
 
-sizes	.byte	2,3,0,1,0
-szlen	.byte	80,40,40,40
+; translate Esc # 3/4/5/6/7 to internal line size codes
+lnsiz_codes		.byte 2,3,0,1,0
+; convert line size code to length of line (80 or 40 columns)
+lnsiz_to_len	.byte 80,40,40,40
 
 ; These are the luminance values for the color scheme (the hue is user selectable).
 ; Note that the screen is actually set up such that the background is color 1 (set bits) and
@@ -832,10 +838,10 @@ tilmesg3_end
 tilmesg3_len = tilmesg3_end-svscrlms
 version_strlen = version_str_end-version_str
 
-pstbl	.byte	0, 16, 1
-
+; CR/LF translation tables (keep together)
 crtb	.byte	155
 lftb	.byte	0, 155, 155
+	.guard lftb=crtb+1, "crtb, lftb must be consecutive!"
 
 ; used by file xfer and dialing screens
 xmdtop2

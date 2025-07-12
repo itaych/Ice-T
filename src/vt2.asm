@@ -543,7 +543,7 @@ notgrph
 	lda lnsizdat,x
 	tax
 	lda tx
-	cmp szlen,x		; 40 or 80 depending on line width
+	cmp lnsiz_to_len,x	; 40 or 80 depending on line width
 	bcs ?at_eol
 	lda #0
 	sta seol
@@ -677,7 +677,7 @@ ctrlcode_09		; ^I - Tab
 	ldy ty
 	dey
 	ldx lnsizdat,y	; get line width
-	ldy szlen,x		; get corresponding number of chars (40 or 80)
+	ldy lnsiz_to_len,x	; get corresponding number of chars (40 or 80)
 	dey 			; subtract by 1
 	sty temp		; and store it
 
@@ -1041,7 +1041,7 @@ changesize_templine = numstk+$80
 	stx y			; 'y' will hold the line number we are handling
 	dex
 	tay
-	lda sizes,y		; translate command to internal size value
+	lda lnsiz_codes,y	; translate command value 3-7 (now 0-4) to internal size code
 	cmp lnsizdat,x
 	bne ?not_same
 	jmp fincmnd		; line is already this size, quit
@@ -1051,7 +1051,7 @@ changesize_templine = numstk+$80
 	sta topx		; used as temp here
 	tya
 	sta lnsizdat,x	; and set new value
-	lda szlen,y		; get size of new line (80 or 40 columns)
+	lda lnsiz_to_len,y	; get size of new line (80 or 40 columns)
 	sta szprchng+1	; self modified code defining size of redrawn line
 	lda boldface	; we don't want line to be filled with bold background or inverse video spaces
 	pha
@@ -2279,7 +2279,7 @@ csicode_ech				; X - erases characters from cursor position
 	tay
 	dey
 	ldx lnsizdat,y	; check line size
-	lda szlen,x
+	lda lnsiz_to_len,x
 	sta ?ech_maxcols+1
 	lda tx
 	sta x
@@ -2794,7 +2794,7 @@ handle_insert_delete_char
 ?z
 	sta ?idc_is_line_dbl
 	tax
-	lda szlen,x
+	lda lnsiz_to_len,x
 	sta ?idc_maxcols
 	lda tx
 	ldx ?idc_is_line_dbl
@@ -4919,6 +4919,7 @@ lkdnnofn
 	bcc lkoky
 lkzro
 	clc
+	; add $730 (80*23) to lookln and store in lookln2 to find line to print at the bottom of the screen
 	lda lookln
 	adc #$30
 	sta lookln2

@@ -1198,7 +1198,7 @@ mxnoret
 
 ; Inverse-bar maker
 ; invhi,lo - addr of place
-; lnofbl   - length of	block (bytes)
+; lnofbl   - length of block (bytes)
 
 doinv
 	lda invhi
@@ -2980,14 +2980,14 @@ xmdini			; Common initialization for X/Y/Zmodem transfers
 	bpl ?lp3
 	lda ymodem	; Block starts at 0 for ymodem, 1 for xmodem
 	eor #1
-	sta block
+	sta blocknum
 	lda #$40	; Data-buffer pointer
 	sta outdat+1
 	sta xmdsave+1
 	lda #0
 	sta outdat
 	sta xmdsave
-	sta retry
+	sta retrynum
 	sta bcount
 	sta topy
 	sta crcchek
@@ -3048,14 +3048,14 @@ xmdupl
 
 	; get 1st char from receiver, switch to cksum if needed
 	lda #5
-	sta retry
+	sta retrynum
 ?char1lp
 	jsr getn2_upl
 	cmp #'C			; Is other side requesting CRC check?
 	beq ?uc
 	cmp #xmd_NAK	; NAK (other side requests checksum)?
 	beq ?uchk
-	dec retry
+	dec retrynum
 	bpl ?char1lp
 	bmi ?abort
 ?uchk
@@ -3071,7 +3071,7 @@ xmdupl
 	lda #0
 	sta ?outstanding_byte
 	lda #1
-	sta block
+	sta blocknum
 	jmp ?mnloop
 
 	; handle disk error
@@ -3108,9 +3108,9 @@ xmdupl
 	jsr fildomsg
 	; send EOT and wait for ACK. Abort after 10 fails.
 	lda #10
-	sta retry
+	sta retrynum
 ?eof_lp
-	dec retry
+	dec retrynum
 	bmi ?abort
 	lda #xmd_EOT
 	jsr rputch
@@ -3128,9 +3128,8 @@ xmdupl
 	; prepare packet header
 	lda #xmd_SOH
 	sta ?pktbuf
-	lda block
+	lda blocknum
 	sta ?pktbuf+1
-	lda block
 	eor #255
 	sta ?pktbuf+2
 
@@ -3216,7 +3215,7 @@ xmdupl
 	sta ?pktbuf+3+128
 ?co
 	lda #0
-	sta retry
+	sta retrynum
 ?pkt_send
 
 	; send packet
@@ -3240,8 +3239,8 @@ xmdupl
 	cmp #xmd_NAK
 	bne ?nonak
 	; handle NAK
-	inc retry
-	lda retry
+	inc retrynum
+	lda retrynum
 	cmp #10			; max retries
 	beq ?retry_fail
 	tay
@@ -3268,19 +3267,19 @@ xmdupl
 ?nocan
 	cmp #xmd_ACK
 	bne ?resp_lp
-	lda retry
+	lda retrynum
 	beq ?no_retry_msg
 	ldx #>msg0		; "sending"
 	ldy #<msg0
 	jsr fildomsg
 	lda #0
-	sta retry
+	sta retrynum
 ?no_retry_msg
-	inc block
+	inc blocknum
 	ldx #>xpknum	; Update stat
 	ldy #<xpknum
 	jsr incnumb
-	lda block
+	lda blocknum
 	and #7
 	bne ?nk
 	ldx #>xkbnum
@@ -3576,11 +3575,11 @@ begxdl
 	bne ?pbad
 	txa
 	inx
-	cpx block	; Check if received block number is one less than expected. This may happen
-	bne ?ns		; if an ACK gets mistaken for a NAK due to line noise, so the previous block
+	cpx blocknum	; Check if received block number is one less than expected. This may happen
+	bne ?ns			; if an ACK gets mistaken for a NAK due to line noise, so the previous block
 	lda #xmd_ACK	; is retransmitted. In this case, send an ACK so that sender proceeds,
-	sta putbt	; and discard this block.
-	lda xmdsave	; restore information stored before receiving block
+	sta putbt		; and discard this block.
+	lda xmdsave		; restore information stored before receiving block
 	sta outdat
 	lda xmdsave+1
 	sta outdat+1
@@ -3592,12 +3591,12 @@ begxdl
 	sta ymdpl+2
 	jmp xdnmnlp
 ?ns
-	cmp block	; is this the block number we're expecting?
-	bne ?pbad	; if not, drop packet and NAK
-	jsr getn2	; get checksum byte, or CRC hi.
+	cmp blocknum	; is this the block number we're expecting?
+	bne ?pbad		; if not, drop packet and NAK
+	jsr getn2		; get checksum byte, or CRC hi.
 	ldx crcchek
-	beq ?csm	; checksum mode? go check it.
-	cmp crch	; verify CRC
+	beq ?csm		; checksum mode? go check it.
+	cmp crch		; verify CRC
 	bne ?crcbd1
 	jsr getn2
 	cmp crcl
@@ -3620,13 +3619,13 @@ begxdl
 ?noy
 	lda #xmd_ACK	; ack - Good block received
 	sta putbt
-	lda retry		; was retry message previously shown?
+	lda retrynum		; was retry message previously shown?
 	beq ?rt
 	ldx #>msg3		; replace it with "Getting data"
 	ldy #<msg3
 	jsr fildomsg
 	lda #0
-	sta retry
+	sta retrynum
 ?rt
 	ldx #>xpknum	; increment user displayed packet counter
 	ldy #<xpknum
@@ -3645,7 +3644,7 @@ begxdl
 	ldy #<xkbnum
 	jsr incnumb
 ?nk
-	inc block		; increment expected block number
+	inc blocknum	; increment expected block number
 	lda ymodemg
 	beq ?yg
 	jsr xdsavdat	; Ymodem-G - immediately save data without buffering or closing port
@@ -3703,11 +3702,11 @@ xdnchkbad
 	lda xmdsave+4
 	sta ymdpl+2
 
-	inc retry
-	lda retry
+	inc retrynum
+	lda retrynum
 	cmp #10			; max retries
 	beq xdnrtry
-	ldy retry
+	ldy retrynum
 	jsr number
 	lda numb+2
 	sta msg7+6
@@ -4055,7 +4054,7 @@ ydob1			; Handle Ymodem batch block
 	lda #xmd_ACK
 	jsr rputch	; Acknowledge block (but not in Ymodem-G)
 ?yg
-	inc block
+	inc blocknum
 	lda #2
 	sta ymdbk1
 	lda xmdsave	; Don't treat block as file data
@@ -4598,20 +4597,20 @@ zmddnl_from_vt
 	ldx #0
 	stx crcl
 	stx crch
-	stx type
+	stx ztype
 	inx
 	stx hexg
 	jmp zmd_mnloop?lp
 
 zmd_mnloop
 	lda #0
-	sta retry
+	sta retrynum
 ?can_loop
 	jsr getzm	; get a byte from serial port
 	cmp #xmd_CAN
 	bne ?no_can
-	inc retry
-	lda retry
+	inc retrynum
+	lda retrynum
 	cmp #5
 	bne ?can_loop				; if we get 5 consecutive CANs...
 	jmp zabrtfile_nosendcans	; abort, no need to send CANs of our own
@@ -4656,7 +4655,7 @@ zmd_mnloop
 	tax
 	pha
 	tya
-	sta type,x
+	sta ztype,x
 	cpx #5
 	bcs ?nocrc		; CRC shouldn't be calculated on the CRC bytes...
 	jsr calccrc2
@@ -4693,7 +4692,7 @@ zmd_mnloop
 	bne ?bd
 ?lfok
 	; ZACK and ZFIN do not end with a XON. For others we wait for one.
-	lda type
+	lda ztype
 	cmp #zmd_type_ZACK
 	beq ?nohexend
 	cmp #zmd_type_ZFIN
@@ -4744,7 +4743,7 @@ frameok			; Frame passes check
 	ldx #>?fok
 	ldy #<?fok
 	jsr fildomsg
-	lda type	; Jump to appropriate routine
+	lda ztype	; Jump to appropriate routine
 ;	cmp #zmd_type_ZRQINIT	; commented out because it's 0
 	bne ?noinit
 
@@ -4761,7 +4760,7 @@ frameok			; Frame passes check
 	jmp zrinit
 ?sendchal
 	lda #zmd_type_ZCHALLENGE	; send ZCHALLENGE
-	sta type
+	sta ztype
 	ldx #>?cpr
 	ldy #<?cpr
 	jsr fildomsg
@@ -4790,7 +4789,7 @@ frameok			; Frame passes check
 	jsr getpack
 	jsr zeropos
 	lda #zmd_type_ZCOMPL	; send ZCOMPL with 0 return code.
-	sta type
+	sta ztype
 	ldx #3
 	lda #0
 ?lp
@@ -4860,7 +4859,7 @@ zrinit
 	ldy #<?snp
 	jsr fildomsg
 	lda #zmd_type_ZRINIT	; send ZRINIT frame
-	sta type
+	sta ztype
 	lda #$00
 	sta zp0
 	lda #$40
@@ -4928,7 +4927,7 @@ noack
 	jsr zeropos
 	jsr sendrpos	; send reposition request
 	lda #4
-	sta block		; in Zmodem, "block" is next value of "filepos+1" at which we know we got another 1K.
+	sta blocknum	; in Zmodem, "blocknum" is next value of "filepos+1" at which we know we got another 1K.
 	jmp zmd_mnloop
 
 ?fgp	.cbyte	"Getting filename"
@@ -4999,7 +4998,7 @@ noack
 	ldy #<?bdp
 	jsr fildomsg
 	lda #zmd_type_ZSKIP	; Request to skip this file
-	sta type
+	sta ztype
 	jsr send_hex_frame_hdr
 	jmp zmd_mnloop
 
@@ -5065,7 +5064,7 @@ noack
 	ldy #<?enp
 	jsr fildomsg
 	lda #zmd_type_ZFIN
-	sta type
+	sta ztype
 	jsr send_hex_frame_hdr
 	jmp ovrnout
 
@@ -5158,7 +5157,7 @@ zmderr			; Disk error
 	jsr close3
 	jsr ropen
 	lda #5	; Request to skip this file
-	sta type
+	sta ztype
 	jsr send_hex_frame_hdr
 	jmp zmd_mnloop
 
@@ -5253,15 +5252,15 @@ getpack			; Get data packet
 	ldy #<xpknum
 	jsr incnumb
 	lda filepos+1
-	cmp block
+	cmp blocknum
 	bne ?nu
 	ldx #>xkbnum	; Update Kbytes
 	ldy #<xkbnum
 	jsr incnumb
-	lda block
+	lda blocknum
 	clc
 	adc #4
-	sta block
+	sta blocknum
 ?nu
 	pla
 	sta temp
@@ -5393,7 +5392,7 @@ sendrpos		; Send ZRPOS
 	ldy #<?z
 	jsr fildomsg
 	lda #9
-	sta type
+	sta ztype
 	jmp rposok
 
 ?z	.cbyte	"Repositioning..."
@@ -5403,7 +5402,7 @@ sendack			; Send a ZACK
 	ldy #<zapr
 	jsr fildomsg
 	lda #3
-	sta type
+	sta ztype
 rposok
 	ldx #3
 ?lp
@@ -5419,7 +5418,7 @@ sendnak			; Send a ZNAK
 	ldy #<?nk
 	jsr fildomsg
 	lda #6
-	sta type
+	sta ztype
 	ldx #3
 	lda #0
 ?lp
@@ -5484,11 +5483,11 @@ send_hex_frame_hdr		; Send hex frame header
 ?lp
 	txa
 	pha
-	lda type,x
+	lda ztype,x
 	jsr calccrc2
 	pla
 	tax
-	lda type,x
+	lda ztype,x
 	jsr puthexn
 	inx
 	cpx #5
