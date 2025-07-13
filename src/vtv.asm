@@ -668,7 +668,7 @@ graftabl
 
 BLOCK_CHARACTER = 127 ; block shaped character for indicating buffer full, etc.
 
-; Digraph and simulated LED character glyphs
+; Digraph character glyphs
 digraph
 	.byte	170,238,170,0,119,34,34,0  ; ht
 	.byte	238,204,136,0,119,102,68,0 ; ff
@@ -677,8 +677,15 @@ digraph
 	.byte	204,170,170,0,68,68,119,0  ; nl
 	.byte	170,170,68,0,119,34,34,0   ; vt
 
+; glyph for unsupported (i.e. all) Unicode characters
+; keep this immediately after digraph.
+unicode_char	.byte $00,$00,$ee,$aa,$aa,$ee,$00,$00
+	.guard unicode_char=digraph+6*8
+
+; simulated LED character glyphs
 leds_off_char	.byte $00,$44,$44,$00,$00,$44,$44,$00
 leds_on_char	.byte $ee,$ee,$ee,$00,$ee,$ee,$ee,$00
+led_mask_tbl	.byte 0, $f0, $0f, $ff
 
 ; translate Esc # 3/4/5/6/7 to internal line size codes
 lnsiz_codes		.byte 2,3,0,1,0

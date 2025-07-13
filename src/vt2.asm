@@ -382,10 +382,6 @@ vt100_check_hi_chars
 	sta tx
 	lda #$0a	; and convert it to an LF.
 ?ok1
-	ldx eitbit
-	bne ?ok8
-	and #$7f
-?ok8
 	cmp #127	; ATASCII Tab?
 	bne vt100_done_check_hi_chars
 	ldx eolchar	; Change to ASCII if
@@ -394,7 +390,7 @@ vt100_check_hi_chars
 	rts 		; 127 is an invalid code, ignore
 ?ok
 	lda #9
-	jmp vt100_done_check_hi_chars
+	bne vt100_done_check_hi_chars	; always branches
 
 putcrs			; Cursor flasher
 	ldx ty
@@ -478,9 +474,36 @@ bigcurs			; wide (8-pixel) cursor
 	iny
 	cpy #8
 	bne ?lp
+?rts
 	rts
 
 regmode				; Display character on terminal output.
+	ldx eitbit		; Are 8-bit values allowed?
+	bne ?ok8		; yes, no need to check for them.
+	tax				; this also sets the negative flag if A>=128
+	bpl ?ok8		; if not 8-bit, we're done with this check.
+	; If we are here then we've received an 8-bit value (bit 7 set) in Ascii mode.
+	; We don't display these characters, but if we think this is a UTF-8 code then
+	; we display a character with the 'unicode_char' glyph since we obviously don't
+	; support Unicode. Invalid UTF-8 codes may cause more of these to be displayed
+	; than would be if we had a proper UTF-8 parser, but we don't really care. We
+	; only check if this is a valid UTF-8 start byte (110xxxxx, 1110xxxx, 11110xxx)
+	; and ignore any other 8-bit value, including UTF-8 trailing bytes (10xxxxxx).
+	and #~11100000
+	cmp #~11000000
+	beq ?utf8
+	txa
+	and #~11110000
+	cmp #~11100000
+	beq ?utf8
+	txa
+	and #~11111000
+	cmp #~11110000
+	bne bigcurs?rts	; other unknown 8-bit characters are ignored.
+?utf8
+	ldx #unicode_char-digraph	; display "unicode_char" character
+	bne ?digraph_char	; always branches
+?ok8
 	sta prchar
 	ldx chset
 	lda g0set,x
@@ -494,11 +517,11 @@ regmode				; Display character on terminal output.
 	tax
 	lda graftabl,x		; After subtracting 95 get value from translation table.
 	bpl ?no_digraph		; (values over 128 are for additional digraph characters not in the font)
-	and #$7f
-	asl a
-	asl a
+	asl a				; high bit intentionally dropped here
+	asl a				; multiply by 8 to get offset into digraph table
 	asl a
 	tax
+?digraph_char
 	ldy #0
 ?lp					; Digraphs (glyphs containing two small letters) are not part of the font so
 	lda digraph,x	; generate and display a special character.
@@ -6003,7 +6026,6 @@ ledsdo
 	cpx #8
 	bne ?drawlp
 	rts
-led_mask_tbl .byte 0, $f0, $0f, $ff
 
 ; End of status line handlers
 
