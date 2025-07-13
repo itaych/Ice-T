@@ -3,9 +3,10 @@
 
  by Itay Chamiel - (c)1993-2025
 
- Version 2.8.1 - June 20, 2025
+ Version 2.8.2 - July 13, 2025
 
  Email: itaych@gmail.com
+ GitHub: https://github.com/itaych/Ice-T
 
 Features:
 
@@ -29,6 +30,13 @@ with less than 128K, including the 800. It is included with this release but
 keep in mind that it is rather limited in its capabilities, and I ceased its
 development when I started working on the 128K version.
 
+New for version 2.8.2:
+----------------------
+In Ascii mode, assume 8-bit characters are UTF-8 encoded and display a square-
+shaped placeholder for Unicode characters.
+Fixed a couple of broken box drawing characters.
+Minor bugfixes, cleanups, and performance improvements.
+
 New for version 2.8.1:
 ----------------------
 Added a selection of keyclick sounds and increased the keyboard repeat rate.
@@ -48,13 +56,13 @@ Added Macros.
 For emulator users: if the D: device is absent, H: is set as the default path,
 allowing you to save configuration and perform file operations without DOS.
 Added Xmodem upload, albeit in its barest form (128-byte packets).
-Added VT-parse file.
+Added VT-parse file to display animations.
 Improved SpartaDOS compatibility.
 Support Axlon memory boards.
 New "Settings" > "Return sends" menu chooses what code is transmitted when the
 user presses Return.
 Added many private control codes that enable BBSs to take advantage of Ice-T's
-specific graphic capabilities. Added an animation to demonstrate them.
+specific graphic capabilities. Added an animation file to demonstrate them.
 
 Donation request
 ----------------
@@ -120,11 +128,11 @@ emulated platform, I did not get around to trying to fix it.
 In April 2005 I decided to bring the source code out of the old Atari disk
 images and convert them to files that could be edited and assembled on a
 modern machine. It was difficult to find a cross-assembler that supported MAE-
-style local labels; after some searching I came across the ATasm assembler
-which seemed very close to what I needed, and its author, Mark Schmelzenbach
-was kind enough to add a build option "-mae" that the trick. With that I was
-able to build an executable bitwise-identical to the last 1997 release, and
-ATasm remains my assembler of choice for further development.
+style local labels; after some research I came across the ATasm assembler which
+seemed very close to what I needed, and its author, Mark Schmelzenbach was kind
+enough to add a build option "-mae" that did the trick. With that I was able to
+build an executable bitwise-identical to the last 1997 release, and ATasm
+remained my assembler of choice for further development.
 
 In October 2007, addressing fresh complaints about the aforementioned bug on
 the Atariage forums, I cleaned up and released the source code to the forum in
@@ -149,22 +157,26 @@ working on the last release of this period, 2.76, I received a suggestion from
 my old friend and fellow Atarian Bill Kendrick to try and implement ANSI colors
 using the Player/Missle "underlay" that was already in place for boldface
 characters. It took me one late night session to implement it, but there were
-many little problems with it and so I released it as an alpha version. This
-naturally heightened users' interest, and I released a series of alpha versions
-with more improvements, but since I never felt that it was quite ready there
-was no official release. Real life began to affect my spare time once more, and
-a new and demanding job meant that I didn't have enough time and energy to
-devote to the increasingly complex project. Thus version 2.8.0-alpha7 from
-October 2014 remained the current version for over a decade.
+many little inconsistencies in how it worked, so I only released it as an alpha
+version. This naturally heightened users' interest, leading to a series of
+additional alpha versions with more improvements, but since I never felt that
+it was quite ready there was no official release. Real life began to affect my
+spare time once more, and a new and demanding job meant that I didn't have
+enough time and energy to devote to the increasingly complex project. Thus
+version 2.8.0-alpha7 from October 2014 remained the current version for over a
+decade.
 
-In May of 2025 I finally found the time, grabbed the old todo list and got to
-work. I fixed many lingering bugs and finally brought the color emulation to
-something that I guess is about as close as possible to a proper ANSI-BBS
-emulator; I also added some "private" control codes that allow things like
-direct control of the underlay colors, scrolling of the colors, painting within
-the overlay, and - just for fun - full Player/Missile control and joystick and
-paddle input. A creative BBS developer could write online door games with some
-interesting graphics, but of course they will only work with Ice-T.
+In April of 2025 I finally found the time, grabbed the old todo list and got to
+work. Since I was now familiar with Git, I created a GitHub repo and committed
+my entire source code snapshot history. I then fixed many lingering bugs and
+finally brought the color emulation to something that I guess is about as close
+as possible to a proper ANSI-BBS emulator; I also added some "private" control
+codes that allow things like direct control of the underlay colors, scrolling
+of the colors, painting within the overlay, and - just for fun - full Player/
+Missile control and joystick and paddle input. A creative BBS developer could
+write online door games with some interesting graphics, but of course they will
+only work with Ice-T. This led to the long belated release of 2.8.0, followed
+by a few additional minor releases.
 
 I am always happy to hear from people using my software; I remain active as
 'itaych' on AtariAge and my email address will hopefully remain valid for the
@@ -178,9 +190,10 @@ interface. Some interfaces already have such a handler built in, and don't need
 any software to install them. The 850, P:R: connection, and anything else that
 hooks up through the SIO or joystick ports, definitely need such a file.
 
-Included with this disk are a number of such handlers. ATARI850.HND is for the
-850 interface. The rest of the .HND files were taken from the Bobterm archive,
-and are included for your convenience - I credit Bob Puff for collecting these.
+Included with this disk image are a number of such handlers. ATARI850.HND is
+for the 850 interface. The rest of the .HND files were taken from the Bobterm
+archive, and are included for your convenience - I credit Bob Puff for
+collecting these.
 
 For MyDOS users, Ice-T is capable of loading the R: handler automatically if it
 is needed, and even automatically unloading it at program exit. Rename the
@@ -191,14 +204,14 @@ SpartaDOS users are advised to create a batch file that will load the R:
 handler, then load Ice-T. SDX users must use 'X' to load the application.
 
 For other DOSes (such as Atari DOS) there is no easy solution other than to
-load the R: handler manually each time, rename it to AUTORUN.SYS or prepend it
+manually load the R: handler each time, rename it to AUTORUN.SYS or prepend it
 to the Ice-T executable.
 
 If you are using APE to connect to Internet hosts, use the ATARI850.HND
 handler. In APE's (R:) Internet Modem settings, make sure to select "Identify
 as VT100" or "Refuse Negotiation" for best results. If you do not do this (or
 are using an older version of APE that doesn't have this option) the Telnet
-client will identify as a VT-52 causing incorrect control codes to be sent and
+client may identify as a VT-52 causing incorrect control codes to be sent and
 garbage to be displayed on the screen with most destinations. Also, APE may
 discard LF (line feed) characters coming from the remote host, preventing the
 cursor from advancing a line when it should. To fix this behavior, type ATB1
@@ -242,18 +255,16 @@ image from "burning in". Therefore, don't leave this program on for extended
 intervals without the display changing. If a wait is necessary, turn your
 monitor off.
 
-Note that in this document the prefix '^' may be used instead of "Control".
-
 Navigating in menus
 -------------------
-The menu system design was inspired by the user interfaces of 1990s era PC-DOS
-plain text applications such as Norton Commander, with the main menu bar on
-top of the screen and windows that drop down from the current selection
-casting shadows on the background.
+The menu system design was inspired by the text-based user interfaces of 1990s
+era MS-DOS applications such as Norton Commander, with the main menu bar at the
+top of the screen and windows that drop down from the current selection casting
+shadows on the background.
 You may move the highlighted bar with the arrow keys (with or without holding
 down Control). You make a selection with the space bar or with <Return>, and
 back off into the previous menu without changing anything by pressing <Esc>.
-Shift-Esc will, in most menus, bring you back to the terminal.
+Shift-Esc will, in most menus, instantly switch back to the terminal.
 In the main-menu bar, the down arrow will work like the Return key, and open
 one of the four menu windows. In these windows, left and right will switch
 to one of the adjacent menus.
@@ -295,7 +306,7 @@ enable a telnet connection to www.atarinews.org:
 Note that 'I' is case sensitive; also, as is the case with a real modem, the
 Hangup feature may be used to end the session. Note that as of this writing,
 Atari800 indicates a successful connection with 'OK' instead of 'CONNECT' and
-is therefore incompatible with the dialer.
+is therefore incompatible with this dialer.
 
 After getting connected, the status bar will indicate "Online", and a timer
 indicating online time. Your hosts's name is also shown.
@@ -325,7 +336,7 @@ End, Page Up and Page Down, respectively.
 
 Keyclick: Choose between five different pitches for the keyboard click, or no
 click at all. The one named Standard sounds the same as the standard Atari OS
-built-in click (though it is slightly shorter).
+built-in click, though it is slightly shorter.
 
 Special: Select one of the special display modes. "None" is for none at all.
 
@@ -340,7 +351,7 @@ available across each line of the screen, each affecting a block 16 characters
 wide. If an attempt is made to use two different colors within the same region
 the most recently applied color will change the others within that range, often
 causing unwanted effects. Vertically there is no limitation thanks to a Display
-List Interrupt that updates the colors for each line.
+List Interrupt routine that updates the colors for each line.
 An additional limitation is that ANSI allows speciying the background and
 foreground text colors separately, but only one color may be displayed; if both
 are specified then the background color takes priority.
@@ -364,21 +375,34 @@ Background: You can select the background hue and whether the text is light on
 a dark background or vice versa. Monochrome monitor users should only use
 color 0, and choose inverse mode according to their
 preference. Color monitor users should choose the setting which renders the
-80-column screen most readable. I recommend trying 1,2,and F, in both
+80-column screen most readable. I recommend trying 1, 2, and F, in both
 inverse and standard modes.
 
-8-bit set: This is useful for PC-based BBS systems, which heavily use
-characters above 127 for character graphics and menus. However, if you select
-this, the scrollback buffer will not preserve inverse characters as such.
-Since this is not a part of the ANSI standard, you may wish to leave this
-off when using most Unix shells and Internet access systems, since they
-will probably use the ANSI graphics mode, which doesn't need 8-bit characters.
-Note that modern Unix/Linux shells may occasionally display Unicode characters,
-which will show up as garbage since they are not supported by Ice-T.
+8-bit set: This defines how the terminal handles values with the high bit set,
+referred to here as "8-bit" values.
+
+* Ascii - this setting is recommended for Unix/Linux shells and any other host
+that expects a classical VT-100 terminal. 8-bit values, if present, are assumed
+to be UTF-8 encoded Unicode characters; however since Unicode is not supported
+a simple square icon will be displayed where you'd expect an extended character
+or an emoji. Note that the UTF-8 parsing is rather naive, so an invalid stream
+of bytes may create more of these squares than would appear on a fully
+compliant decoder.
+
+* IBM-PC - this enables the IBM PC "Code page 437" character set, commonly used
+by PC-based BBS systems for displaying character art and graphical menus. This
+is therefore recommended for BBSs, in conjunction with the "ANSI-BBS" emulation
+setting.
+
+Note that in this mode any UTF-8 characters will appear as a string of garbage.
+These are typically not used by BBSs so this should not be a concern.
+
+Due to system limitations, the scrollback/screen redraw buffer will lose the
+inverse attribute of characters in this mode.
 
 Cursor style: Choose between an underline cursor or a block one.
 
-Set clock: Set the clock in the upper-right corner of the menu screen.
+Set clock: Sets the clock in the upper-right corner of the menu screen.
 The current time will be displayed (upon startup it is set according to the
 R-Time 8 clock if available, otherwise 12:00).
 Use the arrows and number keys to change the setting.
@@ -427,6 +451,12 @@ corresponding option. The differences between VT-102 and ANSI-BBS are subtle;
 some BBS art will be affected by it, as would certain pedantic applications
 such as Emacs. The vt102.txt document details the differences.
 
+Always be sure to use a setting that corresponds to what the host expects. On a
+Linux/Unix host set the environment variable TERM to "vt100" or "vt102" for
+VT-102, "vt52" for VT-52 or "ansi" for ANSI-BBS. If you're using a Telnet
+client to connect, ensure that it identifies as one of these strings if you
+want this to happen automatically.
+
 Return sends: Normally pressing Return will transmit a CR, unless the remote
 host sends a control code named Set Insert mode after which Return will
 transmit CR+LF. You may override this behavior to send a CR, a LF, or an
@@ -450,20 +480,20 @@ ATASCII  - 155 ($9B), the Atari "Return", is recognized as an EOL. Also,
            are still recognized in this mode and behave as normal.
 
 Status calls: This setting is fairly crucial for proper operation of this
-software. Basically, if you're using anything faster than 4800, use "Constant".
-850 users should use "Normal". This setting determines how often the R: input
-buffer is emptied into Ice-T's large 16K buffer (indicated by the Bf:
-indicator), when Ice-T is already busy emptying this large buffer to the
+software. Basically, if you're using anything faster than 4800 baud, use
+"Constant". This setting determines how often the R: input buffer is polled and
+emptied into Ice-T's larger 16K buffer (indicated by the Bf: indicator), when
+Ice-T is already busy rendering the contents of this large buffer to the
 screen. The issue is that most interfaces (not the 850) have a very small (128-
-byte) input buffer, which easily loses data if not emptied often enough. On the
-other hand, some interfaces allow using a large input buffer, and therefore
-there is no need to waste time on calling Status too often.
-Experiment with the settings until you find the best for your setup.
+byte) input buffer, which easily overflows if not emptied often enough. On the
+other hand, some interfaces allow using a larger input buffer, and therefore
+there is no need to waste time on polling them too often. Experiment with the
+settings until you find the best for your setup.
 Just to get the numbers straight:
-The 850, and any interface fully compatible with it, will use a 2K input
-buffer. Other devices ignore CIO requests for larger buffers, and use a
-128 byte buffer. The amount of characters processed in between emptying the R:
-buffer is:
+The 850, and any interface fully compatible with it, will use a 256 byte input
+buffer allocated by Ice-T. Other devices seem to ignore CIO requests for larger
+buffers, and use a 128 byte buffer. The amount of characters processed in
+between polling the R: buffer is:
 Normal   - 1024 bytes
 Medium   - 16 bytes
 Constant - 1 byte.
@@ -553,7 +583,7 @@ Rename file:
 Type in the current name, then the new, with a Return after each.
 
 Delete, Lock, Unlock:
-File operations. Type in a file name and Return.
+File operations. Type in a file name and Return to apply the action.
 
 Transfer menu
 -------------
@@ -713,14 +743,7 @@ bring you back to the main screen. This is useful if you're waiting for
 something and wish to read previous screens while waiting, knowing that you'll
 see it as soon as it happens.
 
-Note, that only lines that get scrolled out of the top line get saved in this
-history buffer. If you're scrolling a lower portion of the screen (which is one
-of the capabilities of the VT100), the text is not retained.
-
-Incoming characters also accumulate in the buffer when you are not in Terminal
-mode. They are displayed when you return to Terminal with Pause off.
-
-Print-screen (^Shift-P):
+Print-screen (Ctrl-Shift-P):
 Will print the screen, as regular text, to any printer that is accessible
 through P:. Underlined or inverse text will appear normal on the printed page,
 and large-sized characters will also look normal, but will be spaced apart.
@@ -728,14 +751,14 @@ ANSI graphics characters will not be printed, but characters above 128 (in PC
 characters mode) will be, and are supported by most printers. Backscrolling
 will not affect the printout; Only the main screen gets printed.
 
-Screen-dump to disk (^Shift-D):
+Screen-dump to disk (Ctrl-Shift-D):
 Will dump the screen's contents to a file in the current path. The file will be
 named SChhmmss.TXT, where hhmmss are the hours, minutes and secods of the
 current time as displayed in the menu. In case of conflict the previous file
 will be overwritten. The lines in the output file are separated by ATASCII EOL
 characters.
 
-Hang-up (^Shift-H):
+Hang-up (Ctrl-Shift-H):
 Causes the modem to hang up by waiting 1.5 seconds, sending a "+++", waiting
 another 1.5 seconds, and sending an "ATH" followed by a carriage return.
 The status line will indicate "Manual" (offline) mode.
@@ -778,14 +801,13 @@ Shift-Caps     Set caps lock to on
 ^Shift-D       Dump screen to file
 ^Shift-H       Hang up
 
-Numeric keypad emulation:
-Codes sent depend on setting of Num-lock, which is indicated in the status
-line, and is controlled by a code sent from host.
-
-The following used with ^Shift:
-0-9     -  Numeric-keypad 0-9
-Comma, period, minus, <Return> - Numeric keypad equivalents
-Q,W,E,R - PF1,2,3,4 respectively
+VT-100 Numeric keypad emulation is invoked by the following keys with ^Shift:
+  0-9     -  Numeric-keypad 0-9
+  Comma, period, minus, <Return> - Numeric keypad equivalents
+  Q,W,E,R - PF1,2,3,4 respectively
+(Note that the codes transmitted by these keys depend on the Num-lock setting,
+which is indicated by an 'N' in the status line and is controlled by a code
+sent from the host.)
 
 General keys:
 A-Z       - Lower or upper case according to Caps setting.
@@ -802,11 +824,11 @@ Ctrl-arrow keys - up, down, left, right. Code sent depends on cursor-key mode
 Inverse/Atari logo key - tilde
 
 Special-purpose ASCII characters:
-^comma       - ^[ (same as Esc)
-^period      - ^]
-^6           - ^^
+^comma       - ^[ ($1B, same as Esc)
+^period      - ^] ($1D)
+^6           - ^^ ($1E)
 ^8 or ^space - ^@ (null)
-^colon       - ^_
+^colon       - ^_ ($1F)
 ^?           - ^? ($7F, DEL)
 
 Further reading
@@ -824,20 +846,20 @@ Acknowledgments
 I'd like to thank the following people for their contributions:
 
 Jeff McWilliams, for lending a hand in upgrading my stock 130XE to the
-powerful machine used in development;
+powerful machine used in development.
 Clay Halliwell, for direct competition in the form of FlickerTerm80, as well
 as giving me several ideas (such as bold/blink support) and help with various
-optimizations;
-Bill Kendrick, for testing, ideas, bug reports, and moral support;
+optimizations.
+Bill Kendrick, for testing, ideas, bug reports, and moral support.
 John Harris, author of the MAE assembler/editor used for the majority of
-development up to version 2.72;
+development up to version 2.72.
 Russ Gilbert, for help with the CRC error checking and beta testing across a
-wide variety of hardware configurations;
-Tom Drake, for help and feedback;
+wide variety of hardware configurations.
+Tom Drake, for help and feedback.
 Mark Schmelzenbach, for the ATasm assembler, and adding the -mae option at my
 request; and to Peter Hinz for further ATasm updates and bugfixes.
 Avery Lee (of Virtualdub and Altirra fame), for solving a 15 year old bug and
-motivating me to release a fix;
+motivating me to release a fix.
 Steven Tucker, author of APE, for the excellent R: proxy, allowing the Atari
 running Ice-T to act as a Telnet client.
 

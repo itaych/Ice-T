@@ -1,4 +1,4 @@
-Welcome to Ice-T XE 2.8.1. Here are the files in this release:
+Welcome to Ice-T XE 2.8.2. Here are the files in this release:
 
 readme.txt - you are here.
 quickstart.txt - read this if you just want to get Ice-T running in an emulator without having to read a manual.
