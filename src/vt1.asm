@@ -49,6 +49,10 @@ init_continued
 	lda #$3
 	sta keyrep
 
+	lda $703	; detect BW-DOS
+	cmp #'B		; use BW-DOS time instead of R-Time8 time
+	beq ?no_rt8	; BW-DOS has its own R-Time8 support
+
 	; detect R-Time8 cartridge
 	jsr rt8_detect
 	sta rt8_detected
@@ -3371,6 +3375,9 @@ initial_program_entry
 	lda $700 		; DOS type detection
 	cmp #'S
 	bne ?nospartatime
+	lda $703
+	cmp #'B
+	beq ?bwdostime
 	lda $701
 	and #$f0		; Sparta 4.x only
 	cmp #$40
@@ -3382,22 +3389,51 @@ initial_program_entry
 	jsr $703	; kernel entry
 	; hh/mm/ss are in $77e/f/80 in 24-hr format.
 	lda $77e	; hours
+	jsr ?check_13
+	pha
+	lda $77f	; minutes
+	pha
+	lda $780	; seconds
+	pha
+	jmp ?setmenutime
+
+?check_13
 	cmp #13
 	bcc ?no_hr_12
 	sec
 	sbc #12		; convert to 12-hour format
 ?no_hr_12
-	ldx #>menuclk_clear
-	ldy #<menuclk_clear
-	jsr ?numbr
-	lda $77f	; minutes
-	ldx #>(menuclk_clear+3)
-	ldy #<(menuclk_clear+3)
-	jsr ?numbr
-	lda $780	; seconds
+	rts
+
+?getbwdostime
+	jmp ($706)
+?bwdostime
+	jsr ?getbwdostime	; get time from BW-DOS
+	ldy #16 		; 24-hr format for European BW-DOS
+	lda (dosvec),Y	; hours
+	jsr ?check_13
+	pha
+	iny
+	lda (dosvec),Y	; minutes
+	pha
+	iny
+	lda (dosvec),Y	; seconds
+	pha
+
+?setmenutime
+	pla	; seconds
 	ldx #>(menuclk_clear+6)
 	ldy #<(menuclk_clear+6)
 	jsr ?numbr
+	pla	; minutes
+	ldx #>(menuclk_clear+3)
+	ldy #<(menuclk_clear+3)
+	jsr ?numbr
+	pla	; hours
+	ldx #>menuclk_clear
+	ldy #<menuclk_clear
+	jsr ?numbr
+
 ?nospartatime
 
 ; Clear clock (or set from whatever SpartaDOS gave us) and online timer

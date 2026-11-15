@@ -202,6 +202,9 @@ check_r_handler
 	lda $700 		; DOS type detection
 	cmp #'S
 	bne ?nosparta
+	lda $703
+	cmp #'B			; BW-DOS
+	beq ?nosparta
 	lda $701
 	cmp #$44		; SDX 4.4 or above?
 	bcc ?nosparta44
